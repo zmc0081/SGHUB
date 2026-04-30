@@ -1,0 +1,47 @@
+use tauri::Manager;
+
+pub mod ai_client;
+pub mod config;
+pub mod db;
+pub mod library;
+pub mod search;
+
+pub struct AppState {
+    pub db_pool: db::DbPool,
+}
+
+#[tauri::command]
+fn get_db_status(state: tauri::State<'_, AppState>) -> Result<db::DbStatus, String> {
+    db::get_status(&state.db_pool).map_err(|e| e.to_string())
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .setup(|app| {
+            if cfg!(debug_assertions) {
+                app.handle().plugin(
+                    tauri_plugin_log::Builder::default()
+                        .level(log::LevelFilter::Info)
+                        .build(),
+                )?;
+            }
+
+            let pool = db::init(app.handle())?;
+            app.manage(AppState { db_pool: pool });
+
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            get_db_status,
+            config::get_app_config,
+            config::save_app_config,
+            search::search_papers,
+            library::get_folders,
+            library::get_papers_by_folder,
+            ai_client::get_model_configs,
+            ai_client::test_model_connection,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}

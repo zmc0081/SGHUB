@@ -1,0 +1,81 @@
+# ============================================================
+# Node / npm / Vite
+# ============================================================
+node_modules/
+dist/
+dist-ssr/
+.vite/
+.npm/
+.yarn/
+yarn-error.log*
+npm-debug.log*
+pnpm-debug.log*
+*.tsbuildinfo
+
+# ============================================================
+# Rust / Cargo
+# ============================================================
+src-tauri/target/
+**/*.rs.bk
+
+# Cargo.lock for binaries IS committed (it pins dependency versions
+# for reproducible builds). Do NOT add it here.
+
+# ============================================================
+# Tauri
+# ============================================================
+src-tauri/gen/schemas/
+src-tauri/.tauri/
+src-tauri/WixTools/
+
+# ============================================================
+# IDE — VS Code (allow shared extensions list, ignore personal settings)
+# ============================================================
+.vscode/*
+!.vscode/extensions.json
+*.code-workspace
+
+# ============================================================
+# IDE — JetBrains (CLion / WebStorm / IntelliJ / RustRover)
+# ============================================================
+.idea/
+*.iml
+*.iws
+
+# ============================================================
+# OS
+# ============================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ============================================================
+# Logs / temp
+# ============================================================
+*.log
+logs/
+*.swp
+*.swo
+*~
+*.tmp
+
+# ============================================================
+# Environment / secrets — NEVER commit
+# ============================================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+.secrets/
+
+# ============================================================
+# Local SGHUB data (if user runs dev with the project root as data dir)
+# ============================================================
+.sghub/

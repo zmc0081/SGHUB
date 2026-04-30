@@ -1,0 +1,81 @@
+# SGHUB Skill 定义文件
+# 文件位置: skills/general_read.yaml
+# 用户自定义 Skill 放在 ~/.sghub/skills/ 目录
+
+name: general_read
+display_name: 通用精读
+display_name_en: General Reading
+description: 适用于任意学术论文的快速结构化解析
+icon: 🎯
+category: basic
+
+# Prompt 模板
+# 变量: {{title}}, {{authors}}, {{abstract}}, {{full_text}}, {{language}}
+prompt_template: |
+  你是一位资深学术研究助手。请对以下论文进行深度结构化解析。
+
+  论文信息:
+  - 标题: {{title}}
+  - 作者: {{authors}}
+  - 摘要: {{abstract}}
+
+  论文全文:
+  {{full_text}}
+
+  请按以下 6 个维度输出结构化解析,使用 {{language}} 语言作答:
+
+  ## 🎯 研究问题
+  这篇论文要解决什么核心问题?问题的重要性和动机是什么?
+
+  ## 🔬 核心方法
+  论文采用的方法或技术方案是什么?关键创新点在哪里?
+
+  ## 📊 关键结果
+  实验结果或理论结论是什么?用具体数字说明效果。
+
+  ## 💡 核心贡献
+  这篇论文对该领域的主要贡献是什么?与现有工作相比有何突破?
+
+  ## ⚠️ 局限性
+  方法或实验有哪些局限?作者是否有讨论?你认为还有哪些未解决的问题?
+
+  ## 🔮 启示与展望
+  这项工作对后续研究有什么启发?建议的未来研究方向是什么?
+
+  要求:
+  - 每个维度 100-200 字,总计 600-1200 字
+  - 引用论文中的具体数据和结论
+  - 语言严谨但易懂
+  - 如果论文有代码或数据集,额外说明可复现性
+
+# 输出维度定义 (前端渲染用)
+output_dimensions:
+  - key: research_question
+    title: 🎯 研究问题
+    title_en: Research Question
+  - key: methodology
+    title: 🔬 核心方法
+    title_en: Methodology
+  - key: key_results
+    title: 📊 关键结果
+    title_en: Key Results
+  - key: contributions
+    title: 💡 核心贡献
+    title_en: Contributions
+  - key: limitations
+    title: ⚠️ 局限性
+    title_en: Limitations
+  - key: implications
+    title: 🔮 启示与展望
+    title_en: Implications
+
+# 模型推荐
+recommended_models:
+  - claude-opus   # 最佳质量
+  - gpt-5         # 通用备选
+  - deepseek-v3   # 高性价比
+
+# 预估 Token 消耗 (供成本提示用)
+estimated_tokens:
+  input: 8000    # 平均论文长度
+  output: 2000   # 解析结果长度

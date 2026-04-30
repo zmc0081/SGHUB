@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  publish-tauri:
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.platform }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            label: Windows x64 (NSIS)
+            args: --bundles nsis
+            rust-targets: ''
+          - platform: macos-latest
+            label: macOS Universal (DMG)
+            args: --target universal-apple-darwin --bundles dmg
+            rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build & publish via tauri-action
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'SGHUB ${{ github.ref_name }}'
+          releaseBody: |
+            ## 安装
+
+            - **Windows**: 下载 `.exe` (NSIS installer)
+            - **macOS**: 下载 `.dmg` (Universal — Intel & Apple Silicon)
+
+            ## Changelog
+
+            See `CHANGELOG.md` or commit history for details.
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
