@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 use crate::AppState;
 
 mod arxiv;
+mod openalex;
+mod pubmed;
 mod semantic_scholar;
 
 const SOURCE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -273,49 +275,52 @@ pub async fn search_papers(
     let q = q.to_string();
     let want_arxiv = matches!(source.as_str(), "all" | "" | "arxiv");
     let want_ss = matches!(source.as_str(), "all" | "" | "semantic_scholar");
+    let want_pubmed = matches!(source.as_str(), "all" | "" | "pubmed");
+    let want_openalex = matches!(source.as_str(), "all" | "" | "openalex");
 
     let started = Instant::now();
 
-    let arxiv_fut = async {
-        if !want_arxiv {
+    async fn run_source<F, Fut>(
+        name: &'static str,
+        enabled: bool,
+        fetcher: F,
+    ) -> Vec<Paper>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<
+            Output = Result<Vec<Paper>, Box<dyn std::error::Error + Send + Sync>>,
+        >,
+    {
+        if !enabled {
             return Vec::new();
         }
-        match tokio::time::timeout(SOURCE_TIMEOUT, arxiv::search(&q, limit)).await {
+        match tokio::time::timeout(SOURCE_TIMEOUT, fetcher()).await {
             Ok(Ok(p)) => p,
             Ok(Err(e)) => {
-                log::warn!("arxiv search failed: {}", e);
+                log::warn!("{} search failed: {}", name, e);
                 Vec::new()
             }
             Err(_) => {
-                log::warn!("arxiv search timed out after {:?}", SOURCE_TIMEOUT);
+                log::warn!("{} search timed out after {:?}", name, SOURCE_TIMEOUT);
                 Vec::new()
             }
         }
-    };
-    let ss_fut = async {
-        if !want_ss {
-            return Vec::new();
-        }
-        match tokio::time::timeout(SOURCE_TIMEOUT, semantic_scholar::search(&q, limit)).await {
-            Ok(Ok(p)) => p,
-            Ok(Err(e)) => {
-                log::warn!("semantic_scholar search failed: {}", e);
-                Vec::new()
-            }
-            Err(_) => {
-                log::warn!(
-                    "semantic_scholar search timed out after {:?}",
-                    SOURCE_TIMEOUT
-                );
-                Vec::new()
-            }
-        }
-    };
+    }
 
-    let (a, s) = tokio::join!(arxiv_fut, ss_fut);
-    let mut combined = Vec::with_capacity(a.len() + s.len());
+    let (a, s, p, o) = tokio::join!(
+        run_source("arxiv", want_arxiv, || arxiv::search(&q, limit)),
+        run_source("semantic_scholar", want_ss, || semantic_scholar::search(
+            &q, limit
+        )),
+        run_source("pubmed", want_pubmed, || pubmed::search(&q, limit)),
+        run_source("openalex", want_openalex, || openalex::search(&q, limit)),
+    );
+
+    let mut combined = Vec::with_capacity(a.len() + s.len() + p.len() + o.len());
     combined.extend(a);
     combined.extend(s);
+    combined.extend(p);
+    combined.extend(o);
 
     let deduped = dedupe(combined);
 

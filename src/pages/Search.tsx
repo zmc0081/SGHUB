@@ -6,6 +6,8 @@ const SOURCES = [
   { value: "all", label: "全部" },
   { value: "arxiv", label: "arXiv" },
   { value: "semantic_scholar", label: "Semantic Scholar" },
+  { value: "pubmed", label: "PubMed" },
+  { value: "openalex", label: "OpenAlex" },
 ];
 
 const TIME_RANGES = [
@@ -24,6 +26,8 @@ const SORT_OPTIONS = [
 const SOURCE_BADGE: Record<string, string> = {
   arxiv: "bg-[#B31B1B] text-white",
   semantic_scholar: "bg-[#1857B6] text-white",
+  pubmed: "bg-[#00897B] text-white",
+  openalex: "bg-[#7B3FBF] text-white",
 };
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -234,8 +238,8 @@ export default function Search() {
     <div className="p-8 max-w-5xl">
       <h1 className="text-2xl font-semibold text-primary mb-1">文献检索</h1>
       <p className="text-sm text-app-fg/60 mb-6">
-        多源聚合 — arXiv 直连 Atom API,Semantic Scholar 走 Graph API,
-        10s 超时降级,DOI + 标题双重去重,结果自动入库
+        多源聚合 — arXiv / Semantic Scholar / PubMed (E-utilities) /
+        OpenAlex 4 源并发,10s 超时单源降级,DOI + 标题双重去重,结果自动入库
       </p>
 
       <div className="flex gap-2 mb-3">
