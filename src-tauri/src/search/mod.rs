@@ -1,4 +1,15 @@
+use std::collections::HashSet;
+use std::time::{Duration, Instant};
+
+use rusqlite::params;
 use serde::{Deserialize, Serialize};
+
+use crate::AppState;
+
+mod arxiv;
+mod semantic_scholar;
+
+const SOURCE_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Paper {
@@ -186,28 +197,263 @@ pub fn mock_papers() -> Vec<Paper> {
     ]
 }
 
+/// Dedupe by DOI first (exact match), then by lowercase title (whitespace-collapsed).
+/// Preserves insertion order — earlier entries win.
+fn dedupe(papers: Vec<Paper>) -> Vec<Paper> {
+    let mut seen_dois: HashSet<String> = HashSet::new();
+    let mut seen_titles: HashSet<String> = HashSet::new();
+    let mut out = Vec::with_capacity(papers.len());
+
+    for p in papers {
+        if let Some(doi) = &p.doi {
+            if !seen_dois.insert(doi.clone()) {
+                continue;
+            }
+        }
+        let title_key = p
+            .title
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+            .to_lowercase();
+        if !seen_titles.insert(title_key) {
+            continue;
+        }
+        out.push(p);
+    }
+    out
+}
+
+/// Insert papers into the SQLite `papers` table.
+/// `INSERT OR IGNORE` on the PK (id) — repeat searches don't duplicate rows.
+/// FTS5 stays in sync via the schema's `papers_ai` trigger.
+fn persist(pool: &crate::db::DbPool, papers: &[Paper]) -> rusqlite::Result<usize> {
+    let mut conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let tx = conn.transaction()?;
+    let mut inserted = 0usize;
+    {
+        let mut stmt = tx.prepare(
+            "INSERT OR IGNORE INTO papers \
+             (id, title, authors, abstract, doi, source, source_id, source_url, published_at, read_status) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        )?;
+        for p in papers {
+            let authors_json = serde_json::to_string(&p.authors).unwrap_or_else(|_| "[]".into());
+            inserted += stmt.execute(params![
+                p.id,
+                p.title,
+                authors_json,
+                p.abstract_,
+                p.doi,
+                p.source,
+                p.source_id,
+                p.source_url,
+                p.published_at,
+                p.read_status,
+            ])?;
+        }
+    }
+    tx.commit()?;
+    Ok(inserted)
+}
+
 #[tauri::command]
 pub async fn search_papers(
+    state: tauri::State<'_, AppState>,
     query: String,
     source: String,
     limit: u32,
 ) -> Result<Vec<Paper>, String> {
-    let q = query.trim().to_lowercase();
-    let papers: Vec<Paper> = mock_papers()
-        .into_iter()
-        .filter(|p| source == "all" || source.is_empty() || p.source == source)
-        .filter(|p| {
-            if q.is_empty() {
-                return true;
+    let q = query.trim();
+    if q.is_empty() {
+        return Ok(Vec::new());
+    }
+    let q = q.to_string();
+    let want_arxiv = matches!(source.as_str(), "all" | "" | "arxiv");
+    let want_ss = matches!(source.as_str(), "all" | "" | "semantic_scholar");
+
+    let started = Instant::now();
+
+    let arxiv_fut = async {
+        if !want_arxiv {
+            return Vec::new();
+        }
+        match tokio::time::timeout(SOURCE_TIMEOUT, arxiv::search(&q, limit)).await {
+            Ok(Ok(p)) => p,
+            Ok(Err(e)) => {
+                log::warn!("arxiv search failed: {}", e);
+                Vec::new()
             }
-            p.title.to_lowercase().contains(&q)
-                || p.authors.iter().any(|a| a.to_lowercase().contains(&q))
-                || p.abstract_
-                    .as_deref()
-                    .map(|a| a.to_lowercase().contains(&q))
-                    .unwrap_or(false)
-        })
-        .take(limit as usize)
-        .collect();
-    Ok(papers)
+            Err(_) => {
+                log::warn!("arxiv search timed out after {:?}", SOURCE_TIMEOUT);
+                Vec::new()
+            }
+        }
+    };
+    let ss_fut = async {
+        if !want_ss {
+            return Vec::new();
+        }
+        match tokio::time::timeout(SOURCE_TIMEOUT, semantic_scholar::search(&q, limit)).await {
+            Ok(Ok(p)) => p,
+            Ok(Err(e)) => {
+                log::warn!("semantic_scholar search failed: {}", e);
+                Vec::new()
+            }
+            Err(_) => {
+                log::warn!(
+                    "semantic_scholar search timed out after {:?}",
+                    SOURCE_TIMEOUT
+                );
+                Vec::new()
+            }
+        }
+    };
+
+    let (a, s) = tokio::join!(arxiv_fut, ss_fut);
+    let mut combined = Vec::with_capacity(a.len() + s.len());
+    combined.extend(a);
+    combined.extend(s);
+
+    let deduped = dedupe(combined);
+
+    let pool = state.db_pool.clone();
+    let to_persist = deduped.clone();
+    match tokio::task::spawn_blocking(move || persist(&pool, &to_persist)).await {
+        Ok(Ok(n)) => log::info!("persisted {} new papers", n),
+        Ok(Err(e)) => log::warn!("persist failed: {}", e),
+        Err(e) => log::warn!("persist join error: {}", e),
+    }
+
+    log::info!(
+        "search `{}` source={} returned {} (took {:?})",
+        q,
+        source,
+        deduped.len(),
+        started.elapsed()
+    );
+
+    Ok(deduped)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::init_at;
+    use tempfile::TempDir;
+
+    fn paper(id: &str, title: &str, doi: Option<&str>, source: &str) -> Paper {
+        Paper {
+            id: id.into(),
+            title: title.into(),
+            authors: vec!["X".into()],
+            abstract_: Some("abs".into()),
+            doi: doi.map(String::from),
+            source: source.into(),
+            source_id: None,
+            source_url: None,
+            published_at: None,
+            pdf_path: None,
+            read_status: "unread".into(),
+            created_at: String::new(),
+            updated_at: String::new(),
+        }
+    }
+
+    #[test]
+    fn dedupe_removes_same_doi() {
+        let p1 = paper("a", "T1", Some("10.1/x"), "arxiv");
+        let p2 = paper("b", "T2 different title", Some("10.1/x"), "semantic_scholar");
+        let out = dedupe(vec![p1, p2]);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].id, "a", "first instance wins");
+    }
+
+    #[test]
+    fn dedupe_removes_case_and_whitespace_title_dupes() {
+        let p1 = paper("a", "Attention Is All You Need", None, "arxiv");
+        let p2 = paper("b", "  attention is\n all you   NEED  ", None, "semantic_scholar");
+        let out = dedupe(vec![p1, p2]);
+        assert_eq!(out.len(), 1);
+    }
+
+    #[test]
+    fn dedupe_keeps_distinct() {
+        let papers = vec![
+            paper("a", "Title One", Some("10.1/a"), "arxiv"),
+            paper("b", "Title Two", Some("10.1/b"), "arxiv"),
+            paper("c", "Title Three", None, "arxiv"),
+        ];
+        assert_eq!(dedupe(papers).len(), 3);
+    }
+
+    #[test]
+    fn persist_writes_to_papers_and_indexes_fts() {
+        let tmp = TempDir::new().unwrap();
+        let pool = init_at(tmp.path()).unwrap();
+
+        let papers = vec![Paper {
+            id: "p-arxiv-1706.03762".into(),
+            title: "Attention Is All You Need".into(),
+            authors: vec!["Ashish Vaswani".into(), "Noam Shazeer".into()],
+            abstract_: Some("We propose the Transformer.".into()),
+            doi: Some("10.48550/arXiv.1706.03762".into()),
+            source: "arxiv".into(),
+            source_id: Some("1706.03762".into()),
+            source_url: Some("https://arxiv.org/abs/1706.03762".into()),
+            published_at: Some("2017-06-12T17:57:00Z".into()),
+            pdf_path: None,
+            read_status: "unread".into(),
+            created_at: String::new(),
+            updated_at: String::new(),
+        }];
+
+        let inserted = persist(&pool, &papers).expect("persist");
+        assert_eq!(inserted, 1);
+
+        let conn = pool.get().unwrap();
+
+        let row_count: i64 = conn
+            .query_row("SELECT count(*) FROM papers", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(row_count, 1);
+
+        // FTS5 hit
+        let fts_count: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM papers_fts WHERE papers_fts MATCH 'Transformer'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(fts_count, 1);
+
+        // created_at should be populated by SQLite default even though we passed empty
+        let created: String = conn
+            .query_row("SELECT created_at FROM papers", [], |r| r.get(0))
+            .unwrap();
+        assert!(
+            !created.is_empty() && created.contains('T'),
+            "expected ISO 8601 timestamp, got {:?}",
+            created
+        );
+    }
+
+    #[test]
+    fn persist_is_idempotent_on_same_id() {
+        let tmp = TempDir::new().unwrap();
+        let pool = init_at(tmp.path()).unwrap();
+
+        let papers = vec![paper("p-x-1", "Title X", Some("10.x/1"), "arxiv")];
+        assert_eq!(persist(&pool, &papers).unwrap(), 1);
+        assert_eq!(persist(&pool, &papers).unwrap(), 0, "INSERT OR IGNORE");
+
+        let conn = pool.get().unwrap();
+        let count: i64 = conn
+            .query_row("SELECT count(*) FROM papers", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 1);
+    }
 }
