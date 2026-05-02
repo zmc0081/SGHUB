@@ -55,6 +55,15 @@ export interface ModelConfig {
   updated_at: string;
 }
 
+export interface ModelConfigInput {
+  name: string;
+  provider: string;
+  endpoint: string;
+  model_id: string;
+  max_tokens: number;
+  api_key: string | null;
+}
+
 export interface TestResult {
   success: boolean;
   latency_ms: number;
@@ -88,6 +97,21 @@ export const api = {
     invoke<Paper[]>("get_papers_by_folder", { folderId }),
 
   getModelConfigs: () => invoke<ModelConfig[]>("get_model_configs"),
+
+  addModelConfig: (input: ModelConfigInput) =>
+    invoke<ModelConfig>("add_model_config", { input }),
+
+  updateModelConfig: (id: string, input: ModelConfigInput) =>
+    invoke<ModelConfig>("update_model_config", { id, input }),
+
+  deleteModelConfig: (id: string) =>
+    invoke<void>("delete_model_config", { id }),
+
+  setDefaultModel: (id: string) =>
+    invoke<void>("set_default_model", { id }),
+
+  getModelPresets: () =>
+    invoke<ModelConfigInput[]>("get_model_presets"),
 
   testModelConnection: (modelId: string) =>
     invoke<TestResult>("test_model_connection", { modelId }),

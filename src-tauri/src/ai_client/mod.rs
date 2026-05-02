@@ -1,4 +1,14 @@
+use std::time::Instant;
+
+use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
+
+use crate::keychain;
+use crate::AppState;
+
+mod anthropic;
+mod ollama;
+mod openai;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelConfig {
@@ -14,6 +24,19 @@ pub struct ModelConfig {
     pub updated_at: String,
 }
 
+/// Form-style payload from the frontend. `api_key` is optional: present means
+/// "store this in keychain", `None` means "leave the existing key alone"
+/// (or "no key needed", e.g. Ollama).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelConfigInput {
+    pub name: String,
+    pub provider: String,
+    pub endpoint: String,
+    pub model_id: String,
+    pub max_tokens: i32,
+    pub api_key: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TestResult {
     pub success: bool,
@@ -22,92 +45,493 @@ pub struct TestResult {
     pub model_response: Option<String>,
 }
 
-fn mock_model_configs() -> Vec<ModelConfig> {
+/// Built-in templates the user can pick from when adding a new model.
+/// These are NOT inserted automatically; the frontend uses them to prefill
+/// the "add model" form.
+#[tauri::command]
+pub fn get_model_presets() -> Vec<ModelConfigInput> {
     vec![
-        ModelConfig {
-            id: "model-claude-opus-4-7".into(),
+        ModelConfigInput {
             name: "Claude Opus 4.7".into(),
             provider: "anthropic".into(),
             endpoint: "https://api.anthropic.com".into(),
-            model_id: "claude-opus-4-7-20260301".into(),
+            model_id: "claude-opus-4-7".into(),
             max_tokens: 200000,
-            is_default: true,
-            keychain_ref: Some("sghub.anthropic.opus47".into()),
-            created_at: "2026-04-28T09:00:00Z".into(),
-            updated_at: "2026-04-28T09:00:00Z".into(),
+            api_key: None,
         },
-        ModelConfig {
-            id: "model-gpt-4o".into(),
-            name: "GPT-4o".into(),
+        ModelConfigInput {
+            name: "GPT-5".into(),
             provider: "openai".into(),
             endpoint: "https://api.openai.com/v1".into(),
-            model_id: "gpt-4o".into(),
+            model_id: "gpt-5".into(),
             max_tokens: 128000,
-            is_default: false,
-            keychain_ref: Some("sghub.openai.gpt4o".into()),
-            created_at: "2026-04-28T09:05:00Z".into(),
-            updated_at: "2026-04-28T09:05:00Z".into(),
+            api_key: None,
         },
-        ModelConfig {
-            id: "model-deepseek-v3".into(),
+        ModelConfigInput {
             name: "DeepSeek V3".into(),
             provider: "openai".into(),
             endpoint: "https://api.deepseek.com/v1".into(),
             model_id: "deepseek-chat".into(),
             max_tokens: 64000,
-            is_default: false,
-            keychain_ref: Some("sghub.deepseek.v3".into()),
-            created_at: "2026-04-28T09:10:00Z".into(),
-            updated_at: "2026-04-28T09:10:00Z".into(),
+            api_key: None,
         },
-        ModelConfig {
-            id: "model-ollama-llama3-8b".into(),
-            name: "Ollama Llama 3 (8B, 本地)".into(),
+        ModelConfigInput {
+            name: "Ollama Llama 3 (8B,本地)".into(),
             provider: "ollama".into(),
             endpoint: "http://localhost:11434".into(),
             model_id: "llama3:8b".into(),
             max_tokens: 8192,
-            is_default: false,
-            keychain_ref: None,
-            created_at: "2026-04-29T13:30:00Z".into(),
-            updated_at: "2026-04-29T13:30:00Z".into(),
+            api_key: None,
         },
     ]
 }
 
+// ============================================================
+// DB helpers (sync — call from spawn_blocking)
+// ============================================================
+
+fn now_iso() -> String {
+    chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string()
+}
+
+fn row_to_config(row: &rusqlite::Row) -> rusqlite::Result<ModelConfig> {
+    Ok(ModelConfig {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        provider: row.get(2)?,
+        endpoint: row.get(3)?,
+        model_id: row.get(4)?,
+        max_tokens: row.get(5)?,
+        is_default: row.get::<_, i64>(6)? == 1,
+        keychain_ref: row.get(7)?,
+        created_at: row.get(8)?,
+        updated_at: row.get(9)?,
+    })
+}
+
+const SELECT_COLS: &str = "id, name, provider, endpoint, model_id, max_tokens, \
+                           is_default, keychain_ref, created_at, updated_at";
+
+fn list_all(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<ModelConfig>> {
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {} FROM model_configs ORDER BY is_default DESC, created_at ASC",
+        SELECT_COLS
+    ))?;
+    let rows = stmt.query_map([], row_to_config)?;
+    rows.collect()
+}
+
+fn get_one(pool: &crate::db::DbPool, id: &str) -> rusqlite::Result<Option<ModelConfig>> {
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    conn.query_row(
+        &format!("SELECT {} FROM model_configs WHERE id = ?1", SELECT_COLS),
+        [id],
+        row_to_config,
+    )
+    .optional()
+}
+
+fn insert(pool: &crate::db::DbPool, cfg: &ModelConfig) -> rusqlite::Result<()> {
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    conn.execute(
+        "INSERT INTO model_configs \
+         (id, name, provider, endpoint, model_id, max_tokens, is_default, keychain_ref, created_at, updated_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![
+            cfg.id,
+            cfg.name,
+            cfg.provider,
+            cfg.endpoint,
+            cfg.model_id,
+            cfg.max_tokens,
+            cfg.is_default as i64,
+            cfg.keychain_ref,
+            cfg.created_at,
+            cfg.updated_at,
+        ],
+    )?;
+    Ok(())
+}
+
+fn update(pool: &crate::db::DbPool, id: &str, input: &ModelConfigInput) -> rusqlite::Result<usize> {
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    conn.execute(
+        "UPDATE model_configs \
+         SET name = ?1, provider = ?2, endpoint = ?3, model_id = ?4, \
+             max_tokens = ?5, updated_at = ?6 \
+         WHERE id = ?7",
+        params![
+            input.name,
+            input.provider,
+            input.endpoint,
+            input.model_id,
+            input.max_tokens,
+            now_iso(),
+            id,
+        ],
+    )
+}
+
+fn delete(pool: &crate::db::DbPool, id: &str) -> rusqlite::Result<usize> {
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    conn.execute("DELETE FROM model_configs WHERE id = ?1", [id])
+}
+
+fn set_default(pool: &crate::db::DbPool, id: &str) -> rusqlite::Result<()> {
+    let mut conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let tx = conn.transaction()?;
+    tx.execute(
+        "UPDATE model_configs SET is_default = 0 WHERE is_default = 1",
+        [],
+    )?;
+    let n = tx.execute(
+        "UPDATE model_configs SET is_default = 1, updated_at = ?1 WHERE id = ?2",
+        params![now_iso(), id],
+    )?;
+    if n == 0 {
+        return Err(rusqlite::Error::QueryReturnedNoRows);
+    }
+    tx.commit()?;
+    Ok(())
+}
+
+// ============================================================
+// Tauri commands
+// ============================================================
+
 #[tauri::command]
-pub async fn get_model_configs() -> Result<Vec<ModelConfig>, String> {
-    Ok(mock_model_configs())
+pub async fn get_model_configs(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<ModelConfig>, String> {
+    let pool = state.db_pool.clone();
+    tokio::task::spawn_blocking(move || list_all(&pool))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-pub async fn test_model_connection(model_id: String) -> Result<TestResult, String> {
-    let config = mock_model_configs()
-        .into_iter()
-        .find(|m| m.id == model_id)
+pub async fn add_model_config(
+    state: tauri::State<'_, AppState>,
+    input: ModelConfigInput,
+) -> Result<ModelConfig, String> {
+    let id = uuid::Uuid::now_v7().to_string();
+    let now = now_iso();
+    let has_key = input.api_key.is_some();
+    let cfg = ModelConfig {
+        id: id.clone(),
+        name: input.name.clone(),
+        provider: input.provider.clone(),
+        endpoint: input.endpoint.clone(),
+        model_id: input.model_id.clone(),
+        max_tokens: input.max_tokens,
+        is_default: false,
+        keychain_ref: if has_key { Some(id.clone()) } else { None },
+        created_at: now.clone(),
+        updated_at: now,
+    };
+
+    let pool = state.db_pool.clone();
+    let cfg_for_insert = cfg.clone();
+    tokio::task::spawn_blocking(move || insert(&pool, &cfg_for_insert))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+
+    if let Some(key) = input.api_key {
+        if !key.is_empty() {
+            keychain::set_api_key(&id, &key).map_err(|e| e.to_string())?;
+        }
+    }
+
+    log::info!(
+        "added model {} ({}/{}) {}",
+        cfg.id,
+        cfg.provider,
+        cfg.model_id,
+        if has_key { "with key" } else { "no key" }
+    );
+    Ok(cfg)
+}
+
+#[tauri::command]
+pub async fn update_model_config(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    input: ModelConfigInput,
+) -> Result<ModelConfig, String> {
+    let pool = state.db_pool.clone();
+    let id_for_update = id.clone();
+    let input_for_update = input.clone();
+    let n = tokio::task::spawn_blocking(move || update(&pool, &id_for_update, &input_for_update))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+    if n == 0 {
+        return Err(format!("model `{}` not found", id));
+    }
+
+    if let Some(key) = input.api_key {
+        if key.is_empty() {
+            // explicit empty string → clear the key
+            let _ = keychain::delete_api_key(&id);
+        } else {
+            keychain::set_api_key(&id, &key).map_err(|e| e.to_string())?;
+        }
+    }
+
+    let pool = state.db_pool.clone();
+    let id_for_get = id.clone();
+    let cfg = tokio::task::spawn_blocking(move || get_one(&pool, &id_for_get))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("model `{}` disappeared after update", id))?;
+    Ok(cfg)
+}
+
+#[tauri::command]
+pub async fn delete_model_config(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let pool = state.db_pool.clone();
+    let id_for_delete = id.clone();
+    let n = tokio::task::spawn_blocking(move || delete(&pool, &id_for_delete))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+    if n == 0 {
+        return Err(format!("model `{}` not found", id));
+    }
+    // Best-effort keychain cleanup
+    if let Err(e) = keychain::delete_api_key(&id) {
+        log::warn!("failed to delete keychain entry for {}: {}", id, e);
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn set_default_model(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> Result<(), String> {
+    let pool = state.db_pool.clone();
+    let id_for_set = id.clone();
+    tokio::task::spawn_blocking(move || set_default(&pool, &id_for_set))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => format!("model `{}` not found", id),
+            other => other.to_string(),
+        })
+}
+
+#[tauri::command]
+pub async fn test_model_connection(
+    state: tauri::State<'_, AppState>,
+    model_id: String,
+) -> Result<TestResult, String> {
+    // 1. Look up the config row
+    let pool = state.db_pool.clone();
+    let mid = model_id.clone();
+    let config = tokio::task::spawn_blocking(move || get_one(&pool, &mid))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("model `{}` not found", model_id))?;
 
-    let (success, latency, response) = match config.provider.as_str() {
-        "anthropic" => (true, 318, "Hello! I'm Claude, ready to help."),
-        "openai" => (true, 142, "Hi! How can I assist you today?"),
-        "ollama" => (false, 0, ""),
-        _ => (true, 250, "ok"),
-    };
-
-    let message = if success {
-        format!("连接成功 — {} ({}ms)", config.name, latency)
+    // 2. Pull API key from keychain if needed
+    let api_key = if config.provider == "ollama" {
+        None
     } else {
-        "连接失败 — 本地 Ollama 未运行 (mock)".into()
+        match keychain::get_api_key(&model_id) {
+            Ok(Some(k)) => Some(k),
+            Ok(None) => {
+                return Ok(TestResult {
+                    success: false,
+                    latency_ms: 0,
+                    message: "API Key 未配置 — 请编辑模型添加 Key".into(),
+                    model_response: None,
+                });
+            }
+            Err(e) => {
+                return Ok(TestResult {
+                    success: false,
+                    latency_ms: 0,
+                    message: format!("Keychain 读取失败: {}", e),
+                    model_response: None,
+                });
+            }
+        }
     };
 
-    Ok(TestResult {
-        success,
-        latency_ms: latency,
-        message,
-        model_response: if response.is_empty() {
-            None
-        } else {
-            Some(response.into())
+    // 3. Dispatch to provider-specific test
+    let started = Instant::now();
+    let result: Result<String, String> = match config.provider.as_str() {
+        "anthropic" => {
+            anthropic::test_connection(
+                &config.endpoint,
+                &config.model_id,
+                api_key.as_deref().unwrap_or(""),
+            )
+            .await
+        }
+        "openai" => {
+            openai::test_connection(
+                &config.endpoint,
+                &config.model_id,
+                api_key.as_deref().unwrap_or(""),
+            )
+            .await
+        }
+        "ollama" => ollama::test_connection(&config.endpoint).await,
+        other => Err(format!("unsupported provider `{}`", other)),
+    };
+    let latency = started.elapsed().as_millis() as u64;
+
+    Ok(match result {
+        Ok(response) => TestResult {
+            success: true,
+            latency_ms: latency,
+            message: format!("连接成功 ({} ms)", latency),
+            model_response: Some(response),
+        },
+        Err(e) => TestResult {
+            success: false,
+            latency_ms: latency,
+            message: format!("连接失败: {}", e),
+            model_response: None,
         },
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::init_at;
+    use tempfile::TempDir;
+
+    fn input(name: &str, provider: &str) -> ModelConfigInput {
+        ModelConfigInput {
+            name: name.into(),
+            provider: provider.into(),
+            endpoint: "https://api.example.com".into(),
+            model_id: "test-model".into(),
+            max_tokens: 1024,
+            api_key: None,
+        }
+    }
+
+    fn fresh() -> (TempDir, crate::db::DbPool) {
+        let tmp = TempDir::new().unwrap();
+        let pool = init_at(tmp.path()).unwrap();
+        (tmp, pool)
+    }
+
+    fn build_cfg(id: &str, input: &ModelConfigInput) -> ModelConfig {
+        ModelConfig {
+            id: id.into(),
+            name: input.name.clone(),
+            provider: input.provider.clone(),
+            endpoint: input.endpoint.clone(),
+            model_id: input.model_id.clone(),
+            max_tokens: input.max_tokens,
+            is_default: false,
+            keychain_ref: None,
+            created_at: now_iso(),
+            updated_at: now_iso(),
+        }
+    }
+
+    #[test]
+    fn insert_then_list() {
+        let (_tmp, pool) = fresh();
+        let cfg = build_cfg("m1", &input("Claude", "anthropic"));
+        insert(&pool, &cfg).unwrap();
+
+        let all = list_all(&pool).unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].name, "Claude");
+    }
+
+    #[test]
+    fn update_changes_fields() {
+        let (_tmp, pool) = fresh();
+        let cfg = build_cfg("m2", &input("Old name", "openai"));
+        insert(&pool, &cfg).unwrap();
+
+        let mut new_input = input("New name", "openai");
+        new_input.endpoint = "https://other.com".into();
+        let n = update(&pool, "m2", &new_input).unwrap();
+        assert_eq!(n, 1);
+
+        let got = get_one(&pool, "m2").unwrap().unwrap();
+        assert_eq!(got.name, "New name");
+        assert_eq!(got.endpoint, "https://other.com");
+    }
+
+    #[test]
+    fn delete_removes_row() {
+        let (_tmp, pool) = fresh();
+        insert(&pool, &build_cfg("m3", &input("X", "openai"))).unwrap();
+        assert_eq!(delete(&pool, "m3").unwrap(), 1);
+        assert!(get_one(&pool, "m3").unwrap().is_none());
+        assert_eq!(delete(&pool, "m3").unwrap(), 0); // missing → 0
+    }
+
+    #[test]
+    fn set_default_enforces_single_default() {
+        let (_tmp, pool) = fresh();
+        insert(&pool, &build_cfg("m4", &input("A", "openai"))).unwrap();
+        insert(&pool, &build_cfg("m5", &input("B", "openai"))).unwrap();
+
+        set_default(&pool, "m4").unwrap();
+        let after_first = list_all(&pool).unwrap();
+        let defaults: Vec<_> = after_first.iter().filter(|c| c.is_default).collect();
+        assert_eq!(defaults.len(), 1);
+        assert_eq!(defaults[0].id, "m4");
+
+        // switch — old default should be cleared (UNIQUE INDEX would otherwise fail)
+        set_default(&pool, "m5").unwrap();
+        let after_switch = list_all(&pool).unwrap();
+        let defaults: Vec<_> = after_switch.iter().filter(|c| c.is_default).collect();
+        assert_eq!(defaults.len(), 1);
+        assert_eq!(defaults[0].id, "m5");
+    }
+
+    #[test]
+    fn set_default_missing_id_errors() {
+        let (_tmp, pool) = fresh();
+        let result = set_default(&pool, "missing");
+        assert!(matches!(
+            result,
+            Err(rusqlite::Error::QueryReturnedNoRows)
+        ));
+    }
+
+    #[test]
+    fn presets_are_four_with_distinct_providers() {
+        let p = get_model_presets();
+        assert_eq!(p.len(), 4);
+        let providers: std::collections::HashSet<_> =
+            p.iter().map(|x| x.provider.clone()).collect();
+        // anthropic + openai (twice for GPT-5 and DeepSeek) + ollama = 3 unique
+        assert!(providers.contains("anthropic"));
+        assert!(providers.contains("openai"));
+        assert!(providers.contains("ollama"));
+    }
 }

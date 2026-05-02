@@ -3,6 +3,7 @@ use tauri::Manager;
 pub mod ai_client;
 pub mod config;
 pub mod db;
+pub mod keychain;
 pub mod library;
 pub mod search;
 
@@ -40,6 +41,11 @@ pub fn run() {
             library::get_folders,
             library::get_papers_by_folder,
             ai_client::get_model_configs,
+            ai_client::add_model_config,
+            ai_client::update_model_config,
+            ai_client::delete_model_config,
+            ai_client::set_default_model,
+            ai_client::get_model_presets,
             ai_client::test_model_connection,
         ])
         .run(tauri::generate_context!())

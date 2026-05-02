@@ -36,7 +36,9 @@ jobs:
             librsvg2-dev \
             patchelf \
             libxdo-dev \
-            libssl-dev
+            libssl-dev \
+            libdbus-1-dev \
+            libsecret-1-dev
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
