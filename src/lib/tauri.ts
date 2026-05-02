@@ -42,6 +42,26 @@ export interface Folder {
   updated_at: string;
 }
 
+export interface FolderNode extends Folder {
+  paper_count: number;
+  children: FolderNode[];
+}
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  created_at: string;
+  paper_count: number;
+}
+
+export interface PageResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export interface ModelConfig {
   id: string;
   name: string;
@@ -93,8 +113,73 @@ export const api = {
 
   getFolders: () => invoke<Folder[]>("get_folders"),
 
-  getPapersByFolder: (folderId: string) =>
-    invoke<Paper[]>("get_papers_by_folder", { folderId }),
+  getFolderTree: () => invoke<FolderNode[]>("get_folder_tree"),
+
+  createFolder: (name: string, parentId: string | null) =>
+    invoke<Folder>("create_folder", { name, parentId }),
+
+  renameFolder: (id: string, name: string) =>
+    invoke<void>("rename_folder", { id, name }),
+
+  moveFolder: (id: string, newParentId: string | null) =>
+    invoke<void>("move_folder", { id, newParentId }),
+
+  deleteFolder: (id: string) => invoke<void>("delete_folder", { id }),
+
+  reorderFolders: (parentId: string | null, orderedIds: string[]) =>
+    invoke<void>("reorder_folders", { parentId, orderedIds }),
+
+  addToFolder: (folderId: string, paperId: string) =>
+    invoke<void>("add_to_folder", { folderId, paperId }),
+
+  removeFromFolder: (folderId: string, paperId: string) =>
+    invoke<void>("remove_from_folder", { folderId, paperId }),
+
+  movePaperToFolder: (
+    paperId: string,
+    fromFolderId: string,
+    toFolderId: string,
+  ) =>
+    invoke<void>("move_paper_to_folder", {
+      paperId,
+      fromFolderId,
+      toFolderId,
+    }),
+
+  batchAddToFolder: (folderId: string, paperIds: string[]) =>
+    invoke<number>("batch_add_to_folder", { folderId, paperIds }),
+
+  createTag: (name: string, color: string) =>
+    invoke<Tag>("create_tag", { name, color }),
+
+  deleteTag: (id: string) => invoke<void>("delete_tag", { id }),
+
+  getTags: () => invoke<Tag[]>("get_tags"),
+
+  addTagToPaper: (tagId: string, paperId: string) =>
+    invoke<void>("add_tag_to_paper", { tagId, paperId }),
+
+  removeTagFromPaper: (tagId: string, paperId: string) =>
+    invoke<void>("remove_tag_from_paper", { tagId, paperId }),
+
+  batchTag: (tagId: string, paperIds: string[]) =>
+    invoke<number>("batch_tag", { tagId, paperIds }),
+
+  getPapersByFolder: (folderId: string, page: number, pageSize: number) =>
+    invoke<PageResult<Paper>>("get_papers_by_folder", {
+      folderId,
+      page,
+      pageSize,
+    }),
+
+  getPapersByTag: (tagId: string) =>
+    invoke<Paper[]>("get_papers_by_tag", { tagId }),
+
+  setReadStatus: (paperId: string, status: string) =>
+    invoke<void>("set_read_status", { paperId, status }),
+
+  exportTextFile: (suggestedName: string, content: string) =>
+    invoke<string>("export_text_file", { suggestedName, content }),
 
   getModelConfigs: () => invoke<ModelConfig[]>("get_model_configs"),
 
