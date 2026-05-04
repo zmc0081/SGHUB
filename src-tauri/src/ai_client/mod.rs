@@ -1,14 +1,18 @@
+use std::pin::Pin;
 use std::time::Instant;
 
+use async_trait::async_trait;
+use futures::Stream;
 use rusqlite::{params, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::keychain;
 use crate::AppState;
 
-mod anthropic;
-mod ollama;
-mod openai;
+pub mod anthropic;
+pub mod ollama;
+pub mod openai;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelConfig {
@@ -43,6 +47,125 @@ pub struct TestResult {
     pub latency_ms: u64,
     pub message: String,
     pub model_response: Option<String>,
+}
+
+// ============================================================
+// Streaming chat — trait + types + errors
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Message {
+    pub role: String, // "system" | "user" | "assistant"
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TokenPayload {
+    pub text: String,
+    pub done: bool,
+}
+
+#[derive(Debug, Error)]
+pub enum AiError {
+    #[error("API Key 无效或已过期 (401)")]
+    Unauthorized,
+    #[error("请求过于频繁,稍后再试 (429)")]
+    RateLimited,
+    #[error("服务器返回 HTTP {status}: {body}")]
+    Http { status: u16, body: String },
+    #[error("请求超时 (>30s)")]
+    Timeout,
+    #[error("无法连接到服务: {0}")]
+    Connection(String),
+    #[error("响应解析失败: {0}")]
+    Parse(String),
+    #[error("API Key 未配置 — 请编辑模型添加 Key")]
+    NoApiKey,
+    #[error("不支持的 provider: {0}")]
+    UnknownProvider(String),
+    #[error("流中断: {0}")]
+    Stream(String),
+}
+
+impl From<reqwest::Error> for AiError {
+    fn from(e: reqwest::Error) -> Self {
+        if e.is_timeout() {
+            AiError::Timeout
+        } else if e.is_connect() {
+            AiError::Connection(e.to_string())
+        } else {
+            AiError::Stream(e.to_string())
+        }
+    }
+}
+
+pub type TokenStream = Pin<Box<dyn Stream<Item = Result<String, AiError>> + Send>>;
+
+#[async_trait]
+pub trait AiProvider: Send + Sync {
+    async fn chat_stream(
+        &self,
+        messages: Vec<Message>,
+        config: &ModelConfig,
+    ) -> Result<TokenStream, AiError>;
+}
+
+/// Map a `ModelConfig.provider` string to a concrete `AiProvider` impl.
+/// "openai" / "custom" → OpenAI-compatible (DeepSeek / LM Studio / Azure all fit here).
+pub fn provider_for(
+    provider_kind: &str,
+    api_key: Option<String>,
+) -> Result<Box<dyn AiProvider>, AiError> {
+    match provider_kind {
+        "openai" | "custom" => Ok(Box::new(openai::OpenAiCompatible::new(
+            api_key.unwrap_or_default(),
+        ))),
+        "anthropic" => Ok(Box::new(anthropic::AnthropicProvider::new(
+            api_key.unwrap_or_default(),
+        ))),
+        "ollama" => Ok(Box::new(ollama::OllamaProvider)),
+        other => Err(AiError::UnknownProvider(other.to_string())),
+    }
+}
+
+/// Categorize an HTTP response status into our error enum (or success).
+pub(crate) fn status_to_error(status: reqwest::StatusCode, body: String) -> AiError {
+    match status.as_u16() {
+        401 | 403 => AiError::Unauthorized,
+        429 => AiError::RateLimited,
+        s => AiError::Http { status: s, body },
+    }
+}
+
+/// Rough estimate (~4 chars per token). Real counts come from provider responses
+/// when available — for now we estimate so usage_stats is never empty.
+fn estimate_tokens(s: &str) -> i64 {
+    // usize::div_ceil is stable (signed div_ceil is not — issue #88581)
+    s.chars().count().div_ceil(4) as i64
+}
+
+fn upsert_usage_stats(
+    pool: &crate::db::DbPool,
+    model_id: &str,
+    tokens_in: i64,
+    tokens_out: i64,
+) -> rusqlite::Result<()> {
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let date = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let id = uuid::Uuid::now_v7().to_string();
+    conn.execute(
+        "INSERT INTO usage_stats \
+         (id, model_config_id, date, tokens_in_total, tokens_out_total, call_count, cost_est_total) \
+         VALUES (?1, ?2, ?3, ?4, ?5, 1, 0.0) \
+         ON CONFLICT(model_config_id, date) DO UPDATE SET \
+            tokens_in_total = tokens_in_total + excluded.tokens_in_total, \
+            tokens_out_total = tokens_out_total + excluded.tokens_out_total, \
+            call_count = call_count + 1",
+        params![id, model_id, date, tokens_in, tokens_out],
+    )?;
+    Ok(())
 }
 
 /// Built-in templates the user can pick from when adding a new model.
@@ -417,6 +540,105 @@ pub async fn test_model_connection(
             model_response: None,
         },
     })
+}
+
+#[tauri::command]
+pub async fn ai_chat_stream(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    model_id: String,
+    messages: Vec<Message>,
+) -> Result<String, String> {
+    use futures::StreamExt;
+    use tauri::Emitter;
+
+    // 1. Look up the config
+    let pool = state.db_pool.clone();
+    let mid = model_id.clone();
+    let config = tokio::task::spawn_blocking(move || get_one(&pool, &mid))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("model `{}` not found", model_id))?;
+
+    // 2. Pull API key (released as soon as provider holds it)
+    let api_key = if config.provider == "ollama" {
+        None
+    } else {
+        match keychain::get_api_key(&model_id) {
+            Ok(Some(k)) => Some(k),
+            Ok(None) => return Err(AiError::NoApiKey.to_string()),
+            Err(e) => return Err(format!("Keychain 读取失败: {}", e)),
+        }
+    };
+
+    // 3. Dispatch
+    let provider = provider_for(&config.provider, api_key).map_err(|e| e.to_string())?;
+
+    // 4. Estimate input tokens
+    let tokens_in: i64 = messages.iter().map(|m| estimate_tokens(&m.content)).sum();
+
+    // 5. Start the stream
+    let mut stream = provider
+        .chat_stream(messages, &config)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // 6. Drain + emit
+    let mut full_text = String::new();
+    let mut tokens_out: i64 = 0;
+    while let Some(chunk) = stream.next().await {
+        match chunk {
+            Ok(text) => {
+                tokens_out += estimate_tokens(&text);
+                full_text.push_str(&text);
+                let _ = app.emit(
+                    "ai:token",
+                    TokenPayload {
+                        text,
+                        done: false,
+                    },
+                );
+            }
+            Err(e) => {
+                let _ = app.emit(
+                    "ai:token",
+                    TokenPayload {
+                        text: format!("\n[ERROR: {}]\n", e),
+                        done: true,
+                    },
+                );
+                return Err(e.to_string());
+            }
+        }
+    }
+
+    // 7. Emit terminal `done`
+    let _ = app.emit(
+        "ai:token",
+        TokenPayload {
+            text: String::new(),
+            done: true,
+        },
+    );
+
+    // 8. Best-effort usage stats (don't fail the request if write fails)
+    let pool = state.db_pool.clone();
+    let mid = config.id.clone();
+    let _ = tokio::task::spawn_blocking(move || {
+        upsert_usage_stats(&pool, &mid, tokens_in, tokens_out)
+    })
+    .await
+    .map(|r| r.map_err(|e| log::warn!("usage_stats write failed: {}", e)));
+
+    log::info!(
+        "ai_chat_stream done: model={} in≈{} out≈{} totalLen={}",
+        config.id,
+        tokens_in,
+        tokens_out,
+        full_text.len()
+    );
+    Ok(full_text)
 }
 
 #[cfg(test)]
