@@ -91,6 +91,16 @@ export interface TestResult {
   model_response: string | null;
 }
 
+export interface Message {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+export interface TokenPayload {
+  text: string;
+  done: boolean;
+}
+
 export interface AppConfig {
   language: string;
   theme: string;
@@ -200,6 +210,14 @@ export const api = {
 
   testModelConnection: (modelId: string) =>
     invoke<TestResult>("test_model_connection", { modelId }),
+
+  /**
+   * Streaming chat. Returns the full response when done.
+   * Subscribe to "ai:token" event (via @tauri-apps/api/event listen) to
+   * receive incremental TokenPayload chunks during the call.
+   */
+  aiChatStream: (modelId: string, messages: Message[]) =>
+    invoke<string>("ai_chat_stream", { modelId, messages }),
 
   getAppConfig: () => invoke<AppConfig>("get_app_config"),
 

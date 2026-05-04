@@ -66,6 +66,7 @@ pub fn run() {
             ai_client::set_default_model,
             ai_client::get_model_presets,
             ai_client::test_model_connection,
+            ai_client::ai_chat_stream,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
