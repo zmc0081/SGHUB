@@ -40,6 +40,8 @@ futures = "0.3"
 bytes = "1"
 serde_yaml = "0.9"
 pdf-extract = "0.7"
+tokio-cron-scheduler = "0.13"
+tauri-plugin-notification = "2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 keyring = { version = "3", default-features = false, features = ["windows-native"] }

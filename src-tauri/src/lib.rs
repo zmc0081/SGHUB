@@ -5,7 +5,12 @@ pub mod config;
 pub mod db;
 pub mod keychain;
 pub mod library;
+pub mod notify;
+pub mod pdf_extract;
+pub mod scheduler;
 pub mod search;
+pub mod skill_engine;
+pub mod subscription;
 
 pub struct AppState {
     pub db_pool: db::DbPool,
@@ -19,6 +24,7 @@ fn get_db_status(state: tauri::State<'_, AppState>) -> Result<db::DbStatus, Stri
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -30,6 +36,14 @@ pub fn run() {
 
             let pool = db::init(app.handle())?;
             app.manage(AppState { db_pool: pool });
+
+            // Spawn the cron scheduler (daily 09:00) — non-fatal if it fails.
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = scheduler::start(app_handle).await {
+                    log::warn!("scheduler start failed: {}", e);
+                }
+            });
 
             Ok(())
         })
@@ -57,8 +71,24 @@ pub fn run() {
             library::batch_tag,
             library::get_papers_by_folder,
             library::get_papers_by_tag,
+            library::get_recent_papers,
+            library::get_paper,
             library::set_read_status,
             library::export_text_file,
+            skill_engine::get_skills,
+            skill_engine::start_parse,
+            skill_engine::get_parse_history,
+            subscription::create_subscription,
+            subscription::update_subscription,
+            subscription::delete_subscription,
+            subscription::toggle_subscription_active,
+            subscription::get_subscriptions,
+            subscription::get_subscription_results,
+            subscription::mark_subscription_paper_read,
+            subscription::get_unread_subscription_count,
+            subscription::get_notifications,
+            subscription::mark_notification_read,
+            subscription::run_subscriptions_now,
             ai_client::get_model_configs,
             ai_client::add_model_config,
             ai_client::update_model_config,

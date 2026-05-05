@@ -139,12 +139,12 @@ pub(crate) fn status_to_error(status: reqwest::StatusCode, body: String) -> AiEr
 
 /// Rough estimate (~4 chars per token). Real counts come from provider responses
 /// when available — for now we estimate so usage_stats is never empty.
-fn estimate_tokens(s: &str) -> i64 {
+pub(crate) fn estimate_tokens(s: &str) -> i64 {
     // usize::div_ceil is stable (signed div_ceil is not — issue #88581)
     s.chars().count().div_ceil(4) as i64
 }
 
-fn upsert_usage_stats(
+pub(crate) fn upsert_usage_stats(
     pool: &crate::db::DbPool,
     model_id: &str,
     tokens_in: i64,
@@ -247,7 +247,10 @@ fn list_all(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<ModelConfig>> {
     rows.collect()
 }
 
-fn get_one(pool: &crate::db::DbPool, id: &str) -> rusqlite::Result<Option<ModelConfig>> {
+pub(crate) fn get_one(
+    pool: &crate::db::DbPool,
+    id: &str,
+) -> rusqlite::Result<Option<ModelConfig>> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;

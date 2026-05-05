@@ -242,7 +242,8 @@ mod tests {
     fn get_status_returns_all_user_tables() {
         let (_tmp, pool) = fresh_pool();
         let status = get_status(&pool).expect("status");
-        assert_eq!(status.table_count, 10);
+        // V001: 10 base tables + V002: subscription_papers = 11
+        assert_eq!(status.table_count, 11);
 
         let folders = status.tables.iter().find(|t| t.name == "folders").unwrap();
         assert_eq!(folders.row_count, 1);

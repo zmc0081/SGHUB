@@ -6,10 +6,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::AppState;
 
-mod arxiv;
-mod openalex;
-mod pubmed;
-mod semantic_scholar;
+pub(crate) mod arxiv;
+pub(crate) mod openalex;
+pub(crate) mod pubmed;
+pub(crate) mod semantic_scholar;
 
 const SOURCE_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -201,7 +201,7 @@ pub fn mock_papers() -> Vec<Paper> {
 
 /// Dedupe by DOI first (exact match), then by lowercase title (whitespace-collapsed).
 /// Preserves insertion order — earlier entries win.
-fn dedupe(papers: Vec<Paper>) -> Vec<Paper> {
+pub(crate) fn dedupe(papers: Vec<Paper>) -> Vec<Paper> {
     let mut seen_dois: HashSet<String> = HashSet::new();
     let mut seen_titles: HashSet<String> = HashSet::new();
     let mut out = Vec::with_capacity(papers.len());
@@ -229,7 +229,7 @@ fn dedupe(papers: Vec<Paper>) -> Vec<Paper> {
 /// Insert papers into the SQLite `papers` table.
 /// `INSERT OR IGNORE` on the PK (id) — repeat searches don't duplicate rows.
 /// FTS5 stays in sync via the schema's `papers_ai` trigger.
-fn persist(pool: &crate::db::DbPool, papers: &[Paper]) -> rusqlite::Result<usize> {
+pub(crate) fn persist(pool: &crate::db::DbPool, papers: &[Paper]) -> rusqlite::Result<usize> {
     let mut conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;

@@ -101,6 +101,81 @@ export interface TokenPayload {
   done: boolean;
 }
 
+export interface OutputDimension {
+  key: string;
+  title: string;
+  title_en: string | null;
+}
+
+export interface EstimatedTokens {
+  input: number;
+  output: number;
+}
+
+export interface Skill {
+  name: string;
+  display_name: string;
+  display_name_en: string | null;
+  description: string;
+  icon: string;
+  category: string;
+  prompt_template: string;
+  output_dimensions: OutputDimension[];
+  recommended_models: string[];
+  estimated_tokens: EstimatedTokens | null;
+  source: string; // "builtin" | "user"
+}
+
+export interface ParseResult {
+  id: string;
+  paper_id: string;
+  skill_name: string;
+  model_name: string;
+  result_json: string;
+  tokens_in: number;
+  tokens_out: number;
+  cost_est: number;
+  duration_ms: number;
+  created_at: string;
+}
+
+export interface Subscription {
+  id: string;
+  keyword_expr: string;
+  sources: string[];
+  frequency: string; // "daily" | "weekly"
+  max_results: number;
+  is_active: boolean;
+  last_run_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SubscriptionInput {
+  keyword_expr: string;
+  sources: string[];
+  frequency: string;
+  max_results: number;
+}
+
+export interface SubscriptionResult {
+  subscription_id: string;
+  subscription_keyword: string;
+  paper: Paper;
+  found_at: string;
+  is_read: boolean;
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  is_read: boolean;
+  related_id: string | null;
+  created_at: string;
+}
+
 export interface AppConfig {
   language: string;
   theme: string;
@@ -190,6 +265,59 @@ export const api = {
 
   exportTextFile: (suggestedName: string, content: string) =>
     invoke<string>("export_text_file", { suggestedName, content }),
+
+  getRecentPapers: (limit: number) =>
+    invoke<Paper[]>("get_recent_papers", { limit }),
+
+  getPaper: (id: string) => invoke<Paper | null>("get_paper", { id }),
+
+  getSkills: () => invoke<Skill[]>("get_skills"),
+
+  /**
+   * Run a skill on a paper through a model. Returns full text on completion.
+   * Subscribe to "parse:token" event for incremental streaming.
+   */
+  startParse: (paperId: string, skillName: string, modelConfigId: string) =>
+    invoke<string>("start_parse", {
+      paperId,
+      skillName,
+      modelConfigId,
+    }),
+
+  getParseHistory: (paperId: string) =>
+    invoke<ParseResult[]>("get_parse_history", { paperId }),
+
+  // Subscriptions
+  createSubscription: (input: SubscriptionInput) =>
+    invoke<Subscription>("create_subscription", { input }),
+
+  updateSubscription: (id: string, input: SubscriptionInput) =>
+    invoke<void>("update_subscription", { id, input }),
+
+  deleteSubscription: (id: string) =>
+    invoke<void>("delete_subscription", { id }),
+
+  toggleSubscriptionActive: (id: string) =>
+    invoke<void>("toggle_subscription_active", { id }),
+
+  getSubscriptions: () => invoke<Subscription[]>("get_subscriptions"),
+
+  getSubscriptionResults: (subscriptionId: string | null) =>
+    invoke<SubscriptionResult[]>("get_subscription_results", { subscriptionId }),
+
+  markSubscriptionPaperRead: (subscriptionId: string, paperId: string) =>
+    invoke<void>("mark_subscription_paper_read", { subscriptionId, paperId }),
+
+  getUnreadSubscriptionCount: () =>
+    invoke<number>("get_unread_subscription_count"),
+
+  getNotifications: (unreadOnly: boolean) =>
+    invoke<Notification[]>("get_notifications", { unreadOnly }),
+
+  markNotificationRead: (id: string) =>
+    invoke<void>("mark_notification_read", { id }),
+
+  runSubscriptionsNow: () => invoke<void>("run_subscriptions_now"),
 
   getModelConfigs: () => invoke<ModelConfig[]>("get_model_configs"),
 

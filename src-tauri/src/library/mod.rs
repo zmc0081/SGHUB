@@ -520,6 +520,42 @@ fn db_papers_by_folder(
     })
 }
 
+/// Lookup a single paper by id. Used by parse / AI features.
+pub fn db_get_paper_by_id(
+    pool: &crate::db::DbPool,
+    id: &str,
+) -> rusqlite::Result<Option<Paper>> {
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    conn.query_row(
+        &format!("SELECT {} FROM papers p WHERE p.id = ?1", PAPER_COLS),
+        [id],
+        row_to_paper,
+    )
+    .optional()
+}
+
+fn db_recent_papers(
+    pool: &crate::db::DbPool,
+    limit: u32,
+) -> rusqlite::Result<Vec<Paper>> {
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {} FROM papers p \
+         WHERE p.deleted_at IS NULL \
+         ORDER BY p.created_at DESC \
+         LIMIT ?1",
+        PAPER_COLS
+    ))?;
+    let rows: Vec<Paper> = stmt
+        .query_map([limit as i64], row_to_paper)?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(rows)
+}
+
 fn db_papers_by_tag(
     pool: &crate::db::DbPool,
     tag_id: &str,
@@ -809,6 +845,30 @@ pub async fn get_papers_by_folder(
 ) -> Result<PageResult<Paper>, String> {
     let pool = state.db_pool.clone();
     tokio::task::spawn_blocking(move || db_papers_by_folder(&pool, &folder_id, page, page_size))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_recent_papers(
+    state: tauri::State<'_, AppState>,
+    limit: u32,
+) -> Result<Vec<Paper>, String> {
+    let pool = state.db_pool.clone();
+    tokio::task::spawn_blocking(move || db_recent_papers(&pool, limit))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn get_paper(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> Result<Option<Paper>, String> {
+    let pool = state.db_pool.clone();
+    tokio::task::spawn_blocking(move || db_get_paper_by_id(&pool, &id))
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())
