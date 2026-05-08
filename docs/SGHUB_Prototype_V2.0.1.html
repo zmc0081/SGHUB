@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SGHUB V2.0.1 · Desktop Client Prototype</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+:root {
+  --primary: #1F3864; --primary-light: #2D5AA0; --accent: #D4A017;
+  --bg: #F8F6F1; --surface: #FFFFFF; --surface-alt: #F2EFE8;
+  --border: #E2DDD4; --text: #2C2C2C; --text-muted: #7F7F7F; --text-light: #A0A0A0;
+  --success: #4A7C4E; --warning: #B8860B; --danger: #B31B1B;
+  --sidebar-bg: #1A1F2E; --sidebar-text: #C8C8D0; --sidebar-active: rgba(212,160,23,0.15);
+  --titlebar-bg: #0F1219;
+  --radius: 6px;
+  --font-serif: 'Noto Serif SC', 'Georgia', serif;
+  --font-sans: 'Noto Sans SC', -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font-sans); background: #E8E4DD; color: var(--text); font-size: 13px; line-height: 1.5; }
+
+/* Proto Nav */
+.proto-header { background: var(--primary); color: #fff; padding: 14px 24px; text-align: center; font-family: var(--font-serif); }
+.proto-header h1 { font-size: 18px; letter-spacing: 1px; }
+.proto-header .sub { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+.proto-nav { display: flex; gap: 0; background: #1a1a2e; padding: 0 20px; overflow-x: auto; position: sticky; top: 0; z-index: 100; }
+.proto-nav .tab { padding: 12px 18px; color: #888; font-size: 12px; cursor: pointer; white-space: nowrap; border-bottom: 2px solid transparent; transition: all 0.2s; font-family: var(--font-mono); font-weight: 500; }
+.proto-nav .tab:hover { color: #ccc; }
+.proto-nav .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Screen containers */
+.screen-wrap { margin: 20px auto; max-width: 1200px; }
+.screen-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); padding: 6px 12px; text-transform: uppercase; letter-spacing: 1.5px; }
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* Desktop window chrome */
+.desktop-window { background: var(--surface); border-radius: 10px; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,0.18); border: 1px solid rgba(0,0,0,0.08); }
+.titlebar { background: var(--titlebar-bg); height: 36px; display: flex; align-items: center; padding: 0 14px; gap: 8px; -webkit-app-region: drag; }
+.titlebar-dots { display: flex; gap: 6px; }
+.titlebar-dot { width: 11px; height: 11px; border-radius: 50%; }
+.titlebar-dot.close { background: #FF5F57; }
+.titlebar-dot.min { background: #FEBC2E; }
+.titlebar-dot.max { background: #28C840; }
+.titlebar-title { flex: 1; text-align: center; font-size: 12px; color: #888; font-family: var(--font-mono); }
+
+/* App layout */
+.app-body { display: flex; min-height: 640px; }
+.sidebar { width: 220px; background: var(--sidebar-bg); color: var(--sidebar-text); padding: 16px 0; flex-shrink: 0; }
+.sidebar-logo { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); margin-bottom: 12px; }
+.sidebar-logo h2 { font-family: var(--font-serif); font-size: 20px; color: #fff; }
+.sidebar-logo h2 span { color: var(--accent); }
+.sidebar-logo .ver { font-family: var(--font-mono); font-size: 9px; color: #666; margin-top: 2px; }
+.side-section { margin-bottom: 16px; }
+.side-title { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: #555; padding: 0 20px; margin-bottom: 6px; font-weight: 600; }
+.side-item { padding: 8px 20px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.15s; border-left: 2px solid transparent; }
+.side-item:hover { background: rgba(255,255,255,0.04); }
+.side-item.active { background: var(--sidebar-active); color: var(--accent); border-left-color: var(--accent); }
+
+/* Main content */
+.main { flex: 1; padding: 20px 24px; background: var(--bg); overflow-y: auto; max-height: 640px; }
+.page-title { font-family: var(--font-serif); font-size: 22px; font-weight: 700; color: var(--primary); }
+.page-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+
+/* Buttons */
+.btn { padding: 7px 16px; border-radius: var(--radius); font-size: 12px; cursor: pointer; border: none; font-family: var(--font-sans); font-weight: 500; transition: all 0.15s; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-light); }
+.btn-accent { background: var(--accent); color: var(--primary); font-weight: 600; }
+.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+.btn-ghost { background: transparent; color: var(--primary-light); }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
+.btn-danger { background: var(--danger); color: #fff; }
+
+/* Cards */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+.card-title { font-family: var(--font-serif); font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+
+/* Form */
+.form-group { margin-bottom: 14px; }
+.form-label { font-size: 12px; font-weight: 500; color: var(--text); margin-bottom: 4px; display: block; }
+.form-input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 12px; background: var(--surface); font-family: var(--font-sans); }
+.form-input:focus { outline: none; border-color: var(--primary-light); box-shadow: 0 0 0 2px rgba(45,90,160,0.1); }
+select.form-input { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%237F7F7F' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+
+/* Search bar */
+.search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+.search-bar input { flex: 1; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius); font-size: 13px; background: var(--surface); }
+.search-bar input:focus { outline: none; border-color: var(--primary); }
+
+/* Paper card */
+.paper-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; transition: box-shadow 0.15s; }
+.paper-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.paper-source { display: inline-block; font-family: var(--font-mono); font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 3px; color: #fff; margin-bottom: 6px; }
+.paper-source.arxiv { background: #B31B1B; }
+.paper-source.pubmed { background: #326599; }
+.paper-source.semantic { background: #1857B4; }
+.paper-title { font-family: var(--font-serif); font-size: 14px; font-weight: 700; color: var(--primary); line-height: 1.4; margin-bottom: 4px; cursor: pointer; }
+.paper-title:hover { color: var(--primary-light); }
+.paper-meta { font-size: 11px; color: var(--text-muted); font-style: italic; margin-bottom: 6px; }
+.paper-abstract { font-size: 12px; color: var(--text); line-height: 1.5; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.paper-actions { display: flex; gap: 6px; }
+.paper-action-btn { padding: 3px 10px; font-size: 11px; border: 1px solid var(--border); border-radius: 3px; cursor: pointer; background: var(--surface); color: var(--text); transition: 0.15s; }
+.paper-action-btn:hover { border-color: var(--primary); color: var(--primary); }
+.paper-action-btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.paper-action-btn.accent { background: var(--accent); color: var(--primary); border-color: var(--accent); }
+
+/* Model card */
+.model-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 10px; display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
+.model-icon { width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; }
+.model-icon.claude { background: #D4A574; color: #fff; }
+.model-icon.gpt { background: #10A37F; color: #fff; }
+.model-icon.deepseek { background: #4A6CF7; color: #fff; }
+.model-icon.ollama { background: #333; color: #fff; }
+.model-icon.custom { background: var(--surface-alt); color: var(--text); border: 1px dashed var(--border); }
+.model-name { font-family: var(--font-serif); font-size: 14px; font-weight: 700; color: var(--primary); }
+.model-detail { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family: var(--font-mono); }
+.model-status { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; }
+.model-status.ok { color: var(--success); }
+.model-status.err { color: var(--danger); }
+.model-status.default-tag { background: var(--accent); color: var(--primary); padding: 2px 8px; border-radius: 3px; font-size: 10px; }
+
+/* Folder tree */
+.tree { padding: 0; }
+.tree-item { padding: 7px 12px; display: flex; align-items: center; gap: 8px; cursor: pointer; border-radius: var(--radius); font-size: 12px; transition: 0.1s; }
+.tree-item:hover { background: var(--surface-alt); }
+.tree-item.active { background: rgba(31,56,100,0.08); color: var(--primary); font-weight: 600; }
+.tree-item .count { font-family: var(--font-mono); font-size: 10px; color: var(--text-light); margin-left: auto; }
+.tree-indent { padding-left: 24px; }
+
+/* Badge */
+.badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 600; }
+.badge-new { background: var(--accent); color: var(--primary); }
+.badge-count { background: var(--primary); color: #fff; }
+
+/* AI parse area */
+.parse-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.parse-result { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.parse-dim { margin-bottom: 14px; }
+.parse-dim-title { font-family: var(--font-serif); font-size: 13px; font-weight: 700; color: var(--primary); padding-bottom: 6px; border-bottom: 2px solid var(--accent); margin-bottom: 8px; }
+.parse-dim-content { font-size: 12px; line-height: 1.6; color: var(--text); }
+
+/* Notification toast */
+.toast { position: fixed; top: 60px; right: 20px; background: var(--primary); color: #fff; padding: 14px 20px; border-radius: var(--radius); font-size: 12px; display: none; z-index: 999; box-shadow: 0 4px 20px rgba(0,0,0,0.2); max-width: 320px; }
+.toast.show { display: block; animation: slideIn 0.3s ease; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* Switch */
+.switch { position: relative; display: inline-block; width: 36px; height: 20px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider-sw { position: absolute; cursor: pointer; inset: 0; background: #ccc; border-radius: 20px; transition: 0.2s; }
+.slider-sw::before { position: absolute; content: ''; height: 14px; width: 14px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.2s; }
+.switch input:checked + .slider-sw { background: var(--primary); }
+.switch input:checked + .slider-sw::before { transform: translateX(16px); }
+
+/* Stats */
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; text-align: center; }
+.stat-val { font-family: var(--font-serif); font-size: 22px; font-weight: 700; color: var(--primary); }
+.stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+
+/* Subscription card */
+.sub-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sub-kw { font-family: var(--font-mono); font-size: 13px; font-weight: 600; color: var(--primary); }
+.sub-info { font-size: 11px; color: var(--text-muted); }
+.sub-status { font-size: 11px; font-weight: 600; color: var(--success); margin-left: auto; }
+</style>
+</head>
+<body>
+
+<div class="proto-header">
+  <h1>SGHUB / Desktop Client Prototype V2.0.1</h1>
+  <div class="sub">Tauri 2 + React · Windows First · macOS Ready · Open Source MIT</div>
+</div>
+
+<div class="proto-nav">
+  <div class="tab active" data-tgt="s1">01 · 首次启动</div>
+  <div class="tab" data-tgt="s2">02 · 文献检索</div>
+  <div class="tab" data-tgt="s3">03 · 收藏夹</div>
+  <div class="tab" data-tgt="s4">04 · AI 解析 <span class="badge badge-new" style="background:#D4A017;color:#1F3864;">V2.0.1 ✨</span></div>
+  <div class="tab" data-tgt="s5">05 · 模型配置 <span class="badge badge-new">CORE</span></div>
+  <div class="tab" data-tgt="s6">06 · 设置</div>
+  <div class="tab" data-tgt="s7">07 · Chat <span class="badge badge-new" style="background:#D4A017;color:#1F3864;">NEW</span></div>
+</div>
+
+<!-- ============ Screen 01: 首次启动 / 引导 ============ -->
+<div class="screen-wrap">
+<div class="screen-label">SCREEN 01 · WELCOME & ONBOARDING · 首次启动引导</div>
+<div class="screen active" id="s1">
+<div class="desktop-window">
+  <div class="titlebar">
+    <div class="titlebar-dots"><div class="titlebar-dot close"></div><div class="titlebar-dot min"></div><div class="titlebar-dot max"></div></div>
+    <div class="titlebar-title">SGHUB — 首次设置</div>
+  </div>
+  <div style="background: var(--bg); padding: 60px 80px; text-align: center; min-height: 640px; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+    <div style="font-family: var(--font-serif); font-size: 36px; font-weight: 700; color: var(--primary); margin-bottom: 8px;">SG<span style="color: var(--accent);">HUB</span></div>
+    <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 40px;">AI 驱动的学术文献管理桌面应用 · V2.0.1</div>
+
+    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 32px 40px; max-width: 520px; width: 100%; text-align: left;">
+      <div style="font-family: var(--font-serif); font-size: 18px; font-weight: 700; color: var(--primary); margin-bottom: 6px;">🚀 欢迎使用 SGHUB</div>
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 24px;">只需一步:配置你的第一个 AI 模型,即可开始智能文献管理。不配置也可以使用检索与收藏功能。</div>
+
+      <div style="font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 12px;">选择你的 AI 模型</div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px;">
+        <div style="border: 2px solid var(--primary); border-radius: var(--radius); padding: 14px; cursor: pointer; background: rgba(31,56,100,0.03);">
+          <div style="font-weight: 700; color: var(--primary); font-size: 13px;">🟤 Claude (Anthropic)</div>
+          <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">推荐 · 学术解析质量最佳</div>
+        </div>
+        <div style="border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; cursor: pointer;">
+          <div style="font-weight: 700; color: var(--text); font-size: 13px;">🟢 GPT (OpenAI)</div>
+          <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">通用大模型</div>
+        </div>
+        <div style="border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; cursor: pointer;">
+          <div style="font-weight: 700; color: var(--text); font-size: 13px;">🔵 DeepSeek</div>
+          <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">高性价比</div>
+        </div>
+        <div style="border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; cursor: pointer;">
+          <div style="font-weight: 700; color: var(--text); font-size: 13px;">⚫ Ollama (本地)</div>
+          <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">完全离线 · 隐私最佳</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">API Key</label>
+        <input class="form-input" type="password" placeholder="sk-ant-api03-xxxx..." style="font-family: var(--font-mono);">
+        <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">🔒 Key 将通过系统 Keychain 加密存储,不会以明文写入任何文件</div>
+      </div>
+
+      <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button class="btn btn-primary" style="flex: 1;" onclick="switchScreen('s2')">✅ 保存并开始使用</button>
+        <button class="btn btn-ghost" onclick="switchScreen('s2')">跳过,稍后配置 →</button>
+      </div>
+    </div>
+
+    <div style="font-size: 11px; color: var(--text-light); margin-top: 24px;">
+      开源项目 · MIT License · <span style="font-family: var(--font-mono);">github.com/sghub/sghub</span>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ============ Screen 02: 文献检索 ============ -->
+<div class="screen-wrap">
+<div class="screen-label">SCREEN 02 · SEARCH & SUBSCRIPTION · 文献检索与订阅推送</div>
+<div class="screen" id="s2">
+<div class="desktop-window">
+  <div class="titlebar">
+    <div class="titlebar-dots"><div class="titlebar-dot close"></div><div class="titlebar-dot min"></div><div class="titlebar-dot max"></div></div>
+    <div class="titlebar-title">SGHUB — 文献检索</div>
+  </div>
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="sidebar-logo"><h2>SG<span>HUB</span></h2><div class="ver">v2.0.1 · Desktop</div></div>
+      <div class="side-section">
+        <div class="side-title">工作区</div>
+        <div class="side-item active">🔍 文献检索</div>
+        <div class="side-item">📰 今日推送 <span class="badge badge-count" style="margin-left:auto;">12</span></div>
+        <div class="side-item">⭐ 收藏夹</div>
+        <div class="side-item">🧠 AI 解析</div>
+      </div>
+      <div class="side-section">
+        <div class="side-title">设置</div>
+        <div class="side-item">🤖 模型配置</div>
+        <div class="side-item">⚙️ 偏好设置</div>
+      </div>
+      <div class="side-section">
+        <div class="side-title">我的订阅</div>
+        <div class="side-item" style="font-size: 11px;">📌 "LLM alignment" OR "RLHF"</div>
+        <div class="side-item" style="font-size: 11px;">📌 "tool use" AND "agents"</div>
+        <div class="side-item" style="font-size: 11px; color: var(--accent);">+ 新建订阅</div>
+      </div>
+    </div>
+    <div class="main">
+      <div class="page-header">
+        <div><div class="page-title">🔍 文献检索</div><div class="page-sub">跨平台聚合检索 · arXiv / PubMed / Semantic Scholar / OpenAlex</div></div>
+      </div>
+
+      <!-- V2.0.1 升级提示 -->
+      <div style="background: linear-gradient(90deg, rgba(212,160,23,0.12), rgba(212,160,23,0.02)); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 4px; margin-bottom: 14px; font-size: 11px; color: var(--text-muted); display: flex; gap: 14px; align-items: center; flex-wrap: wrap;">
+        <span style="background: var(--accent); color: var(--primary); font-family: var(--font-mono); font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 3px;">V2.0.1</span>
+        <span><strong style="color: var(--primary);">🧠 AI 精读</strong> 现在会跳转至 AI 解析模块并自动选中文献</span>
+        <span>·</span>
+        <span><strong style="color: var(--primary);">📄 原文</strong> 系统浏览器打开</span>
+        <span>·</span>
+        <span><strong style="color: var(--primary);">📥 下载</strong> OA 文献存入本地</span>
+        <span>·</span>
+        <span><strong style="color: var(--primary);">⭐ 收藏</strong> 与今日推送统一交互</span>
+      </div>
+
+      <div class="search-bar">
+        <input placeholder="输入关键词,支持 AND / OR / NOT / &quot;精确匹配&quot; ...">
+        <select class="form-input" style="width: 140px;">
+          <option>全部数据源</option><option>arXiv</option><option>PubMed</option><option>Semantic Scholar</option><option>OpenAlex</option>
+        </select>
+        <button class="btn btn-primary">检索</button>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;">
+        <span style="font-size: 11px; color: var(--text-muted); padding: 4px 0;">过滤:</span>
+        <select class="form-input" style="width: 100px; padding: 4px 8px; font-size: 11px;"><option>最近 7 天</option><option>最近 30 天</option><option>最近 1 年</option><option>不限</option></select>
+        <select class="form-input" style="width: 90px; padding: 4px 8px; font-size: 11px;"><option>相关性</option><option>最新发表</option><option>引用最多</option></select>
+        <span style="font-size: 11px; color: var(--text-muted); margin-left: auto;">找到 847 篇 · 耗时 1.2s</span>
+      </div>
+
+      <div class="paper-card">
+        <span class="paper-source arxiv">arXiv · 2026-04-26</span>
+        <div class="paper-title">Constitutional RL: Scaling Alignment via Self-Generated Constitutions</div>
+        <div class="paper-meta">Chen, L., Martinez, R., Anderson, K. · DeepMind, UCL</div>
+        <div class="paper-abstract">We introduce Constitutional RL, a novel alignment framework that scales RLHF by having models generate their own constitutional principles rather than relying on hand-crafted rules. Across 12 benchmarks, our approach achieves 34% improvement in harmlessness while maintaining helpfulness.</div>
+        <div class="paper-actions" style="position: relative;">
+          <span class="paper-action-btn primary" style="position: relative;">⭐ 收藏 ▾</span>
+          <!-- 收藏下拉(V2.0.1 统一组件,仅展示) -->
+          <div style="position: absolute; top: 100%; left: 0; margin-top: 4px; background: #fff; border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.1); padding: 6px; z-index: 5; min-width: 200px; font-size: 11px;">
+            <div style="padding: 6px 10px; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border); margin-bottom: 4px;">📚 选择目标文件夹</div>
+            <div style="padding: 6px 10px; cursor: pointer; border-radius: 3px; background: rgba(31,56,100,0.06);">⚡ 快速收藏到「未分类」</div>
+            <div style="padding: 6px 10px; cursor: pointer; border-radius: 3px;">📂 LLM Alignment</div>
+            <div style="padding: 6px 10px; cursor: pointer; border-radius: 3px; padding-left: 24px;">└ RLHF</div>
+            <div style="padding: 6px 10px; cursor: pointer; border-radius: 3px; padding-left: 24px;">└ Constitutional AI ⭐</div>
+            <div style="padding: 6px 10px; cursor: pointer; border-radius: 3px;">📂 Tool Use & Agents</div>
+            <div style="border-top: 1px solid var(--border); margin-top: 4px; padding: 6px 10px; cursor: pointer; color: var(--accent); font-weight: 600;">+ 新建文件夹</div>
+          </div>
+          <span class="paper-action-btn accent" title="跳转到 AI 解析并预选此文献">🧠 AI 精读 →</span>
+          <span class="paper-action-btn" title="系统浏览器打开">📄 原文</span>
+          <span class="paper-action-btn" title="OA 文献下载到本地">📥 下载 PDF</span>
+        </div>
+      </div>
+
+      <div class="paper-card">
+        <span class="paper-source semantic">Semantic Scholar · 2026-04-25</span>
+        <div class="paper-title">Process-Supervised Reward Models: Fine-Grained Credit Assignment in Long-Horizon Reasoning</div>
+        <div class="paper-meta">Watanabe, T., Brooks, E., Singh, A. · Stanford, Tsinghua</div>
+        <div class="paper-abstract">Outcome-based reward models fail on multi-step reasoning tasks due to credit assignment ambiguity. We propose PRM-v2, a process-supervised framework that labels each reasoning step with fine-grained feedback signals.</div>
+        <div class="paper-actions">
+          <span class="paper-action-btn primary">⭐ 收藏 ▾</span>
+          <span class="paper-action-btn accent" title="跳转到 AI 解析并预选此文献">🧠 AI 精读 →</span>
+          <span class="paper-action-btn" title="系统浏览器打开">📄 原文</span>
+          <span class="paper-action-btn" title="OA 文献下载到本地">📥 下载 PDF</span>
+        </div>
+      </div>
+
+      <div class="paper-card">
+        <span class="paper-source pubmed">PubMed · 2026-04-24</span>
+        <div class="paper-title">Large Language Models for Systematic Review Automation: A Benchmark Study</div>
+        <div class="paper-meta">Kim, J., Patel, S., Wang, Q. · Johns Hopkins, Mayo Clinic</div>
+        <div class="paper-abstract">We evaluate 8 commercial and open-source LLMs on 5 systematic review automation tasks: screening, data extraction, risk-of-bias assessment, meta-analysis drafting, and GRADE evaluation. Claude Opus 4.7 achieves highest accuracy on 4/5 tasks.</div>
+        <div class="paper-actions">
+          <span class="paper-action-btn primary">⭐ 收藏 ▾</span>
+          <span class="paper-action-btn accent" title="跳转到 AI 解析并预选此文献">🧠 AI 精读 →</span>
+          <span class="paper-action-btn" title="系统浏览器打开">📄 原文</span>
+          <span class="paper-action-btn" style="opacity: 0.5; cursor: not-allowed;" title="非 OA 文献,无可下载 PDF">🔒 非 OA</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ============ Screen 03: 收藏夹 ============ -->
+<div class="screen-wrap">
+<div class="screen-label">SCREEN 03 · LIBRARY · 收藏夹与文件夹管理</div>
+<div class="screen" id="s3">
+<div class="desktop-window">
+  <div class="titlebar">
+    <div class="titlebar-dots"><div class="titlebar-dot close"></div><div class="titlebar-dot min"></div><div class="titlebar-dot max"></div></div>
+    <div class="titlebar-title">SGHUB — 我的收藏</div>
+  </div>
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="sidebar-logo"><h2>SG<span>HUB</span></h2><div class="ver">v2.0.1 · Desktop</div></div>
+      <div class="side-section">
+        <div class="side-title">工作区</div>
+        <div class="side-item">🔍 文献检索</div>
+        <div class="side-item">📰 今日推送</div>
+        <div class="side-item active">⭐ 收藏夹</div>
+        <div class="side-item">🧠 AI 解析</div>
+      </div>
+      <div class="side-section">
+        <div class="side-title">文件夹</div>
+        <div class="tree">
+          <div class="tree-item active">📁 全部收藏 <span class="count">156</span></div>
+          <div class="tree-item">📂 LLM Alignment <span class="count">42</span></div>
+          <div class="tree-indent">
+            <div class="tree-item">📁 RLHF <span class="count">18</span></div>
+            <div class="tree-item">📁 Constitutional AI <span class="count">12</span></div>
+          </div>
+          <div class="tree-item">📂 Tool Use & Agents <span class="count">31</span></div>
+          <div class="tree-item">📂 Medical AI <span class="count">24</span></div>
+          <div class="tree-item">📁 未分类 <span class="count">59</span></div>
+          <div class="tree-item" style="color: var(--accent);">+ 新建文件夹</div>
+        </div>
+      </div>
+      <div class="side-section">
+        <div class="side-title">标签</div>
+        <div style="padding: 0 20px; display: flex; flex-wrap: wrap; gap: 4px;">
+          <span style="background: #E8E0F0; color: #6B3FA0; padding: 2px 8px; border-radius: 3px; font-size: 10px;">综述</span>
+          <span style="background: #E0EEE8; color: #2E7D5B; padding: 2px 8px; border-radius: 3px; font-size: 10px;">精读</span>
+          <span style="background: #FDEBD0; color: #B8860B; padding: 2px 8px; border-radius: 3px; font-size: 10px;">待读</span>
+          <span style="background: #E8F0FE; color: #1A73E8; padding: 2px 8px; border-radius: 3px; font-size: 10px;">重要</span>
+        </div>
+      </div>
+    </div>
+    <div class="main">
+      <div class="page-header">
+        <div><div class="page-title">⭐ 全部收藏</div><div class="page-sub">156 篇文献 · 42 篇已精读 · 本地存储 1.2 GB</div></div>
+        <div style="display: flex; gap: 6px;">
+          <button class="btn btn-outline btn-sm">📤 导出 BibTeX</button>
+          <button class="btn btn-outline btn-sm">📥 导入</button>
+        </div>
+      </div>
+
+      <div class="search-bar">
+        <input placeholder="在收藏夹中搜索(全文检索)...">
+        <select class="form-input" style="width: 100px; padding: 6px; font-size: 11px;"><option>全部状态</option><option>未读</option><option>在读</option><option>已读</option></select>
+      </div>
+
+      <div class="paper-card" style="border-left: 3px solid var(--success);">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+          <div>
+            <span class="paper-source arxiv">arXiv</span>
+            <span style="background: #E0EEE8; color: #2E7D5B; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 4px;">✅ 精读完成</span>
+          </div>
+          <span style="font-size: 10px; color: var(--text-muted);">收藏于 2026-04-20</span>
+        </div>
+        <div class="paper-title" style="margin-top: 6px;">Constitutional RL: Scaling Alignment via Self-Generated Constitutions</div>
+        <div class="paper-meta">Chen, L. et al. · DeepMind, UCL · 2026-04-18</div>
+        <div class="paper-actions">
+          <span class="paper-action-btn">📂 移动到...</span>
+          <span class="paper-action-btn accent">🧠 查看解析</span>
+          <span class="paper-action-btn">📄 打开 PDF</span>
+          <span class="paper-action-btn">🏷️ 标签</span>
+        </div>
+      </div>
+
+      <div class="paper-card" style="border-left: 3px solid var(--warning);">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+          <div>
+            <span class="paper-source semantic">Semantic Scholar</span>
+            <span style="background: #FDEBD0; color: #B8860B; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 4px;">📖 在读</span>
+          </div>
+          <span style="font-size: 10px; color: var(--text-muted);">收藏于 2026-04-22</span>
+        </div>
+        <div class="paper-title" style="margin-top: 6px;">Process-Supervised Reward Models: Fine-Grained Credit Assignment</div>
+        <div class="paper-meta">Watanabe, T. et al. · Stanford, Tsinghua · 2026-04-20</div>
+        <div class="paper-actions">
+          <span class="paper-action-btn">📂 移动到...</span>
+          <span class="paper-action-btn accent">🧠 AI 精读</span>
+          <span class="paper-action-btn">📄 打开 PDF</span>
+          <span class="paper-action-btn">🏷️ 标签</span>
+        </div>
+      </div>
+
+      <div class="paper-card" style="border-left: 3px solid var(--border);">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+          <div>
+            <span class="paper-source pubmed">PubMed</span>
+            <span style="background: #F0F0F0; color: #888; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 4px;">📄 未读</span>
+          </div>
+          <span style="font-size: 10px; color: var(--text-muted);">收藏于 2026-04-24</span>
+        </div>
+        <div class="paper-title" style="margin-top: 6px;">Large Language Models for Systematic Review Automation</div>
+        <div class="paper-meta">Kim, J. et al. · Johns Hopkins · 2026-04-22</div>
+        <div class="paper-actions">
+          <span class="paper-action-btn">📂 移动到...</span>
+          <span class="paper-action-btn accent">🧠 AI 精读</span>
+          <span class="paper-action-btn">📥 下载 PDF</span>
+          <span class="paper-action-btn">🏷️ 标签</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ============ Screen 04: AI 解析 ============ -->
+<div class="screen-wrap">
+<div class="screen-label">SCREEN 04 · AI PARSE · AI 文献精读解析</div>
+<div class="screen" id="s4">
+<div class="desktop-window">
+  <div class="titlebar">
+    <div class="titlebar-dots"><div class="titlebar-dot close"></div><div class="titlebar-dot min"></div><div class="titlebar-dot max"></div></div>
+    <div class="titlebar-title">SGHUB — AI 文献解析</div>
+  </div>
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="sidebar-logo"><h2>SG<span>HUB</span></h2><div class="ver">v2.0.1 · Desktop</div></div>
+      <div class="side-section">
+        <div class="side-title">工作区</div>
+        <div class="side-item">🔍 文献检索</div>
+        <div class="side-item">📰 今日推送</div>
+        <div class="side-item">⭐ 收藏夹</div>
+        <div class="side-item active">🧠 AI 解析</div>
+      </div>
+      <div class="side-section">
+        <div class="side-title">解析历史</div>
+        <div class="side-item" style="font-size: 11px;">Constitutional RL...</div>
+        <div class="side-item" style="font-size: 11px;">Process-Supervised...</div>
+        <div class="side-item" style="font-size: 11px;">LLM Systematic Review...</div>
+      </div>
+    </div>
+    <div class="main">
+      <div class="page-header">
+        <div><div class="page-title">🧠 AI 文献解析</div><div class="page-sub">选择文献、Skill 与模型,一键获取结构化解析</div></div>
+      </div>
+
+      <!-- V2.0.1 升级: 解析配置区 -->
+      <div class="card" style="margin-bottom: 16px;">
+        <div style="display: grid; grid-template-columns: 1fr auto auto auto auto; gap: 12px; align-items: end;">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label">选择文献 <span style="font-size:9px;color:var(--accent);font-weight:600;">V2.0.1 · 支持搜索 + 上传</span></label>
+            <div style="display: flex; gap: 4px;">
+              <input class="form-input" placeholder="🔍 输入标题/作者/DOI 搜索本地文献..." value="Constitutional RL: Scaling Alignment via Self-Generated Constitutions" style="flex:1;">
+              <button class="btn btn-outline btn-sm" title="从本地上传 PDF 文献" style="white-space:nowrap;">📤 上传</button>
+            </div>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label">Skill <span style="font-size:9px;color:var(--accent);font-weight:600;">支持自定义</span></label>
+            <div style="display: flex; gap: 4px;">
+              <select class="form-input" style="width: 160px;">
+                <optgroup label="🔧 内置 Skill">
+                  <option>通用精读</option><option>方法论拆解</option><option>综述分析</option><option>代码复现评估</option><option>跨文献对比</option><option>中文科普改写</option>
+                </optgroup>
+                <optgroup label="✏️ 自定义 Skill">
+                  <option>临床试验解读 (custom)</option><option>专利分析 (custom)</option>
+                </optgroup>
+              </select>
+              <button class="btn btn-outline btn-sm" title="新建/上传/编辑 Skill" style="white-space:nowrap;">⚙️</button>
+            </div>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label">模型</label>
+            <select class="form-input" style="width: 160px;"><option>Claude Opus 4.7 ⭐</option><option>GPT-5</option><option>DeepSeek V3</option><option>Ollama: Llama3</option></select>
+          </div>
+          <button class="btn btn-accent" style="height: 35px;">▶ 开始解析</button>
+        </div>
+        <!-- Skill 管理快捷面板 (V2.0.1 NEW) -->
+        <div style="margin-top: 10px; padding: 10px 12px; background: rgba(212,160,23,0.06); border-left: 3px solid var(--accent); border-radius: 4px; font-size: 11px; color: var(--text-muted); display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <span style="font-weight: 600; color: var(--accent);">✨ Skill 管理 (V2.0.1):</span>
+          <a style="color: var(--primary-light); cursor: pointer; text-decoration: underline;">📤 上传 Skill (.yaml)</a>
+          <a style="color: var(--primary-light); cursor: pointer; text-decoration: underline;">✏️ 在线编辑当前 Skill</a>
+          <a style="color: var(--primary-light); cursor: pointer; text-decoration: underline;">📋 复制并基于此创建新 Skill</a>
+          <a style="color: var(--primary-light); cursor: pointer; text-decoration: underline;">📥 导出当前 Skill</a>
+        </div>
+      </div>
+
+      <!-- 解析结果 -->
+      <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 10px; display: flex; justify-content: space-between;">
+        <span>📄 Constitutional RL · 通用精读 · Claude Opus 4.7 · 解析完成 (68s)</span>
+        <span style="font-family: var(--font-mono);">Token: 12,847 in / 3,421 out · 预估 $0.18</span>
+      </div>
+
+      <div class="parse-panel">
+        <div>
+          <div class="parse-result">
+            <div class="parse-dim">
+              <div class="parse-dim-title">🎯 研究问题</div>
+              <div class="parse-dim-content">现有 RLHF 方法依赖人工编写的宪法准则(constitutional principles),这些准则难以覆盖所有安全场景,且不随模型能力增长自适应。本文提出让模型自行生成宪法准则来进行对齐训练。</div>
+            </div>
+            <div class="parse-dim">
+              <div class="parse-dim-title">🔬 核心方法</div>
+              <div class="parse-dim-content">Constitutional RL 分为三个阶段:(1) 让目标模型基于少量种子原则,生成大量候选宪法准则;(2) 对候选准则进行自我评估与过滤;(3) 用过滤后的准则集替代人工准则,执行标准 RLAIF 流程。</div>
+            </div>
+            <div class="parse-dim">
+              <div class="parse-dim-title">📊 关键结果</div>
+              <div class="parse-dim-content">在 12 个安全性基准上,Constitutional RL 较手工宪法方案提升 34% harmlessness;在 HHH 综合评估上 helpfulness 仅降低 2%。模型自生成的准则比人类编写的准则多 3.7 倍,覆盖更多边缘场景。</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="parse-result">
+            <div class="parse-dim">
+              <div class="parse-dim-title">💡 核心贡献</div>
+              <div class="parse-dim-content">首次证明大模型可以生成高质量宪法准则用于自身对齐,打破了 RLHF 对人工规则工程的依赖。提出了准则质量的自动化评估框架。</div>
+            </div>
+            <div class="parse-dim">
+              <div class="parse-dim-title">⚠️ 局限性</div>
+              <div class="parse-dim-content">自生成准则可能存在「循环偏差」:模型倾向于生成对自身有利的规则。文中使用外部评审模型缓解,但仍需更多理论分析。实验仅在英文数据上验证,跨语言泛化性未知。</div>
+            </div>
+            <div class="parse-dim">
+              <div class="parse-dim-title">🔮 启示</div>
+              <div class="parse-dim-content">这种「自我立法」的对齐范式可能成为 Scaling Alignment 的重要方向。建议后续研究:(1) 多模型交叉生成准则;(2) 将此方法迁移至代码生成安全领域。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ============ Screen 05: 模型配置中心 ============ -->
+<div class="screen-wrap">
+<div class="screen-label">SCREEN 05 · MODEL CONFIG CENTER · 模型配置中心 (V2.0 核心创新)</div>
+<div class="screen" id="s5">
+<div class="desktop-window">
+  <div class="titlebar">
+    <div class="titlebar-dots"><div class="titlebar-dot close"></div><div class="titlebar-dot min"></div><div class="titlebar-dot max"></div></div>
+    <div class="titlebar-title">SGHUB — 模型配置中心</div>
+  </div>
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="sidebar-logo"><h2>SG<span>HUB</span></h2><div class="ver">v2.0.1 · Desktop</div></div>
+      <div class="side-section">
+        <div class="side-title">工作区</div>
+        <div class="side-item">🔍 文献检索</div>
+        <div class="side-item">📰 今日推送</div>
+        <div class="side-item">⭐ 收藏夹</div>
+        <div class="side-item">🧠 AI 解析</div>
+      </div>
+      <div class="side-section">
+        <div class="side-title">设置</div>
+        <div class="side-item active">🤖 模型配置</div>
+        <div class="side-item">⚙️ 偏好设置</div>
+      </div>
+    </div>
+    <div class="main">
+      <div class="page-header">
+        <div>
+          <div class="page-title">🤖 模型配置中心</div>
+          <div class="page-sub">配置你的 AI 模型 · BYOK(Bring Your Own Key)· 支持云端与本地模型</div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-outline btn-sm">🔄 批量测试</button>
+          <button class="btn btn-primary btn-sm">+ 添加模型</button>
+        </div>
+      </div>
+
+      <!-- 用量统计 -->
+      <div class="stat-grid">
+        <div class="stat-box"><div class="stat-val">4</div><div class="stat-label">已配置模型</div></div>
+        <div class="stat-box"><div class="stat-val">127</div><div class="stat-label">本月调用次数</div></div>
+        <div class="stat-box"><div class="stat-val" style="font-size: 18px;">523K / 189K</div><div class="stat-label">Token (In / Out)</div></div>
+        <div class="stat-box"><div class="stat-val">$14.32</div><div class="stat-label">预估成本(本月)</div></div>
+      </div>
+
+      <!-- 模型列表 -->
+      <div class="model-card">
+        <div class="model-icon claude">C</div>
+        <div>
+          <div class="model-name">Claude Opus 4.7</div>
+          <div class="model-detail">api.anthropic.com/v1 · claude-opus-4-7-20260301 · max 200K</div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+          <span class="model-status default-tag">⭐ 默认</span>
+          <span class="model-status ok">✅ 可用 · 延迟 320ms</span>
+          <div style="display: flex; gap: 4px;"><button class="btn btn-outline btn-sm">编辑</button><button class="btn btn-outline btn-sm">测试</button></div>
+        </div>
+      </div>
+
+      <div class="model-card">
+        <div class="model-icon gpt">G</div>
+        <div>
+          <div class="model-name">GPT-5</div>
+          <div class="model-detail">api.openai.com/v1 · gpt-5 · max 128K</div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+          <span class="model-status ok">✅ 可用 · 延迟 450ms</span>
+          <div style="display: flex; gap: 4px;"><button class="btn btn-outline btn-sm">编辑</button><button class="btn btn-outline btn-sm">设为默认</button></div>
+        </div>
+      </div>
+
+      <div class="model-card">
+        <div class="model-icon deepseek">D</div>
+        <div>
+          <div class="model-name">DeepSeek V3</div>
+          <div class="model-detail">api.deepseek.com/v1 · deepseek-chat · max 64K</div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+          <span class="model-status ok">✅ 可用 · 延迟 280ms</span>
+          <div style="display: flex; gap: 4px;"><button class="btn btn-outline btn-sm">编辑</button><button class="btn btn-outline btn-sm">设为默认</button></div>
+        </div>
+      </div>
+
+      <div class="model-card">
+        <div class="model-icon ollama">🏠</div>
+        <div>
+          <div class="model-name">Ollama · Llama 3.3 70B</div>
+          <div class="model-detail">localhost:11434 · llama3.3:70b · 本地运行 · 无需 Key</div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+          <span class="model-status err">❌ 离线 · Ollama 未运行</span>
+          <div style="display: flex; gap: 4px;"><button class="btn btn-outline btn-sm">编辑</button><button class="btn btn-outline btn-sm">重试</button></div>
+        </div>
+      </div>
+
+      <!-- 添加新模型表单(展示) -->
+      <div class="card" style="margin-top: 16px; border: 1px dashed var(--accent);">
+        <div style="font-family: var(--font-serif); font-size: 14px; font-weight: 700; color: var(--primary); margin-bottom: 14px;">➕ 添加自定义模型</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group"><label class="form-label">模型名称</label><input class="form-input" placeholder="例:Azure GPT-4o"></div>
+          <div class="form-group"><label class="form-label">Provider</label>
+            <select class="form-input"><option>OpenAI 兼容 API</option><option>Anthropic API</option><option>Ollama (本地)</option></select>
+          </div>
+          <div class="form-group"><label class="form-label">API Endpoint</label><input class="form-input" placeholder="https://your-endpoint.com/v1" style="font-family: var(--font-mono);"></div>
+          <div class="form-group"><label class="form-label">Model ID</label><input class="form-input" placeholder="gpt-4o" style="font-family: var(--font-mono);"></div>
+          <div class="form-group"><label class="form-label">API Key</label><input class="form-input" type="password" placeholder="sk-xxxx..."><div style="font-size: 9px; color: var(--text-muted); margin-top: 2px;">🔒 Keychain 加密存储</div></div>
+          <div class="form-group"><label class="form-label">最大 Token</label><input class="form-input" placeholder="128000" style="font-family: var(--font-mono);"></div>
+        </div>
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          <button class="btn btn-primary">保存模型</button>
+          <button class="btn btn-outline">测试连接</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ============ Screen 06: 设置 ============ -->
+<div class="screen-wrap">
+<div class="screen-label">SCREEN 06 · SETTINGS · 偏好设置</div>
+<div class="screen" id="s6">
+<div class="desktop-window">
+  <div class="titlebar">
+    <div class="titlebar-dots"><div class="titlebar-dot close"></div><div class="titlebar-dot min"></div><div class="titlebar-dot max"></div></div>
+    <div class="titlebar-title">SGHUB — 偏好设置</div>
+  </div>
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="sidebar-logo"><h2>SG<span>HUB</span></h2><div class="ver">v2.0.1 · Desktop</div></div>
+      <div class="side-section">
+        <div class="side-title">工作区</div>
+        <div class="side-item">🔍 文献检索</div>
+        <div class="side-item">📰 今日推送</div>
+        <div class="side-item">⭐ 收藏夹</div>
+        <div class="side-item">🧠 AI 解析</div>
+      </div>
+      <div class="side-section">
+        <div class="side-title">设置</div>
+        <div class="side-item">🤖 模型配置</div>
+        <div class="side-item active">⚙️ 偏好设置</div>
+      </div>
+    </div>
+    <div class="main">
+      <div class="page-header">
+        <div><div class="page-title">⚙️ 偏好设置</div><div class="page-sub">个性化你的 SGHUB 使用体验</div></div>
+        <button class="btn btn-primary btn-sm">保存设置</button>
+      </div>
+
+      <!-- 通用 -->
+      <div class="card">
+        <div class="card-title">🌐 通用</div>
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; margin-top: 12px;">
+          <div><div style="font-size: 12px; font-weight: 500;">界面语言</div><div style="font-size: 10px; color: var(--text-muted);">切换后需重启</div></div>
+          <select class="form-input" style="width: 120px;"><option>简体中文</option><option>English</option></select>
+          <div><div style="font-size: 12px; font-weight: 500;">主题</div><div style="font-size: 10px; color: var(--text-muted);">亮色、暗色或跟随系统</div></div>
+          <select class="form-input" style="width: 120px;"><option>亮色</option><option>暗色</option><option>跟随系统</option></select>
+          <div><div style="font-size: 12px; font-weight: 500;">开机自启动</div></div>
+          <label class="switch"><input type="checkbox" checked><span class="slider-sw"></span></label>
+          <div><div style="font-size: 12px; font-weight: 500;">最小化到系统托盘</div></div>
+          <label class="switch"><input type="checkbox" checked><span class="slider-sw"></span></label>
+        </div>
+      </div>
+
+      <!-- 推送 -->
+      <div class="card">
+        <div class="card-title">🔔 推送与订阅</div>
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; margin-top: 12px;">
+          <div><div style="font-size: 12px; font-weight: 500;">每日检索时间</div><div style="font-size: 10px; color: var(--text-muted);">后台自动抓取新文献</div></div>
+          <select class="form-input" style="width: 80px;"><option>06:00</option><option>07:00</option><option selected>08:00</option><option>09:00</option><option>12:00</option></select>
+          <div><div style="font-size: 12px; font-weight: 500;">桌面通知</div><div style="font-size: 10px; color: var(--text-muted);">有新文献时弹出系统通知</div></div>
+          <label class="switch"><input type="checkbox" checked><span class="slider-sw"></span></label>
+          <div><div style="font-size: 12px; font-weight: 500;">推送上限</div><div style="font-size: 10px; color: var(--text-muted);">每次推送最多展示文献数</div></div>
+          <select class="form-input" style="width: 80px;"><option>10</option><option selected>20</option><option>50</option><option>100</option></select>
+        </div>
+      </div>
+
+      <!-- 网络 -->
+      <div class="card">
+        <div class="card-title">🌍 网络</div>
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; margin-top: 12px;">
+          <div><div style="font-size: 12px; font-weight: 500;">使用代理</div><div style="font-size: 10px; color: var(--text-muted);">通过代理访问文献数据源与 AI API</div></div>
+          <label class="switch"><input type="checkbox"><span class="slider-sw"></span></label>
+          <div><div style="font-size: 12px; font-weight: 500;">代理地址</div></div>
+          <input class="form-input" style="width: 220px; font-family: var(--font-mono);" placeholder="http://127.0.0.1:7890" disabled>
+        </div>
+      </div>
+
+      <!-- 数据 -->
+      <div class="card">
+        <div class="card-title">💾 数据管理</div>
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; margin-top: 12px;">
+          <div><div style="font-size: 12px; font-weight: 500;">数据目录</div><div style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">~/.sghub/ · 本地数据 1.2 GB</div></div>
+          <button class="btn btn-outline btn-sm">打开目录</button>
+          <div><div style="font-size: 12px; font-weight: 500;">自动备份</div><div style="font-size: 10px; color: var(--text-muted);">每周自动备份至指定路径</div></div>
+          <label class="switch"><input type="checkbox"><span class="slider-sw"></span></label>
+          <div><div style="font-size: 12px; font-weight: 500;">导出全部数据</div></div>
+          <button class="btn btn-outline btn-sm">📤 导出 .sghub-backup.zip</button>
+          <div><div style="font-size: 12px; font-weight: 500;">从备份恢复</div></div>
+          <button class="btn btn-outline btn-sm">📥 导入备份</button>
+          <div><div style="font-size: 12px; font-weight: 500;">从 Zotero 导入</div><div style="font-size: 10px; color: var(--text-muted);">支持 Zotero SQLite 或 RDF/XML</div></div>
+          <button class="btn btn-outline btn-sm">📥 导入 Zotero</button>
+        </div>
+      </div>
+
+      <!-- 隐私与更新 -->
+      <div class="card">
+        <div class="card-title">🔒 隐私与更新</div>
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center; margin-top: 12px;">
+          <div><div style="font-size: 12px; font-weight: 500;">匿名遥测</div><div style="font-size: 10px; color: var(--text-muted);">仅收集版本与功能使用频率,不含文献内容</div></div>
+          <label class="switch"><input type="checkbox"><span class="slider-sw"></span></label>
+          <div><div style="font-size: 12px; font-weight: 500;">自动检查更新</div><div style="font-size: 10px; color: var(--text-muted);">通过 GitHub Releases 检查</div></div>
+          <label class="switch"><input type="checkbox" checked><span class="slider-sw"></span></label>
+          <div><div style="font-size: 12px; font-weight: 500;">当前版本</div></div>
+          <span style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">v2.0.1 · MIT License</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- ============ Screen 07: Chat 对话界面 (V2.0.1 NEW) ============ -->
+<style>
+/* Chat 专属样式 */
+.chat-app-body { display: flex; min-height: 640px; max-height: 720px; }
+.chat-sidebar { width: 240px; background: #FAF8F2; border-right: 1px solid var(--border); padding: 12px; flex-shrink: 0; display: flex; flex-direction: column; }
+.chat-new-btn { width: 100%; padding: 10px; background: var(--primary); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; margin-bottom: 14px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.chat-new-btn:hover { background: var(--primary-light); }
+.chat-section-title { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; padding: 8px 6px 4px; }
+.chat-list { flex: 1; overflow-y: auto; }
+.chat-item { padding: 8px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; margin-bottom: 2px; color: var(--text); }
+.chat-item:hover { background: rgba(0,0,0,0.04); }
+.chat-item.active { background: rgba(31,56,100,0.08); color: var(--primary); font-weight: 600; }
+.chat-item .chat-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-item .chat-time { font-size: 9px; color: var(--text-light); margin-top: 2px; font-family: var(--font-mono); }
+
+.chat-main { flex: 1; display: flex; flex-direction: column; background: #fff; }
+.chat-header { padding: 14px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.chat-header-title { font-family: var(--font-serif); font-size: 16px; font-weight: 700; color: var(--primary); }
+.chat-header-actions { display: flex; gap: 6px; }
+
+.chat-messages { flex: 1; overflow-y: auto; padding: 24px; max-width: 760px; margin: 0 auto; width: 100%; }
+.chat-msg { margin-bottom: 24px; display: flex; gap: 14px; }
+.chat-msg-avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+.chat-msg-avatar.user { background: var(--primary); color: #fff; }
+.chat-msg-avatar.ai { background: linear-gradient(135deg, #D4A017, #B8860B); color: #fff; }
+.chat-msg-body { flex: 1; min-width: 0; }
+.chat-msg-name { font-weight: 600; font-size: 12px; margin-bottom: 4px; color: var(--text); }
+.chat-msg-content { font-size: 14px; line-height: 1.7; color: var(--text); }
+.chat-msg-content code { background: rgba(0,0,0,0.06); padding: 1px 5px; border-radius: 3px; font-family: var(--font-mono); font-size: 12px; }
+.chat-msg-content pre { background: #1A1F2E; color: #D4D4D4; padding: 12px 14px; border-radius: 6px; font-family: var(--font-mono); font-size: 12px; overflow-x: auto; margin: 8px 0; }
+.chat-msg-content blockquote { border-left: 3px solid var(--accent); padding-left: 10px; margin: 8px 0; color: var(--text-muted); font-style: italic; }
+.chat-msg-content ul { padding-left: 20px; margin: 6px 0; }
+.chat-msg-actions { display: flex; gap: 8px; margin-top: 6px; opacity: 0.6; }
+.chat-msg-actions span { font-size: 11px; color: var(--text-muted); cursor: pointer; }
+.chat-msg-actions span:hover { color: var(--primary); }
+
+.chat-input-area { border-top: 1px solid var(--border); padding: 14px 24px; max-width: 800px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+
+/* 附件芯片 */
+.chat-chips { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+.chat-chip { background: rgba(31,56,100,0.06); border: 1px solid var(--border); border-radius: 14px; padding: 4px 10px; font-size: 11px; display: inline-flex; align-items: center; gap: 5px; }
+.chat-chip-icon { font-size: 12px; }
+.chat-chip-name { color: var(--text); font-weight: 500; }
+.chat-chip-x { color: var(--text-muted); cursor: pointer; font-size: 10px; padding: 0 2px; }
+.chat-chip-x:hover { color: var(--danger); }
+.chat-chip.skill { background: rgba(212,160,23,0.1); border-color: var(--accent); }
+
+.chat-input-box { border: 1.5px solid var(--border); border-radius: 12px; padding: 10px 12px; background: #FFF; transition: border 0.15s; }
+.chat-input-box:focus-within { border-color: var(--primary-light); box-shadow: 0 0 0 3px rgba(45,90,160,0.08); }
+.chat-input-textarea { width: 100%; border: none; outline: none; resize: none; font-family: var(--font-sans); font-size: 14px; line-height: 1.5; min-height: 44px; max-height: 200px; }
+.chat-input-toolbar { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+.chat-input-toolbar-left { display: flex; gap: 4px; align-items: center; }
+.chat-input-toolbar-right { display: flex; gap: 8px; align-items: center; }
+
+.chat-tool-btn { width: 32px; height: 32px; border-radius: 6px; border: none; background: transparent; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); transition: 0.15s; position: relative; }
+.chat-tool-btn:hover { background: rgba(0,0,0,0.05); color: var(--primary); }
+
+.chat-attach-menu { position: absolute; bottom: 38px; left: 0; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.12); padding: 6px; min-width: 200px; z-index: 10; }
+.chat-attach-item { padding: 8px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+.chat-attach-item:hover { background: rgba(0,0,0,0.04); }
+.chat-attach-item-icon { font-size: 14px; }
+
+.chat-model-selector { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: #FFF; cursor: pointer; font-size: 11px; transition: 0.15s; }
+.chat-model-selector:hover { border-color: var(--primary-light); background: #FAFAFA; }
+.chat-model-icon { width: 16px; height: 16px; border-radius: 3px; background: #D4A574; color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; }
+.chat-model-name { font-weight: 600; color: var(--primary); }
+.chat-model-chevron { color: var(--text-muted); font-size: 10px; }
+
+.chat-model-dropdown { position: absolute; bottom: 38px; right: 0; background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.12); padding: 6px; min-width: 240px; z-index: 10; }
+.chat-model-item { padding: 8px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.chat-model-item:hover { background: rgba(0,0,0,0.04); }
+.chat-model-item.active { background: rgba(31,56,100,0.06); }
+.chat-model-item.disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-model-status { font-size: 10px; margin-left: auto; }
+.chat-model-status.ok { color: var(--success); }
+.chat-model-status.err { color: var(--danger); }
+
+.chat-send-btn { width: 36px; height: 36px; border-radius: 8px; background: var(--primary); color: #fff; border: none; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: 0.15s; }
+.chat-send-btn:hover { background: var(--primary-light); }
+.chat-send-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+.chat-empty-state { text-align: center; padding: 80px 24px; }
+.chat-empty-title { font-family: var(--font-serif); font-size: 24px; color: var(--primary); margin-bottom: 8px; }
+.chat-empty-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 32px; }
+.chat-suggestion-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 540px; margin: 0 auto; }
+.chat-suggestion { padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; text-align: left; transition: 0.15s; }
+.chat-suggestion:hover { border-color: var(--primary-light); box-shadow: 0 2px 8px rgba(31,56,100,0.06); }
+.chat-suggestion-title { font-size: 12px; font-weight: 600; color: var(--primary); margin-bottom: 2px; }
+.chat-suggestion-desc { font-size: 11px; color: var(--text-muted); }
+</style>
+
+<div class="screen-wrap">
+<div class="screen-label">SCREEN 07 · CHAT · 自由对话界面 (V2.0.1 NEW · 参考 Claude.ai 风格)</div>
+<div class="screen" id="s7">
+<div class="desktop-window">
+  <div class="titlebar">
+    <div class="titlebar-dots"><div class="titlebar-dot close"></div><div class="titlebar-dot min"></div><div class="titlebar-dot max"></div></div>
+    <div class="titlebar-title">SGHUB — Chat</div>
+  </div>
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="sidebar-logo"><h2>SG<span>HUB</span></h2><div class="ver">v2.0.1 · Desktop</div></div>
+      <div class="side-section">
+        <div class="side-title">工作区</div>
+        <div class="side-item">🔍 文献检索</div>
+        <div class="side-item">📰 今日推送</div>
+        <div class="side-item">⭐ 收藏夹</div>
+        <div class="side-item">🧠 AI 解析</div>
+        <div class="side-item active" style="background: rgba(212,160,23,0.15); color: var(--accent); border-left-color: var(--accent);">💬 Chat <span style="background:#D4A017;color:#1F3864;padding:1px 6px;border-radius:8px;font-size:8px;font-weight:700;margin-left:auto;">NEW</span></div>
+      </div>
+      <div class="side-section">
+        <div class="side-title">设置</div>
+        <div class="side-item">🤖 模型配置</div>
+        <div class="side-item">⚙️ 偏好设置</div>
+      </div>
+    </div>
+
+    <!-- 主体: Chat 对话界面 -->
+    <div class="main" style="padding: 0; max-height: none;">
+      <div class="chat-app-body">
+
+        <!-- Chat 左栏: 会话列表 -->
+        <div class="chat-sidebar">
+          <button class="chat-new-btn">✨ 新建对话</button>
+
+          <div class="chat-section-title">📌 置顶</div>
+          <div class="chat-list">
+            <div class="chat-item">
+              <div class="chat-title">📌 综述写作助手</div>
+              <div class="chat-time">2 小时前 · 18 条消息</div>
+            </div>
+          </div>
+
+          <div class="chat-section-title">最近</div>
+          <div class="chat-list">
+            <div class="chat-item active">
+              <div class="chat-title">RLHF 与 Constitutional AI 比较</div>
+              <div class="chat-time">刚刚 · 6 条消息</div>
+            </div>
+            <div class="chat-item">
+              <div class="chat-title">Diffusion Model 数学推导讨论</div>
+              <div class="chat-time">昨天 · 24 条消息</div>
+            </div>
+            <div class="chat-item">
+              <div class="chat-title">实验设计方法论咨询</div>
+              <div class="chat-time">前天 · 12 条消息</div>
+            </div>
+            <div class="chat-item">
+              <div class="chat-title">Mamba 架构对比 Transformer</div>
+              <div class="chat-time">3 天前 · 8 条消息</div>
+            </div>
+            <div class="chat-item">
+              <div class="chat-title">读后感:Anthropic 可解释性</div>
+              <div class="chat-time">5 天前 · 15 条消息</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat 主区 -->
+        <div class="chat-main">
+          <div class="chat-header">
+            <div class="chat-header-title">💬 RLHF 与 Constitutional AI 比较</div>
+            <div class="chat-header-actions">
+              <button class="btn btn-outline btn-sm">📤 导出 Markdown</button>
+              <button class="btn btn-outline btn-sm">🗑️ 清空历史</button>
+            </div>
+          </div>
+
+          <div class="chat-messages">
+
+            <!-- 用户消息 -->
+            <div class="chat-msg">
+              <div class="chat-msg-avatar user">ZM</div>
+              <div class="chat-msg-body">
+                <div class="chat-msg-name">你</div>
+                <div class="chat-msg-content">帮我梳理一下 RLHF 和 Constitutional AI 这两种对齐方法的核心差异。我刚读了几篇相关论文,想搞清楚它们的取舍。</div>
+              </div>
+            </div>
+
+            <!-- AI 消息 -->
+            <div class="chat-msg">
+              <div class="chat-msg-avatar ai">C</div>
+              <div class="chat-msg-body">
+                <div class="chat-msg-name">Claude Opus 4.7</div>
+                <div class="chat-msg-content">
+                  这是一个很有深度的对比问题。让我从几个关键维度来梳理它们的差异:
+
+                  <h4 style="font-family: var(--font-serif); color: var(--primary); margin: 12px 0 6px;">1. 监督信号来源</h4>
+                  <ul>
+                    <li><strong>RLHF</strong>: 完全依赖<code>人类标注者</code>对模型输出进行偏好排序,通过对比学习训练奖励模型</li>
+                    <li><strong>Constitutional AI</strong>: 用一组<code>预定义的宪法准则</code>(如"不应输出有害内容")让模型自我评估和修正</li>
+                  </ul>
+
+                  <h4 style="font-family: var(--font-serif); color: var(--primary); margin: 12px 0 6px;">2. 可扩展性差异</h4>
+                  <p>RLHF 的瓶颈在于人类标注成本随训练数据线性增长。CAI 通过 AI 反馈替代部分人类反馈(RLAIF),理论上可扩展性更好。但代价是对宪法准则质量的强依赖。</p>
+
+                  <blockquote>有意思的是,最新的 Constitutional RL(2026 arXiv)进一步让模型自己生成宪法准则,把"准则编写"这件事也自动化了。</blockquote>
+
+                  <h4 style="font-family: var(--font-serif); color: var(--primary); margin: 12px 0 6px;">3. 实践中的取舍</h4>
+                  <p>如果你正在做综述,我建议从 <strong>Bai et al. 2022 (CAI 原论文)</strong> 和 <strong>Christiano et al. 2017 (RLHF 奠基)</strong> 入手。要不要我帮你列一个推荐阅读清单?</p>
+                </div>
+                <div class="chat-msg-actions">
+                  <span>📋 复制</span>
+                  <span>🔄 重新生成</span>
+                  <span>👍 有用</span>
+                  <span>👎 反馈</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 用户消息(含附件) -->
+            <div class="chat-msg">
+              <div class="chat-msg-avatar user">ZM</div>
+              <div class="chat-msg-body">
+                <div class="chat-msg-name">你</div>
+                <div class="chat-msg-content">
+                  <div style="background: rgba(31,56,100,0.05); border: 1px solid var(--border); border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 6px;">
+                    📄 <strong>Bai_2022_Constitutional_AI.pdf</strong> · 已解析 (24 页)
+                  </div>
+                  <div>对,要清单。另外帮我看看这篇 Bai 2022 原论文,他们的「自我评估提示词」具体长什么样?</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI 消息(流式中) -->
+            <div class="chat-msg">
+              <div class="chat-msg-avatar ai">C</div>
+              <div class="chat-msg-body">
+                <div class="chat-msg-name">Claude Opus 4.7 <span style="font-size: 10px; color: var(--accent); margin-left: 8px;">⚡ 流式输出中...</span></div>
+                <div class="chat-msg-content">好,我来分别处理。
+
+                  关于 Bai 2022 的自我评估提示词,论文 Appendix A 给出了 16 条核心准则,模板形式大致是:
+
+                  <pre>Critique: Identify specific ways in which the assistant's
+last response is harmful, unethical, racist, sexist, toxic,
+dangerous, or illegal.
+
+Revision: Please rewrite the assistant response to remove
+any and all harmful content...</pre>
+
+                  <span style="opacity: 0.5;">这种 "critique-then-revise" 的双轮提示是 CAI 的核心技</span><span style="display: inline-block; width: 6px; height: 14px; background: var(--accent); animation: blink 0.8s infinite;"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chat 输入区 -->
+          <div class="chat-input-area">
+            <!-- 已添加的附件/Skill 芯片 -->
+            <div class="chat-chips">
+              <div class="chat-chip">
+                <span class="chat-chip-icon">📄</span>
+                <span class="chat-chip-name">Bai_2022_Constitutional_AI.pdf</span>
+                <span class="chat-chip-x">✕</span>
+              </div>
+              <div class="chat-chip skill">
+                <span class="chat-chip-icon">✨</span>
+                <span class="chat-chip-name">Skill: 综述分析</span>
+                <span class="chat-chip-x">✕</span>
+              </div>
+            </div>
+
+            <div class="chat-input-box">
+              <textarea class="chat-input-textarea" placeholder="向 Claude 提问... (Shift+Enter 换行,Enter 发送)" rows="2"></textarea>
+              <div class="chat-input-toolbar">
+                <div class="chat-input-toolbar-left">
+                  <button class="chat-tool-btn" title="附件 / Skill / 文献">+</button>
+                  <button class="chat-tool-btn" title="清除附件" style="font-size: 13px;">🗂️</button>
+                  <span style="font-size: 10px; color: var(--text-muted); margin-left: 8px;">已添加 1 附件 + 1 Skill</span>
+                </div>
+                <div class="chat-input-toolbar-right">
+                  <!-- 模型选择器(右下角) -->
+                  <div class="chat-model-selector" title="点击切换模型">
+                    <div class="chat-model-icon">C</div>
+                    <span class="chat-model-name">Claude Opus 4.7</span>
+                    <span class="chat-model-chevron">▾</span>
+                  </div>
+                  <button class="chat-send-btn" title="发送 (Enter)">↑</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 提示模型源自模型配置中心 -->
+            <div style="font-size: 10px; color: var(--text-light); text-align: center; margin-top: 6px;">
+              💡 模型来自<a style="color: var(--primary-light); cursor: pointer;">模型配置中心</a> · 可随时切换 · 当前对话 Token 消耗: 4,287 in / 1,623 out
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<!-- 模拟附件菜单(参考用,非默认显示) -->
+<div style="display:none;">
+  <div class="chat-attach-menu">
+    <div class="chat-attach-item"><span class="chat-attach-item-icon">📄</span> 上传附件 (PDF/DOCX/图片)</div>
+    <div class="chat-attach-item"><span class="chat-attach-item-icon">⭐</span> 引用收藏夹中的文献</div>
+    <div class="chat-attach-item"><span class="chat-attach-item-icon">✨</span> 选择 Skill (引导对话方向)</div>
+    <div class="chat-attach-item"><span class="chat-attach-item-icon">🔗</span> 粘贴 URL (网页内容抓取)</div>
+  </div>
+</div>
+
+<style>
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+</style>
+
+<script>
+document.querySelectorAll('.proto-nav .tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.proto-nav .tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.screen').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById(t.dataset.tgt).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
+function switchScreen(id) {
+  document.querySelectorAll('.proto-nav .tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.screen').forEach(x => x.classList.remove('active'));
+  const tab = document.querySelector('.proto-nav .tab[data-tgt="' + id + '"]');
+  if (tab) tab.classList.add('active');
+  const s = document.getElementById(id);
+  if (s) s.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>

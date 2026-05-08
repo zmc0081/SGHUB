@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SGHUB V2.0.1 · 技术架构图集 · Desktop Client</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+:root { --primary:#1F3864; --accent:#D4A017; --bg:#F8F6F1; --surface:#fff; --border:#E2DDD4; --text:#2C2C2C; --muted:#7F7F7F; }
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Sans SC',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;}
+.header{background:linear-gradient(135deg,#1F3864,#15264a);color:#fff;padding:40px;text-align:center;}
+.header h1{font-family:'Noto Serif SC',serif;font-size:28px;letter-spacing:2px;}
+.header .sub{font-size:12px;color:rgba(255,255,255,0.6);margin-top:6px;font-family:'JetBrains Mono',monospace;}
+.nav{display:flex;gap:0;background:#1a1a2e;padding:0 20px;position:sticky;top:0;z-index:100;overflow-x:auto;}
+.nav .tab{padding:14px 20px;color:#888;font-size:12px;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:0.2s;font-family:'JetBrains Mono',monospace;}
+.nav .tab:hover{color:#ccc;}
+.nav .tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.fig-wrap{max-width:1100px;margin:30px auto;padding:0 20px;display:none;}
+.fig-wrap.active{display:block;}
+.fig-title{font-family:'Noto Serif SC',serif;font-size:20px;color:var(--primary);margin-bottom:4px;}
+.fig-sub{font-size:12px;color:var(--muted);margin-bottom:16px;}
+.svg-container{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,0.04);overflow-x:auto;}
+.svg-container svg{display:block;margin:0 auto;}
+.fig-note{font-size:11px;color:var(--muted);font-style:italic;margin-top:12px;padding:8px 12px;background:rgba(31,56,100,0.03);border-left:3px solid var(--accent);border-radius:0 4px 4px 0;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>SGHUB · 技术架构图集 V2.0.1</h1>
+  <div class="sub">Desktop Client · Tauri 2 + React + SQLite · 5 Figures</div>
+</div>
+
+<div class="nav">
+  <div class="tab active" data-fig="f1">FIG-01 · 整体架构</div>
+  <div class="tab" data-fig="f2">FIG-02 · 核心数据流</div>
+  <div class="tab" data-fig="f3">FIG-03 · AI 客户端</div>
+  <div class="tab" data-fig="f4">FIG-04 · 数据模型 ER</div>
+  <div class="tab" data-fig="f5">FIG-05 · Chat 流程 <span style="background:#D4A017;color:#1F3864;padding:1px 5px;border-radius:2px;font-size:9px;margin-left:3px;font-weight:700;">V2.0.1 NEW</span></div>
+</div>
+
+<!-- FIG-01: 整体分层架构 -->
+<div class="fig-wrap active" id="f1">
+<div class="fig-title">FIG-01 · SGHUB V2.0.1 整体分层架构</div>
+<div class="fig-sub">三层架构:UI Layer (WebView) → Core Layer (Rust) → OS Layer · 全部运行在用户本地</div>
+<div class="svg-container">
+<svg viewBox="0 0 900 520" xmlns="http://www.w3.org/2000/svg" font-family="'Noto Sans SC',sans-serif">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#1F3864"/><stop offset="100%" stop-color="#2D5AA0"/></linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#8B6914"/><stop offset="100%" stop-color="#D4A017"/></linearGradient>
+    <linearGradient id="g3" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#2E7D5B"/><stop offset="100%" stop-color="#4A9C6E"/></linearGradient>
+    <filter id="shadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.1"/></filter>
+  </defs>
+
+  <!-- 用户电脑外框 -->
+  <rect x="20" y="10" width="860" height="500" rx="12" fill="none" stroke="#1F3864" stroke-width="2" stroke-dasharray="8,4"/>
+  <text x="450" y="32" text-anchor="middle" font-size="11" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">用户本地电脑 (Windows / macOS)</text>
+
+  <!-- Layer 1: UI -->
+  <rect x="50" y="50" width="800" height="110" rx="8" fill="url(#g1)" filter="url(#shadow)"/>
+  <text x="80" y="75" font-size="13" fill="#D4A017" font-weight="700">UI 层 · Renderer Process</text>
+  <text x="80" y="93" font-size="10" fill="rgba(255,255,255,0.7)">WebView2 (Windows) / WKWebView (macOS)</text>
+
+  <g transform="translate(80,105)">
+    <rect width="100" height="40" rx="4" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+    <text x="50" y="17" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">React 18</text>
+    <text x="50" y="31" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.6)">TypeScript + Vite</text>
+  </g>
+  <g transform="translate(200,105)">
+    <rect width="100" height="40" rx="4" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+    <text x="50" y="17" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">TailwindCSS</text>
+    <text x="50" y="31" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.6)">亮色 / 暗色主题</text>
+  </g>
+  <g transform="translate(320,105)">
+    <rect width="100" height="40" rx="4" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+    <text x="50" y="17" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">Zustand</text>
+    <text x="50" y="31" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.6)">状态管理</text>
+  </g>
+  <g transform="translate(440,105)">
+    <rect width="100" height="40" rx="4" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+    <text x="50" y="17" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">pdf.js</text>
+    <text x="50" y="31" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.6)">PDF 阅读器</text>
+  </g>
+  <g transform="translate(560,105)">
+    <rect width="100" height="40" rx="4" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+    <text x="50" y="17" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">react-i18next</text>
+    <text x="50" y="31" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.6)">中 / 英多语言</text>
+  </g>
+  <g transform="translate(680,105)">
+    <rect width="100" height="40" rx="4" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+    <text x="50" y="17" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">specta</text>
+    <text x="50" y="31" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.6)">IPC 类型生成</text>
+  </g>
+
+  <!-- IPC 箭头 -->
+  <line x1="450" y1="162" x2="450" y2="190" stroke="#D4A017" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="470" y="180" font-size="9" fill="#D4A017" font-family="'JetBrains Mono',monospace">Tauri IPC (invoke + events)</text>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#D4A017"/></marker></defs>
+
+  <!-- Layer 2: Core -->
+  <rect x="50" y="192" width="800" height="170" rx="8" fill="url(#g2)" filter="url(#shadow)"/>
+  <text x="80" y="217" font-size="13" fill="#1F3864" font-weight="700">Core 层 · Rust Backend (Tauri 2 Main Process)</text>
+  <text x="80" y="233" font-size="10" fill="rgba(0,0,0,0.5)">tokio 异步运行时 · 单进程多模块</text>
+
+  <g transform="translate(70,245)">
+    <rect width="105" height="50" rx="4" fill="rgba(255,255,255,0.8)" stroke="#1F3864" stroke-width="1"/>
+    <text x="52" y="20" text-anchor="middle" font-size="10" fill="#1F3864" font-weight="600">search</text>
+    <text x="52" y="34" text-anchor="middle" font-size="8" fill="#7F7F7F">多源并发检索</text>
+    <text x="52" y="44" text-anchor="middle" font-size="7" fill="#999">reqwest + tokio</text>
+  </g>
+  <g transform="translate(185,245)">
+    <rect width="105" height="50" rx="4" fill="rgba(255,255,255,0.8)" stroke="#1F3864" stroke-width="1"/>
+    <text x="52" y="20" text-anchor="middle" font-size="10" fill="#1F3864" font-weight="600">library</text>
+    <text x="52" y="34" text-anchor="middle" font-size="8" fill="#7F7F7F">收藏夹 / 标签</text>
+    <text x="52" y="44" text-anchor="middle" font-size="7" fill="#999">文件夹树 + PDF</text>
+  </g>
+  <g transform="translate(300,245)">
+    <rect width="105" height="50" rx="4" fill="rgba(255,255,255,0.8)" stroke="#1F3864" stroke-width="1"/>
+    <text x="52" y="20" text-anchor="middle" font-size="10" fill="#1F3864" font-weight="600">ai_client</text>
+    <text x="52" y="34" text-anchor="middle" font-size="8" fill="#7F7F7F">统一 AI 接口</text>
+    <text x="52" y="44" text-anchor="middle" font-size="7" fill="#999">OpenAI/Claude/Ollama</text>
+  </g>
+  <g transform="translate(415,245)">
+    <rect width="105" height="50" rx="4" fill="rgba(255,255,255,0.8)" stroke="#1F3864" stroke-width="1"/>
+    <text x="52" y="20" text-anchor="middle" font-size="10" fill="#1F3864" font-weight="600">skill_engine</text>
+    <text x="52" y="34" text-anchor="middle" font-size="8" fill="#7F7F7F">Skill 模板渲染</text>
+    <text x="52" y="44" text-anchor="middle" font-size="7" fill="#999">内置 + YAML 自定义</text>
+  </g>
+  <g transform="translate(530,245)">
+    <rect width="105" height="50" rx="4" fill="rgba(255,255,255,0.8)" stroke="#1F3864" stroke-width="1"/>
+    <text x="52" y="20" text-anchor="middle" font-size="10" fill="#1F3864" font-weight="600">scheduler</text>
+    <text x="52" y="34" text-anchor="middle" font-size="8" fill="#7F7F7F">定时任务</text>
+    <text x="52" y="44" text-anchor="middle" font-size="7" fill="#999">tokio-cron</text>
+  </g>
+  <g transform="translate(645,245)">
+    <rect width="105" height="50" rx="4" fill="rgba(255,255,255,0.8)" stroke="#1F3864" stroke-width="1"/>
+    <text x="52" y="20" text-anchor="middle" font-size="10" fill="#1F3864" font-weight="600">db</text>
+    <text x="52" y="34" text-anchor="middle" font-size="8" fill="#7F7F7F">SQLite + FTS5</text>
+    <text x="52" y="44" text-anchor="middle" font-size="7" fill="#999">rusqlite + r2d2</text>
+  </g>
+  <g transform="translate(760,245)">
+    <rect width="80" height="50" rx="4" fill="rgba(255,255,255,0.8)" stroke="#1F3864" stroke-width="1"/>
+    <text x="40" y="20" text-anchor="middle" font-size="10" fill="#1F3864" font-weight="600">config</text>
+    <text x="40" y="34" text-anchor="middle" font-size="8" fill="#7F7F7F">TOML</text>
+    <text x="40" y="44" text-anchor="middle" font-size="7" fill="#999">toml-rs</text>
+  </g>
+
+  <!-- Core second row -->
+  <g transform="translate(70,305)">
+    <rect width="105" height="40" rx="4" fill="rgba(255,255,255,0.6)" stroke="#8B6914" stroke-width="1"/>
+    <text x="52" y="17" text-anchor="middle" font-size="10" fill="#8B6914" font-weight="600">keychain</text>
+    <text x="52" y="31" text-anchor="middle" font-size="8" fill="#7F7F7F">keyring-rs</text>
+  </g>
+  <g transform="translate(185,305)">
+    <rect width="105" height="40" rx="4" fill="rgba(255,255,255,0.6)" stroke="#8B6914" stroke-width="1"/>
+    <text x="52" y="17" text-anchor="middle" font-size="10" fill="#8B6914" font-weight="600">notify</text>
+    <text x="52" y="31" text-anchor="middle" font-size="8" fill="#7F7F7F">tauri-plugin</text>
+  </g>
+  <g transform="translate(300,305)">
+    <rect width="105" height="40" rx="4" fill="rgba(255,255,255,0.6)" stroke="#8B6914" stroke-width="1"/>
+    <text x="52" y="17" text-anchor="middle" font-size="10" fill="#8B6914" font-weight="600">updater</text>
+    <text x="52" y="31" text-anchor="middle" font-size="8" fill="#7F7F7F">GitHub Releases</text>
+  </g>
+  <g transform="translate(415,305)">
+    <rect width="105" height="40" rx="4" fill="rgba(255,255,255,0.6)" stroke="#8B6914" stroke-width="1"/>
+    <text x="52" y="17" text-anchor="middle" font-size="10" fill="#8B6914" font-weight="600">pdf_extract</text>
+    <text x="52" y="31" text-anchor="middle" font-size="8" fill="#7F7F7F">文本提取</text>
+  </g>
+  <g transform="translate(530,305)">
+    <rect width="220" height="40" rx="4" fill="rgba(255,255,255,0.6)" stroke="#8B6914" stroke-width="1"/>
+    <text x="110" y="17" text-anchor="middle" font-size="10" fill="#8B6914" font-weight="600">tracing · metrics · logging</text>
+    <text x="110" y="31" text-anchor="middle" font-size="8" fill="#7F7F7F">本地日志 ~/.sghub/logs/</text>
+  </g>
+
+  <!-- Layer 3: OS -->
+  <rect x="50" y="385" width="800" height="100" rx="8" fill="url(#g3)" filter="url(#shadow)"/>
+  <text x="80" y="410" font-size="13" fill="#fff" font-weight="700">OS 层 · 操作系统原生能力</text>
+
+  <g transform="translate(80,420)">
+    <rect width="120" height="45" rx="4" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+    <text x="60" y="18" text-anchor="middle" font-size="10" fill="#fff" font-weight="600">文件系统</text>
+    <text x="60" y="33" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.7)">~/.sghub/ 数据目录</text>
+  </g>
+  <g transform="translate(220,420)">
+    <rect width="120" height="45" rx="4" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+    <text x="60" y="18" text-anchor="middle" font-size="10" fill="#fff" font-weight="600">Keychain</text>
+    <text x="60" y="33" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.7)">Credential / Keychain</text>
+  </g>
+  <g transform="translate(360,420)">
+    <rect width="120" height="45" rx="4" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+    <text x="60" y="18" text-anchor="middle" font-size="10" fill="#fff" font-weight="600">系统通知</text>
+    <text x="60" y="33" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.7)">Toast / Notification</text>
+  </g>
+  <g transform="translate(500,420)">
+    <rect width="120" height="45" rx="4" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+    <text x="60" y="18" text-anchor="middle" font-size="10" fill="#fff" font-weight="600">系统托盘</text>
+    <text x="60" y="33" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.7)">Tray Icon + Menu</text>
+  </g>
+  <g transform="translate(640,420)">
+    <rect width="120" height="45" rx="4" fill="rgba(255,255,255,0.2)" stroke="rgba(255,255,255,0.4)" stroke-width="1"/>
+    <text x="60" y="18" text-anchor="middle" font-size="10" fill="#fff" font-weight="600">自启动</text>
+    <text x="60" y="33" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.7)">Autostart Registry</text>
+  </g>
+
+  <!-- 连接线 Core → OS -->
+  <line x1="450" y1="362" x2="450" y2="385" stroke="#4A9C6E" stroke-width="1.5" stroke-dasharray="4,3"/>
+</svg>
+</div>
+<div class="fig-note">所有组件运行在用户本地单进程中,无需云端服务器。UI 层通过 Tauri IPC 与 Core 层通信,Core 层通过 Tauri Plugin 调用 OS 原生能力。</div>
+</div>
+
+<!-- FIG-02: 核心数据流 -->
+<div class="fig-wrap" id="f2">
+<div class="fig-title">FIG-02 · 核心业务数据流</div>
+<div class="fig-sub">三条主链路:① 检索与推送 ② AI 解析 ③ 收藏与管理</div>
+<div class="svg-container">
+<svg viewBox="0 0 900 460" xmlns="http://www.w3.org/2000/svg" font-family="'Noto Sans SC',sans-serif">
+  <defs>
+    <marker id="a2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#1F3864"/></marker>
+    <marker id="a3" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#D4A017"/></marker>
+    <marker id="a4" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4A9C6E"/></marker>
+  </defs>
+
+  <!-- 链路 1: 检索推送 (蓝) -->
+  <text x="30" y="30" font-size="12" fill="#1F3864" font-weight="700">① 检索与订阅推送</text>
+  <rect x="30" y="42" width="100" height="40" rx="4" fill="#1F3864"/><text x="80" y="66" text-anchor="middle" font-size="10" fill="#fff">用户输入</text>
+  <line x1="130" y1="62" x2="160" y2="62" stroke="#1F3864" stroke-width="1.5" marker-end="url(#a2)"/>
+  <rect x="160" y="42" width="120" height="40" rx="4" fill="#E8EFF8" stroke="#1F3864" stroke-width="1"/><text x="220" y="58" text-anchor="middle" font-size="9" fill="#1F3864" font-weight="600">search 模块</text><text x="220" y="72" text-anchor="middle" font-size="8" fill="#7F7F7F">构建查询</text>
+  <line x1="280" y1="62" x2="310" y2="62" stroke="#1F3864" stroke-width="1.5" marker-end="url(#a2)"/>
+
+  <!-- 4 数据源并发 -->
+  <rect x="310" y="20" width="180" height="85" rx="6" fill="#F5F1E8" stroke="#D4A017" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="400" y="38" text-anchor="middle" font-size="9" fill="#8B6914" font-weight="600">tokio::join! 并发请求</text>
+  <g transform="translate(320,44)"><rect width="75" height="22" rx="3" fill="#B31B1B"/><text x="37" y="15" text-anchor="middle" font-size="8" fill="#fff">arXiv</text></g>
+  <g transform="translate(405,44)"><rect width="75" height="22" rx="3" fill="#326599"/><text x="37" y="15" text-anchor="middle" font-size="8" fill="#fff">PubMed</text></g>
+  <g transform="translate(320,72)"><rect width="75" height="22" rx="3" fill="#1857B4"/><text x="37" y="15" text-anchor="middle" font-size="8" fill="#fff">Semantic S.</text></g>
+  <g transform="translate(405,72)"><rect width="75" height="22" rx="3" fill="#2E7D5B"/><text x="37" y="15" text-anchor="middle" font-size="8" fill="#fff">OpenAlex</text></g>
+
+  <line x1="490" y1="62" x2="520" y2="62" stroke="#1F3864" stroke-width="1.5" marker-end="url(#a2)"/>
+  <rect x="520" y="42" width="100" height="40" rx="4" fill="#E8EFF8" stroke="#1F3864" stroke-width="1"/><text x="570" y="58" text-anchor="middle" font-size="9" fill="#1F3864" font-weight="600">合并去重</text><text x="570" y="72" text-anchor="middle" font-size="8" fill="#7F7F7F">DOI + 标题</text>
+  <line x1="620" y1="62" x2="650" y2="62" stroke="#1F3864" stroke-width="1.5" marker-end="url(#a2)"/>
+  <rect x="650" y="42" width="100" height="40" rx="4" fill="#E8EFF8" stroke="#1F3864" stroke-width="1"/><text x="700" y="58" text-anchor="middle" font-size="9" fill="#1F3864" font-weight="600">SQLite 缓存</text><text x="700" y="72" text-anchor="middle" font-size="8" fill="#7F7F7F">FTS5 索引</text>
+  <line x1="750" y1="62" x2="780" y2="62" stroke="#1F3864" stroke-width="1.5" marker-end="url(#a2)"/>
+  <rect x="780" y="42" width="90" height="40" rx="4" fill="#1F3864"/><text x="825" y="66" text-anchor="middle" font-size="10" fill="#fff">UI 展示</text>
+
+  <!-- 定时推送分支 -->
+  <line x1="220" y1="82" x2="220" y2="130" stroke="#1F3864" stroke-width="1" stroke-dasharray="3,3"/>
+  <rect x="160" y="130" width="120" height="36" rx="4" fill="#E8EFF8" stroke="#1F3864" stroke-width="1"/><text x="220" y="148" text-anchor="middle" font-size="9" fill="#1F3864" font-weight="600">scheduler 定时</text><text x="220" y="160" text-anchor="middle" font-size="8" fill="#7F7F7F">tokio-cron 08:00</text>
+  <line x1="280" y1="148" x2="350" y2="148" stroke="#1F3864" stroke-width="1" marker-end="url(#a2)"/>
+  <rect x="350" y="130" width="120" height="36" rx="4" fill="#E8EFF8" stroke="#1F3864" stroke-width="1"/><text x="410" y="152" text-anchor="middle" font-size="9" fill="#1F3864" font-weight="600">系统通知</text>
+  <line x1="470" y1="148" x2="540" y2="148" stroke="#1F3864" stroke-width="1" marker-end="url(#a2)"/>
+  <rect x="540" y="130" width="100" height="36" rx="4" fill="#1F3864"/><text x="590" y="152" text-anchor="middle" font-size="10" fill="#fff">托盘气泡</text>
+
+  <!-- 链路 2: AI 解析 (金) -->
+  <text x="30" y="210" font-size="12" fill="#D4A017" font-weight="700">② AI 文献解析</text>
+  <rect x="30" y="222" width="100" height="40" rx="4" fill="#D4A017"/><text x="80" y="246" text-anchor="middle" font-size="10" fill="#1F3864" font-weight="600">选择文献</text>
+  <line x1="130" y1="242" x2="160" y2="242" stroke="#D4A017" stroke-width="1.5" marker-end="url(#a3)"/>
+  <rect x="160" y="222" width="110" height="40" rx="4" fill="#FDF5E0" stroke="#D4A017" stroke-width="1"/><text x="215" y="238" text-anchor="middle" font-size="9" fill="#8B6914" font-weight="600">pdf_extract</text><text x="215" y="252" text-anchor="middle" font-size="8" fill="#7F7F7F">提取 PDF 文本</text>
+  <line x1="270" y1="242" x2="300" y2="242" stroke="#D4A017" stroke-width="1.5" marker-end="url(#a3)"/>
+  <rect x="300" y="222" width="110" height="40" rx="4" fill="#FDF5E0" stroke="#D4A017" stroke-width="1"/><text x="355" y="238" text-anchor="middle" font-size="9" fill="#8B6914" font-weight="600">skill_engine</text><text x="355" y="252" text-anchor="middle" font-size="8" fill="#7F7F7F">Prompt 模板渲染</text>
+  <line x1="410" y1="242" x2="440" y2="242" stroke="#D4A017" stroke-width="1.5" marker-end="url(#a3)"/>
+  <rect x="440" y="222" width="110" height="40" rx="4" fill="#FDF5E0" stroke="#D4A017" stroke-width="1"/><text x="495" y="238" text-anchor="middle" font-size="9" fill="#8B6914" font-weight="600">ai_client</text><text x="495" y="252" text-anchor="middle" font-size="8" fill="#7F7F7F">调用模型 API</text>
+
+  <!-- 外部 API 调用 -->
+  <line x1="550" y1="242" x2="580" y2="242" stroke="#D4A017" stroke-width="1.5" marker-end="url(#a3)"/>
+  <rect x="580" y="218" width="130" height="50" rx="6" fill="none" stroke="#B31B1B" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="645" y="236" text-anchor="middle" font-size="9" fill="#B31B1B" font-weight="600">外部 AI API</text>
+  <text x="645" y="250" text-anchor="middle" font-size="8" fill="#7F7F7F">Claude / GPT / DeepSeek</text>
+  <text x="645" y="262" text-anchor="middle" font-size="8" fill="#7F7F7F">Ollama (localhost)</text>
+
+  <line x1="710" y1="242" x2="740" y2="242" stroke="#D4A017" stroke-width="1.5" marker-end="url(#a3)"/>
+  <rect x="740" y="222" width="130" height="40" rx="4" fill="#FDF5E0" stroke="#D4A017" stroke-width="1"/><text x="805" y="238" text-anchor="middle" font-size="9" fill="#8B6914" font-weight="600">流式返回 (SSE)</text><text x="805" y="252" text-anchor="middle" font-size="8" fill="#7F7F7F">Event → UI 渲染</text>
+
+  <!-- Keychain 分支 -->
+  <line x1="495" y1="262" x2="495" y2="290" stroke="#D4A017" stroke-width="1" stroke-dasharray="3,3"/>
+  <rect x="440" y="290" width="110" height="30" rx="4" fill="#FDF5E0" stroke="#8B6914" stroke-width="1"/><text x="495" y="309" text-anchor="middle" font-size="9" fill="#8B6914">🔒 Keychain 取 Key</text>
+
+  <!-- 链路 3: 收藏管理 (绿) -->
+  <text x="30" y="355" font-size="12" fill="#4A9C6E" font-weight="700">③ 收藏与管理</text>
+  <rect x="30" y="367" width="100" height="40" rx="4" fill="#4A9C6E"/><text x="80" y="391" text-anchor="middle" font-size="10" fill="#fff">⭐ 收藏</text>
+  <line x1="130" y1="387" x2="160" y2="387" stroke="#4A9C6E" stroke-width="1.5" marker-end="url(#a4)"/>
+  <rect x="160" y="367" width="110" height="40" rx="4" fill="#E0EEE8" stroke="#4A9C6E" stroke-width="1"/><text x="215" y="383" text-anchor="middle" font-size="9" fill="#2E7D5B" font-weight="600">library 模块</text><text x="215" y="397" text-anchor="middle" font-size="8" fill="#7F7F7F">文件夹 + 标签</text>
+  <line x1="270" y1="387" x2="300" y2="387" stroke="#4A9C6E" stroke-width="1.5" marker-end="url(#a4)"/>
+  <rect x="300" y="367" width="110" height="40" rx="4" fill="#E0EEE8" stroke="#4A9C6E" stroke-width="1"/><text x="355" y="383" text-anchor="middle" font-size="9" fill="#2E7D5B" font-weight="600">SQLite 存储</text><text x="355" y="397" text-anchor="middle" font-size="8" fill="#7F7F7F">sghub.db</text>
+  <line x1="410" y1="387" x2="440" y2="387" stroke="#4A9C6E" stroke-width="1.5" marker-end="url(#a4)"/>
+  <rect x="440" y="367" width="110" height="40" rx="4" fill="#E0EEE8" stroke="#4A9C6E" stroke-width="1"/><text x="495" y="383" text-anchor="middle" font-size="9" fill="#2E7D5B" font-weight="600">PDF 下载</text><text x="495" y="397" text-anchor="middle" font-size="8" fill="#7F7F7F">~/.sghub/pdfs/</text>
+  <line x1="550" y1="387" x2="580" y2="387" stroke="#4A9C6E" stroke-width="1.5" marker-end="url(#a4)"/>
+  <rect x="580" y="367" width="120" height="40" rx="4" fill="#E0EEE8" stroke="#4A9C6E" stroke-width="1"/><text x="640" y="383" text-anchor="middle" font-size="9" fill="#2E7D5B" font-weight="600">导出</text><text x="640" y="397" text-anchor="middle" font-size="8" fill="#7F7F7F">BibTeX / JSON</text>
+
+  <!-- Zotero 导入 -->
+  <rect x="720" y="367" width="130" height="40" rx="4" fill="#E0EEE8" stroke="#4A9C6E" stroke-width="1"/><text x="785" y="383" text-anchor="middle" font-size="9" fill="#2E7D5B" font-weight="600">导入</text><text x="785" y="397" text-anchor="middle" font-size="8" fill="#7F7F7F">Zotero / BibTeX / PDF</text>
+  <line x1="720" y1="387" x2="700" y2="387" stroke="#4A9C6E" stroke-width="1" marker-end="url(#a4)"/>
+
+  <!-- 底部注释 -->
+  <text x="450" y="445" text-anchor="middle" font-size="10" fill="#7F7F7F">所有数据流在用户本地完成 · 仅 ① 检索 API 和 ② AI API 涉及网络请求 · 数据不上传云端</text>
+</svg>
+</div>
+</div>
+
+<!-- FIG-03: AI 客户端 -->
+<div class="fig-wrap" id="f3">
+<div class="fig-title">FIG-03 · AI 客户端统一抽象层</div>
+<div class="fig-sub">一套接口支持 4 种 Provider · BYOK 模式 · 流式输出</div>
+<div class="svg-container">
+<svg viewBox="0 0 800 380" xmlns="http://www.w3.org/2000/svg" font-family="'Noto Sans SC',sans-serif">
+  <defs><marker id="a5" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#D4A017"/></marker></defs>
+
+  <!-- Trait -->
+  <rect x="250" y="20" width="300" height="60" rx="8" fill="#1F3864"/>
+  <text x="400" y="44" text-anchor="middle" font-size="13" fill="#D4A017" font-weight="700">trait AiProvider</text>
+  <text x="400" y="62" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.7)" font-family="'JetBrains Mono',monospace">fn chat_stream(msgs, cfg) → Stream&lt;Token&gt;</text>
+
+  <!-- 4 实现 -->
+  <line x1="310" y1="80" x2="130" y2="120" stroke="#D4A017" stroke-width="1.5"/>
+  <line x1="370" y1="80" x2="310" y2="120" stroke="#D4A017" stroke-width="1.5"/>
+  <line x1="430" y1="80" x2="490" y2="120" stroke="#D4A017" stroke-width="1.5"/>
+  <line x1="490" y1="80" x2="670" y2="120" stroke="#D4A017" stroke-width="1.5"/>
+
+  <rect x="50" y="120" width="160" height="70" rx="6" fill="#FDF5E0" stroke="#D4A017" stroke-width="1.5"/>
+  <text x="130" y="143" text-anchor="middle" font-size="11" fill="#8B6914" font-weight="700">OpenAiCompatible</text>
+  <text x="130" y="158" text-anchor="middle" font-size="9" fill="#7F7F7F">POST /chat/completions</text>
+  <text x="130" y="172" text-anchor="middle" font-size="8" fill="#999">OpenAI / DeepSeek / LM Studio</text>
+  <text x="130" y="183" text-anchor="middle" font-size="8" fill="#999">Azure / 任意兼容 Provider</text>
+
+  <rect x="230" y="120" width="160" height="70" rx="6" fill="#FDF5E0" stroke="#D4A017" stroke-width="1.5"/>
+  <text x="310" y="143" text-anchor="middle" font-size="11" fill="#8B6914" font-weight="700">AnthropicProvider</text>
+  <text x="310" y="158" text-anchor="middle" font-size="9" fill="#7F7F7F">POST /messages</text>
+  <text x="310" y="172" text-anchor="middle" font-size="8" fill="#999">Claude 专属 API</text>
+  <text x="310" y="183" text-anchor="middle" font-size="8" fill="#999">system / user / assistant</text>
+
+  <rect x="410" y="120" width="160" height="70" rx="6" fill="#FDF5E0" stroke="#D4A017" stroke-width="1.5"/>
+  <text x="490" y="143" text-anchor="middle" font-size="11" fill="#8B6914" font-weight="700">OllamaProvider</text>
+  <text x="490" y="158" text-anchor="middle" font-size="9" fill="#7F7F7F">POST /api/chat</text>
+  <text x="490" y="172" text-anchor="middle" font-size="8" fill="#999">本地 localhost:11434</text>
+  <text x="490" y="183" text-anchor="middle" font-size="8" fill="#999">完全离线 · 无需 Key</text>
+
+  <rect x="590" y="120" width="160" height="70" rx="6" fill="#F0F0F0" stroke="#999" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="670" y="143" text-anchor="middle" font-size="11" fill="#666" font-weight="700">CustomProvider</text>
+  <text x="670" y="158" text-anchor="middle" font-size="9" fill="#999">用户自定义 Endpoint</text>
+  <text x="670" y="172" text-anchor="middle" font-size="8" fill="#999">预留扩展</text>
+
+  <!-- 流式输出流程 -->
+  <text x="400" y="225" text-anchor="middle" font-size="12" fill="#1F3864" font-weight="700">流式输出流程</text>
+
+  <rect x="50" y="240" width="120" height="40" rx="4" fill="#1F3864"/><text x="110" y="264" text-anchor="middle" font-size="10" fill="#fff">Skill + PDF</text>
+  <line x1="170" y1="260" x2="200" y2="260" stroke="#D4A017" stroke-width="1.5" marker-end="url(#a5)"/>
+  <rect x="200" y="240" width="120" height="40" rx="4" fill="#FDF5E0" stroke="#D4A017" stroke-width="1"/><text x="260" y="257" text-anchor="middle" font-size="9" fill="#8B6914" font-weight="600">构建 Prompt</text><text x="260" y="270" text-anchor="middle" font-size="8" fill="#7F7F7F">模板 + 论文文本</text>
+  <line x1="320" y1="260" x2="350" y2="260" stroke="#D4A017" stroke-width="1.5" marker-end="url(#a5)"/>
+  <rect x="350" y="240" width="130" height="40" rx="4" fill="#FDF5E0" stroke="#D4A017" stroke-width="1"/><text x="415" y="257" text-anchor="middle" font-size="9" fill="#8B6914" font-weight="600">HTTP SSE 请求</text><text x="415" y="270" text-anchor="middle" font-size="8" fill="#7F7F7F">reqwest + stream</text>
+  <line x1="480" y1="260" x2="510" y2="260" stroke="#D4A017" stroke-width="1.5" marker-end="url(#a5)"/>
+  <rect x="510" y="240" width="130" height="40" rx="4" fill="#FDF5E0" stroke="#D4A017" stroke-width="1"/><text x="575" y="257" text-anchor="middle" font-size="9" fill="#8B6914" font-weight="600">Tauri Event</text><text x="575" y="270" text-anchor="middle" font-size="8" fill="#7F7F7F">emit('ai:token')</text>
+  <line x1="640" y1="260" x2="670" y2="260" stroke="#D4A017" stroke-width="1.5" marker-end="url(#a5)"/>
+  <rect x="670" y="240" width="100" height="40" rx="4" fill="#1F3864"/><text x="720" y="260" text-anchor="middle" font-size="10" fill="#fff">UI 流式渲染</text>
+
+  <!-- Key 安全 -->
+  <rect x="200" y="310" width="400" height="55" rx="6" fill="rgba(31,56,100,0.05)" stroke="#1F3864" stroke-width="1"/>
+  <text x="400" y="332" text-anchor="middle" font-size="11" fill="#1F3864" font-weight="700">🔒 API Key 安全生命周期</text>
+  <text x="400" y="350" text-anchor="middle" font-size="9" fill="#7F7F7F">OS Keychain 存储 → 调用时临时读取 → 放入 HTTP Header → 请求结束立即释放 → 不写日志不缓存</text>
+</svg>
+</div>
+</div>
+
+<!-- FIG-04: ER 图 -->
+<div class="fig-wrap" id="f4">
+<div class="fig-title">FIG-04 · 数据模型 ER 图</div>
+<div class="fig-sub">SQLite 单文件数据库 · 13 个核心表 (V2.0.1 新增 chat_sessions / chat_messages / chat_attachments) · ~/.sghub/data/sghub.db</div>
+<div class="svg-container">
+<svg viewBox="0 0 860 420" xmlns="http://www.w3.org/2000/svg" font-family="'Noto Sans SC',sans-serif">
+  <defs><marker id="a6" markerWidth="6" markerHeight="5" refX="6" refY="2.5" orient="auto"><polygon points="0 0, 6 2.5, 0 5" fill="#1F3864"/></marker></defs>
+
+  <!-- Paper (核心) -->
+  <rect x="300" y="30" width="240" height="100" rx="6" fill="#1F3864"/>
+  <text x="420" y="52" text-anchor="middle" font-size="12" fill="#D4A017" font-weight="700">Paper</text>
+  <text x="420" y="68" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.8)" font-family="'JetBrains Mono',monospace">id · title · authors · abstract</text>
+  <text x="420" y="82" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.8)" font-family="'JetBrains Mono',monospace">doi · source · published_at</text>
+  <text x="420" y="96" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.8)" font-family="'JetBrains Mono',monospace">pdf_path · read_status</text>
+  <text x="420" y="120" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.6)">FTS5: papers_fts(title, authors, abstract)</text>
+
+  <!-- Folder -->
+  <rect x="30" y="40" width="180" height="70" rx="6" fill="#E8EFF8" stroke="#1F3864" stroke-width="1.5"/>
+  <text x="120" y="62" text-anchor="middle" font-size="11" fill="#1F3864" font-weight="700">Folder</text>
+  <text x="120" y="78" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">id · parent_id · name</text>
+  <text x="120" y="92" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">sort_order · is_smart · smart_rule</text>
+  <!-- self ref -->
+  <path d="M 30 60 C 10 60, 10 85, 30 85" fill="none" stroke="#1F3864" stroke-width="1" marker-end="url(#a6)"/>
+  <text x="8" y="75" font-size="7" fill="#7F7F7F">parent</text>
+
+  <!-- FolderPaper -->
+  <rect x="120" y="155" width="130" height="40" rx="4" fill="#FDF5E0" stroke="#D4A017" stroke-width="1"/>
+  <text x="185" y="173" text-anchor="middle" font-size="10" fill="#8B6914" font-weight="600">FolderPaper</text>
+  <text x="185" y="187" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">folder_id · paper_id</text>
+  <line x1="120" y1="90" x2="155" y2="155" stroke="#1F3864" stroke-width="1" marker-end="url(#a6)"/>
+  <line x1="340" y1="120" x2="220" y2="155" stroke="#1F3864" stroke-width="1" marker-end="url(#a6)"/>
+
+  <!-- Tag -->
+  <rect x="630" y="40" width="180" height="60" rx="6" fill="#E0EEE8" stroke="#4A9C6E" stroke-width="1.5"/>
+  <text x="720" y="62" text-anchor="middle" font-size="11" fill="#2E7D5B" font-weight="700">Tag</text>
+  <text x="720" y="78" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">id · name · color</text>
+
+  <!-- TagPaper -->
+  <rect x="580" y="140" width="110" height="40" rx="4" fill="#E0EEE8" stroke="#4A9C6E" stroke-width="1"/>
+  <text x="635" y="158" text-anchor="middle" font-size="10" fill="#2E7D5B" font-weight="600">TagPaper</text>
+  <text x="635" y="172" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">tag_id · paper_id</text>
+  <line x1="690" y1="100" x2="660" y2="140" stroke="#4A9C6E" stroke-width="1" marker-end="url(#a6)"/>
+  <line x1="500" y1="110" x2="600" y2="145" stroke="#1F3864" stroke-width="1" marker-end="url(#a6)"/>
+
+  <!-- AIParseResult -->
+  <rect x="300" y="210" width="240" height="80" rx="6" fill="#FDF5E0" stroke="#D4A017" stroke-width="1.5"/>
+  <text x="420" y="232" text-anchor="middle" font-size="11" fill="#8B6914" font-weight="700">AIParseResult</text>
+  <text x="420" y="248" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">id · paper_id · skill_name · model_name</text>
+  <text x="420" y="262" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">result_json · tokens_in · tokens_out</text>
+  <text x="420" y="276" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">cost_est · created_at</text>
+  <line x1="420" y1="130" x2="420" y2="210" stroke="#D4A017" stroke-width="1.5" marker-end="url(#a6)"/>
+  <text x="430" y="170" font-size="8" fill="#8B6914">N : 1</text>
+
+  <!-- ModelConfig -->
+  <rect x="30" y="230" width="200" height="80" rx="6" fill="#E8EFF8" stroke="#1F3864" stroke-width="1.5"/>
+  <text x="130" y="252" text-anchor="middle" font-size="11" fill="#1F3864" font-weight="700">ModelConfig</text>
+  <text x="130" y="268" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">id · name · provider · endpoint</text>
+  <text x="130" y="282" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">model_id · max_tokens · is_default</text>
+  <text x="130" y="296" text-anchor="middle" font-size="8" fill="#B31B1B" font-family="'JetBrains Mono',monospace">keychain_ref (🔒 not plaintext)</text>
+
+  <!-- UsageStat -->
+  <rect x="30" y="340" width="200" height="65" rx="6" fill="#F5F1E8" stroke="#8B6914" stroke-width="1"/>
+  <text x="130" y="362" text-anchor="middle" font-size="11" fill="#8B6914" font-weight="700">UsageStat</text>
+  <text x="130" y="378" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">id · model_config_id · date</text>
+  <text x="130" y="392" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">tokens_in · tokens_out · call_count</text>
+  <line x1="130" y1="310" x2="130" y2="340" stroke="#8B6914" stroke-width="1" marker-end="url(#a6)"/>
+  <text x="140" y="328" font-size="8" fill="#8B6914">N : 1</text>
+
+  <!-- Subscription -->
+  <rect x="620" y="230" width="200" height="70" rx="6" fill="#E8EFF8" stroke="#1F3864" stroke-width="1.5"/>
+  <text x="720" y="252" text-anchor="middle" font-size="11" fill="#1F3864" font-weight="700">Subscription</text>
+  <text x="720" y="268" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">id · keyword_expr · sources_json</text>
+  <text x="720" y="282" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">frequency · last_run_at</text>
+
+  <!-- Notification -->
+  <rect x="620" y="330" width="200" height="65" rx="6" fill="#F0F0F0" stroke="#999" stroke-width="1"/>
+  <text x="720" y="352" text-anchor="middle" font-size="11" fill="#666" font-weight="700">Notification</text>
+  <text x="720" y="368" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">id · type · title · body</text>
+  <text x="720" y="382" text-anchor="middle" font-size="8" fill="#7F7F7F" font-family="'JetBrains Mono',monospace">is_read · created_at</text>
+</svg>
+</div>
+<div class="fig-note">所有表存储在单个 SQLite 文件中。API Key 不在数据库中存储,ModelConfig.keychain_ref 仅为 OS Keychain 的引用标识符。V2.0.1 新增 chat_* 系列表用于存储自由对话会话。</div>
+</div>
+
+<!-- FIG-05: Chat 数据流 (V2.0.1 NEW) -->
+<div class="fig-wrap" id="f5">
+<div class="fig-title">FIG-05 · Chat 对话数据流 <span style="background:#D4A017;color:#1F3864;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;margin-left:8px;">V2.0.1 NEW</span></div>
+<div class="fig-sub">参考 Claude.ai 风格的自由对话界面 · 复用 ai_client + skill_engine · 支持附件 / Skill / 文献引用</div>
+<div class="svg-container">
+<svg viewBox="0 0 900 540" xmlns="http://www.w3.org/2000/svg" font-family="'Noto Sans SC',sans-serif">
+  <defs>
+    <marker id="ax1" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#1F3864"/></marker>
+    <marker id="ax2" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#D4A017"/></marker>
+    <marker id="ax3" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4A9C6E"/></marker>
+  </defs>
+
+  <!-- 标题 -->
+  <text x="450" y="22" text-anchor="middle" font-size="13" fill="#1F3864" font-weight="700">用户输入 → 上下文构建 → 模型调用 → 流式回复 → 持久化</text>
+
+  <!-- 第一层: 输入采集 -->
+  <text x="30" y="56" font-size="11" fill="#1F3864" font-weight="700">① 用户输入采集</text>
+  <rect x="30" y="68" width="180" height="56" rx="6" fill="#1F3864"/>
+  <text x="120" y="88" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">Chat 输入框</text>
+  <text x="120" y="103" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.7)">消息文本 + 附件芯片</text>
+  <text x="120" y="115" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.7)">+ Skill 引用 + 文献引用</text>
+
+  <!-- 三种附件类型 -->
+  <rect x="240" y="60" width="170" height="22" rx="3" fill="#FDF5E0" stroke="#D4A017"/>
+  <text x="325" y="75" text-anchor="middle" font-size="10" fill="#8B6914">📄 上传附件 (PDF/MD/图)</text>
+  <line x1="210" y1="78" x2="240" y2="71" stroke="#1F3864" stroke-width="1" marker-end="url(#ax1)"/>
+
+  <rect x="240" y="88" width="170" height="22" rx="3" fill="#FDF5E0" stroke="#D4A017"/>
+  <text x="325" y="103" text-anchor="middle" font-size="10" fill="#8B6914">✨ 选择 Skill (引导对话)</text>
+  <line x1="210" y1="96" x2="240" y2="99" stroke="#1F3864" stroke-width="1" marker-end="url(#ax1)"/>
+
+  <rect x="240" y="116" width="170" height="22" rx="3" fill="#FDF5E0" stroke="#D4A017"/>
+  <text x="325" y="131" text-anchor="middle" font-size="10" fill="#8B6914">⭐ 引用收藏文献</text>
+  <line x1="210" y1="114" x2="240" y2="127" stroke="#1F3864" stroke-width="1" marker-end="url(#ax1)"/>
+
+  <!-- 模型选择 -->
+  <rect x="440" y="68" width="160" height="56" rx="6" fill="#FDF5E0" stroke="#D4A017" stroke-width="1.5"/>
+  <text x="520" y="88" text-anchor="middle" font-size="11" fill="#8B6914" font-weight="700">右下角模型选择器</text>
+  <text x="520" y="103" text-anchor="middle" font-size="9" fill="#7F7F7F">来自 model_configs 表</text>
+  <text x="520" y="115" text-anchor="middle" font-size="9" fill="#7F7F7F">默认: 模型配置中心默认模型</text>
+
+  <!-- 第二层: 上下文构建 (Rust Core) -->
+  <text x="30" y="170" font-size="11" fill="#D4A017" font-weight="700">② Core 层上下文构建</text>
+  <rect x="30" y="180" width="840" height="120" rx="8" fill="rgba(212,160,23,0.05)" stroke="#D4A017" stroke-width="1.5" stroke-dasharray="6,3"/>
+  <text x="50" y="200" font-size="11" fill="#8B6914" font-weight="700">Rust Core: chat 模块 (复用 ai_client + skill_engine + pdf_extract)</text>
+
+  <!-- 子模块 -->
+  <rect x="50" y="212" width="160" height="40" rx="4" fill="#fff" stroke="#D4A017"/>
+  <text x="130" y="230" text-anchor="middle" font-size="10" fill="#8B6914" font-weight="600">系统提示构建</text>
+  <text x="130" y="244" text-anchor="middle" font-size="8" fill="#7F7F7F">Skill prompt 注入 system</text>
+
+  <rect x="220" y="212" width="160" height="40" rx="4" fill="#fff" stroke="#D4A017"/>
+  <text x="300" y="230" text-anchor="middle" font-size="10" fill="#8B6914" font-weight="600">附件文本提取</text>
+  <text x="300" y="244" text-anchor="middle" font-size="8" fill="#7F7F7F">pdf_extract / mammoth</text>
+
+  <rect x="390" y="212" width="160" height="40" rx="4" fill="#fff" stroke="#D4A017"/>
+  <text x="470" y="230" text-anchor="middle" font-size="10" fill="#8B6914" font-weight="600">文献元数据加载</text>
+  <text x="470" y="244" text-anchor="middle" font-size="8" fill="#7F7F7F">papers + AIParseResult</text>
+
+  <rect x="560" y="212" width="160" height="40" rx="4" fill="#fff" stroke="#D4A017"/>
+  <text x="640" y="230" text-anchor="middle" font-size="10" fill="#8B6914" font-weight="600">历史消息读取</text>
+  <text x="640" y="244" text-anchor="middle" font-size="8" fill="#7F7F7F">chat_messages (按 session)</text>
+
+  <rect x="730" y="212" width="120" height="40" rx="4" fill="#fff" stroke="#D4A017"/>
+  <text x="790" y="230" text-anchor="middle" font-size="10" fill="#8B6914" font-weight="600">Token 截断</text>
+  <text x="790" y="244" text-anchor="middle" font-size="8" fill="#7F7F7F">超 max_tokens 滚动</text>
+
+  <!-- 输出 -->
+  <rect x="200" y="262" width="500" height="28" rx="4" fill="#1F3864"/>
+  <text x="450" y="281" text-anchor="middle" font-size="11" fill="#D4A017" font-weight="700">→ 构建 Vec&lt;Message&gt; { system, user_history, current_input } →</text>
+
+  <!-- 第三层: AI 调用 -->
+  <text x="30" y="328" font-size="11" fill="#4A9C6E" font-weight="700">③ AI Client 调用 (复用 V2.0.0 模块)</text>
+
+  <rect x="30" y="340" width="180" height="40" rx="4" fill="#E0EEE8" stroke="#4A9C6E"/>
+  <text x="120" y="358" text-anchor="middle" font-size="10" fill="#2E7D5B" font-weight="600">ai_client::chat_stream</text>
+  <text x="120" y="372" text-anchor="middle" font-size="8" fill="#7F7F7F">trait AiProvider</text>
+
+  <line x1="210" y1="360" x2="240" y2="360" stroke="#4A9C6E" stroke-width="1.5" marker-end="url(#ax3)"/>
+
+  <rect x="240" y="340" width="120" height="40" rx="4" fill="#E0EEE8" stroke="#4A9C6E"/>
+  <text x="300" y="358" text-anchor="middle" font-size="10" fill="#2E7D5B" font-weight="600">从 Keychain 取 Key</text>
+  <text x="300" y="372" text-anchor="middle" font-size="8" fill="#B31B1B">🔒 临时持有</text>
+
+  <line x1="360" y1="360" x2="390" y2="360" stroke="#4A9C6E" stroke-width="1.5" marker-end="url(#ax3)"/>
+
+  <rect x="390" y="335" width="170" height="50" rx="6" fill="none" stroke="#B31B1B" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="475" y="354" text-anchor="middle" font-size="10" fill="#B31B1B" font-weight="700">外部 API (云端 / 本地)</text>
+  <text x="475" y="368" text-anchor="middle" font-size="8" fill="#7F7F7F">Claude / GPT / DeepSeek</text>
+  <text x="475" y="378" text-anchor="middle" font-size="8" fill="#7F7F7F">Ollama (localhost)</text>
+
+  <line x1="560" y1="360" x2="590" y2="360" stroke="#4A9C6E" stroke-width="1.5" marker-end="url(#ax3)"/>
+
+  <rect x="590" y="340" width="160" height="40" rx="4" fill="#E0EEE8" stroke="#4A9C6E"/>
+  <text x="670" y="358" text-anchor="middle" font-size="10" fill="#2E7D5B" font-weight="600">SSE / NDJSON 解析</text>
+  <text x="670" y="372" text-anchor="middle" font-size="8" fill="#7F7F7F">逐 token 流式</text>
+
+  <line x1="750" y1="360" x2="780" y2="360" stroke="#4A9C6E" stroke-width="1.5" marker-end="url(#ax3)"/>
+
+  <rect x="780" y="340" width="90" height="40" rx="4" fill="#1F3864"/>
+  <text x="825" y="358" text-anchor="middle" font-size="10" fill="#fff" font-weight="600">Tauri Event</text>
+  <text x="825" y="372" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.7)">"chat:token"</text>
+
+  <!-- 第四层: 前端渲染 + 持久化 -->
+  <text x="30" y="420" font-size="11" fill="#1F3864" font-weight="700">④ 前端流式渲染 + 持久化</text>
+
+  <rect x="30" y="432" width="200" height="44" rx="4" fill="#1F3864"/>
+  <text x="130" y="450" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">UI 流式渲染</text>
+  <text x="130" y="466" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.7)">Markdown + 代码高亮 + 打字机效果</text>
+
+  <line x1="230" y1="454" x2="270" y2="454" stroke="#1F3864" stroke-width="1.5" marker-end="url(#ax1)"/>
+
+  <rect x="270" y="432" width="180" height="44" rx="4" fill="#E8EFF8" stroke="#1F3864"/>
+  <text x="360" y="450" text-anchor="middle" font-size="11" fill="#1F3864" font-weight="600">完成时持久化</text>
+  <text x="360" y="466" text-anchor="middle" font-size="9" fill="#7F7F7F">写 chat_messages + chat_attachments</text>
+
+  <line x1="450" y1="454" x2="490" y2="454" stroke="#1F3864" stroke-width="1.5" marker-end="url(#ax1)"/>
+
+  <rect x="490" y="432" width="180" height="44" rx="4" fill="#E8EFF8" stroke="#1F3864"/>
+  <text x="580" y="450" text-anchor="middle" font-size="11" fill="#1F3864" font-weight="600">Token 计费记录</text>
+  <text x="580" y="466" text-anchor="middle" font-size="9" fill="#7F7F7F">usage_stats 表 (按日聚合)</text>
+
+  <line x1="670" y1="454" x2="710" y2="454" stroke="#1F3864" stroke-width="1.5" marker-end="url(#ax1)"/>
+
+  <rect x="710" y="432" width="160" height="44" rx="4" fill="#FDF5E0" stroke="#D4A017"/>
+  <text x="790" y="450" text-anchor="middle" font-size="11" fill="#8B6914" font-weight="600">会话标题自动生成</text>
+  <text x="790" y="466" text-anchor="middle" font-size="9" fill="#7F7F7F">首条消息后,异步调用一次</text>
+
+  <!-- 底部对比说明 -->
+  <text x="450" y="510" text-anchor="middle" font-size="11" fill="#7F7F7F" font-style="italic">与 AI 解析的差异: Chat 是开放式多轮对话(无固定 Skill 模板) · 上下文持续累积 · 更适合自由探索</text>
+  <text x="450" y="525" text-anchor="middle" font-size="10" fill="#7F7F7F">复用模块: ai_client / keychain / pdf_extract / skill_engine(可选注入)/ usage_stats</text>
+</svg>
+</div>
+<div class="fig-note">Chat 与 AI 解析共享底层基础设施(ai_client / keychain / skill_engine),通过会话粒度的上下文累积实现自由对话。前端流式渲染通过 Tauri Event "chat:token" 实现,延迟 < 100ms。</div>
+</div>
+
+<script>
+document.querySelectorAll('.nav .tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.nav .tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.fig-wrap').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById(t.dataset.fig).classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+});
+</script>
+</body>
+</html>

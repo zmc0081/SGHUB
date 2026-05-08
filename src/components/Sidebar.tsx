@@ -78,7 +78,7 @@ export default function Sidebar() {
           SGHUB
         </div>
         <div className="text-[10px] text-sidebar-fg/60 mt-0.5 tracking-wide">
-          v2.0.0
+          v2.0.1
         </div>
       </div>
       <nav className="flex flex-col flex-1 overflow-y-auto">
