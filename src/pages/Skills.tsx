@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { useNavigate } from "@tanstack/react-router";
 import {
   api,
   type SkillSummary,
@@ -67,9 +68,13 @@ function ToastList({
 function SkillRow({
   skill,
   onDelete,
+  onEdit,
+  onCopy,
 }: {
   skill: SkillSummary;
   onDelete?: () => void;
+  onEdit?: () => void;
+  onCopy?: () => void;
 }) {
   return (
     <div className="bg-white border border-black/10 rounded p-3 flex items-start gap-3">
@@ -107,14 +112,32 @@ function SkillRow({
           </div>
         )}
       </div>
-      {onDelete && (
-        <button
-          onClick={onDelete}
-          className="shrink-0 px-2 py-1 text-[11px] rounded border border-black/10 text-red-600 hover:border-red-600 hover:bg-red-50"
-        >
-          删除
-        </button>
-      )}
+      <div className="shrink-0 flex flex-col gap-1">
+        {onEdit && (
+          <button
+            onClick={onEdit}
+            className="px-2 py-1 text-[11px] rounded border border-black/10 hover:border-primary hover:text-primary"
+          >
+            编辑
+          </button>
+        )}
+        {onCopy && (
+          <button
+            onClick={onCopy}
+            className="px-2 py-1 text-[11px] rounded border border-black/10 hover:border-primary hover:text-primary whitespace-nowrap"
+          >
+            复制并编辑
+          </button>
+        )}
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            className="px-2 py-1 text-[11px] rounded border border-black/10 text-red-600 hover:border-red-600 hover:bg-red-50"
+          >
+            删除
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -124,6 +147,7 @@ function SkillRow({
 // ============================================================
 
 export default function Skills() {
+  const navigate = useNavigate();
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -266,9 +290,8 @@ export default function Skills() {
         </div>
         <div className="flex gap-2 shrink-0">
           <button
-            disabled
-            title="待 Session 15 实现"
-            className="px-3 py-1.5 text-sm rounded border border-black/10 text-app-fg/40 cursor-not-allowed"
+            onClick={() => navigate({ to: "/skills/new" })}
+            className="px-3 py-1.5 text-sm rounded border border-primary text-primary hover:bg-primary/5"
           >
             ✨ 新建 Skill
           </button>
@@ -307,6 +330,7 @@ export default function Skills() {
               <SkillRow
                 key={s.name}
                 skill={s}
+                onEdit={() => navigate({ to: "/skills/$name/edit", params: { name: s.name } })}
                 onDelete={() => handleDelete(s)}
               />
             ))}
@@ -323,7 +347,12 @@ export default function Skills() {
         <div className="grid gap-2 opacity-90">
           {builtin.map((s) => (
             <div key={s.name} className="bg-black/5 rounded">
-              <SkillRow skill={s} />
+              <SkillRow
+                skill={s}
+                onCopy={() =>
+                  navigate({ to: "/skills/$name/copy", params: { name: s.name } })
+                }
+              />
             </div>
           ))}
         </div>

@@ -618,6 +618,219 @@ pub async fn upload_skill_zip(
     Ok(results)
 }
 
+/// Save a Skill from the in-app editor.
+/// - `original_name = None`: create new
+/// - `original_name = Some(orig)`:
+///   * if `orig` is a builtin AND user kept the same name → auto-suffix `-custom`
+///   * if `orig` is a user skill AND name unchanged → overwrite (self-update)
+///   * if `orig` is a user skill AND name changed → write new + delete old file
+#[tauri::command]
+pub async fn save_skill(
+    app: tauri::AppHandle,
+    yaml_content: String,
+    original_name: Option<String>,
+) -> Result<SkillSpec, Vec<String>> {
+    use tauri::Emitter;
+
+    let cleaned = normalize_skill_content(&yaml_content);
+    if let Some(kind) = detect_non_yaml_content(&cleaned) {
+        return Err(vec![format!(
+            "文件内容看起来是 {} — 请检查 YAML 格式",
+            kind
+        )]);
+    }
+    let mut spec: SkillSpec = serde_yaml::from_str(&cleaned)
+        .map_err(|e| vec![truncate_for_display(format!("YAML 解析失败: {}", e), 240)])?;
+
+    let builtin_names: HashSet<String> =
+        super::load_builtin_skills().into_iter().map(|s| s.name).collect();
+    let is_builtin_orig = original_name
+        .as_ref()
+        .is_some_and(|o| builtin_names.contains(o));
+
+    // Auto-suffix when editing a builtin and keeping the same name
+    if is_builtin_orig && original_name.as_deref() == Some(spec.name.as_str()) {
+        spec.name = format!("{}-custom", spec.name);
+    }
+
+    validate_skill(&spec)?;
+
+    // Conflict check: allow overwrite of self when name unchanged on a user skill
+    let is_self_update = matches!(
+        &original_name,
+        Some(orig) if orig == &spec.name && !is_builtin_orig
+    );
+    if !is_self_update {
+        let existing = current_existing_names(&app);
+        if existing.contains(&spec.name) {
+            return Err(vec![format!(
+                "name: `{}` 已存在 — 请改名后再保存",
+                spec.name
+            )]);
+        }
+    }
+
+    let dir = user_skills_dir(&app).map_err(|e| vec![e])?;
+    std::fs::create_dir_all(&dir).map_err(|e| vec![format!("创建目录失败: {}", e)])?;
+
+    // If renaming a user skill, delete the old file (best-effort)
+    if let Some(orig) = &original_name {
+        if !is_builtin_orig && orig != &spec.name {
+            let old = dir.join(format!("{}.yaml", orig));
+            let _ = std::fs::remove_file(&old);
+        }
+    }
+
+    let target = dir.join(format!("{}.yaml", spec.name));
+    std::fs::write(&target, &cleaned)
+        .map_err(|e| vec![format!("写文件失败: {}", e)])?;
+
+    let _ = app.emit("skills:updated", spec.name.clone());
+    log::info!(
+        "saved skill `{}` (orig={:?}, builtin_orig={}) -> {}",
+        spec.name,
+        original_name,
+        is_builtin_orig,
+        target.display()
+    );
+    Ok(spec)
+}
+
+/// Get raw YAML content for a skill — user skills from disk, builtin from
+/// the embedded const. Used by the editor to load existing skills + by the
+/// "复制并编辑" flow on builtin skills.
+#[tauri::command]
+pub async fn get_skill_yaml(app: tauri::AppHandle, name: String) -> Result<String, String> {
+    let user_path = user_skills_dir(&app)?.join(format!("{}.yaml", name));
+    if user_path.exists() {
+        return std::fs::read_to_string(&user_path).map_err(|e| e.to_string());
+    }
+    for (n, content) in super::BUILTIN_SKILLS.iter() {
+        if *n == name {
+            return Ok((*content).to_string());
+        }
+    }
+    Err(format!("skill `{}` not found", name))
+}
+
+/// Same content as get_skill_yaml — separated for semantic clarity (caller
+/// intent: trigger a download). Frontend writes the content to a file.
+#[tauri::command]
+pub async fn export_skill(app: tauri::AppHandle, name: String) -> Result<String, String> {
+    get_skill_yaml(app, name).await
+}
+
+/// Test-run a skill against a paper WITHOUT persisting it as a saved skill or
+/// writing ai_parse_results. Caps `max_tokens` at 1500 to keep test cost low.
+/// Streams via "skill_test:token" event.
+#[tauri::command]
+pub async fn test_skill_with_paper(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, crate::AppState>,
+    yaml_content: String,
+    paper_id: String,
+    model_config_id: String,
+) -> Result<crate::ai_client::TestResult, String> {
+    use crate::ai_client::{
+        get_one as get_model_config, provider_for, AiError, Message, TestResult, TokenPayload,
+    };
+    use futures::StreamExt;
+    use std::time::Instant;
+    use tauri::Emitter;
+
+    let cleaned = normalize_skill_content(&yaml_content);
+    let spec: SkillSpec = serde_yaml::from_str(&cleaned)
+        .map_err(|e| format!("YAML 解析失败: {}", e))?;
+    validate_skill(&spec).map_err(|errs| errs.join("; "))?;
+
+    let pool = state.db_pool.clone();
+    let pid = paper_id.clone();
+    let paper = tokio::task::spawn_blocking(move || crate::library::db_get_paper_by_id(&pool, &pid))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("paper `{}` not found", paper_id))?;
+    let full_text = match &paper.pdf_path {
+        Some(p) => crate::pdf_extract::extract_paper_text(&app, p)
+            .unwrap_or_else(|_| paper.abstract_.clone().unwrap_or_default()),
+        None => paper.abstract_.clone().unwrap_or_default(),
+    };
+
+    let prompt = super::render_prompt(&spec.prompt_template, &paper, &full_text, "中文");
+    let messages = vec![Message {
+        role: "user".into(),
+        content: prompt,
+    }];
+
+    let pool = state.db_pool.clone();
+    let mid = model_config_id.clone();
+    let mut config = tokio::task::spawn_blocking(move || get_model_config(&pool, &mid))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("model `{}` not found", model_config_id))?;
+    config.max_tokens = config.max_tokens.min(1500);
+
+    let api_key: Option<String> = if config.provider == "ollama" {
+        None
+    } else {
+        match crate::keychain::get_api_key(&model_config_id) {
+            Ok(Some(k)) => Some(k),
+            Ok(None) => return Err(AiError::NoApiKey.to_string()),
+            Err(e) => return Err(format!("Keychain 错误: {}", e)),
+        }
+    };
+
+    let provider = provider_for(&config.provider, api_key).map_err(|e| e.to_string())?;
+
+    let started = Instant::now();
+    let mut stream = provider
+        .chat_stream(messages, &config)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut full_response = String::new();
+    while let Some(chunk) = stream.next().await {
+        match chunk {
+            Ok(text) => {
+                full_response.push_str(&text);
+                let _ = app.emit(
+                    "skill_test:token",
+                    TokenPayload {
+                        text,
+                        done: false,
+                    },
+                );
+            }
+            Err(e) => {
+                let _ = app.emit(
+                    "skill_test:token",
+                    TokenPayload {
+                        text: format!("\n[ERROR: {}]\n", e),
+                        done: true,
+                    },
+                );
+                return Err(e.to_string());
+            }
+        }
+    }
+    let _ = app.emit(
+        "skill_test:token",
+        TokenPayload {
+            text: String::new(),
+            done: true,
+        },
+    );
+
+    let latency = started.elapsed().as_millis() as u64;
+    Ok(TestResult {
+        success: true,
+        latency_ms: latency,
+        message: format!("测试完成 ({} ms, limit=1500 tokens)", latency),
+        model_response: Some(full_response),
+    })
+}
+
 #[tauri::command]
 pub async fn delete_custom_skill(app: tauri::AppHandle, name: String) -> Result<(), String> {
     use tauri::Emitter;
@@ -1275,6 +1488,60 @@ recommendedModels: ["gpt-5"]
         let errs = upload_skill_to_dir(tmp.path(), &huge, &HashSet::new()).unwrap_err();
         // Either truncated or hits the missing-required-field path; both fine
         assert!(errs[0].chars().count() < 600);
+    }
+
+    // ------------- save_skill builtin → -custom suffix logic ----------------
+    // (Logic-only tests — full Tauri command needs AppHandle, exercised
+    //  manually via the editor UI.)
+
+    fn parse_or_panic(yaml: &str) -> SkillSpec {
+        let cleaned = normalize_skill_content(yaml);
+        serde_yaml::from_str(&cleaned).expect("parse")
+    }
+
+    #[test]
+    fn save_logic_appends_custom_when_editing_builtin_with_same_name() {
+        let yaml = r#"name: general_read
+display_name: 通用精读
+description: D
+prompt_template: "{{title}}"
+output_dimensions:
+  - key: x
+    title: X
+"#;
+        let mut spec = parse_or_panic(yaml);
+        let original_name = Some("general_read".to_string());
+        let builtin_names: HashSet<String> = ["general_read".to_string()].into_iter().collect();
+        let is_builtin_orig = original_name
+            .as_ref()
+            .is_some_and(|o| builtin_names.contains(o));
+        if is_builtin_orig && original_name.as_deref() == Some(spec.name.as_str()) {
+            spec.name = format!("{}-custom", spec.name);
+        }
+        assert_eq!(spec.name, "general_read-custom");
+    }
+
+    #[test]
+    fn save_logic_keeps_name_when_editing_builtin_renamed_already() {
+        let yaml = r#"name: my_custom
+display_name: My
+description: D
+prompt_template: "{{title}}"
+output_dimensions:
+  - key: x
+    title: X
+"#;
+        let mut spec = parse_or_panic(yaml);
+        let original_name = Some("general_read".to_string());
+        let builtin_names: HashSet<String> = ["general_read".to_string()].into_iter().collect();
+        let is_builtin_orig = original_name
+            .as_ref()
+            .is_some_and(|o| builtin_names.contains(o));
+        if is_builtin_orig && original_name.as_deref() == Some(spec.name.as_str()) {
+            spec.name = format!("{}-custom", spec.name);
+        }
+        // User already changed name during edit — leave it alone
+        assert_eq!(spec.name, "my_custom");
     }
 
     #[test]

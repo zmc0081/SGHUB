@@ -221,6 +221,94 @@ export interface AppConfig {
 }
 
 // ============================================================
+// Chat module types (V2.0.1)
+// ============================================================
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  model_config_id: string | null;
+  system_prompt: string | null;
+  skill_name: string | null;
+  pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatSessionSummary {
+  id: string;
+  title: string;
+  last_message_preview: string | null;
+  message_count: number;
+  pinned: boolean;
+  updated_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  session_id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  attachments_json: string | null;
+  tokens_in: number;
+  tokens_out: number;
+  model_name: string | null;
+  created_at: string;
+  /** Hydrated from attachments_json by backend (empty if none). */
+  attachments: ChatAttachment[];
+}
+
+export interface ChatSessionDetail extends ChatSession {
+  messages: ChatMessage[];
+}
+
+export interface ChatAttachment {
+  id: string;
+  session_id: string;
+  message_id: string | null;
+  type: string; // 'pdf' | 'md' | 'txt' | 'docx' | 'image' | 'paper_ref' | 'url'
+  file_name: string;
+  file_path: string | null;
+  file_size: number | null;
+  extracted_text: string | null;
+  paper_id: string | null;
+  created_at: string;
+}
+
+export interface ChatTokenPayload {
+  session_id: string;
+  message_id: string;
+  text: string;
+  done: boolean;
+  tokens_in?: number;
+  tokens_out?: number;
+  model_name?: string;
+}
+
+export interface ChatStreamInput {
+  session_id: string | null;
+  content: string;
+  attachments: string[];
+  skill_name: string | null;
+  model_config_id: string | null;
+}
+
+export interface ChatStreamResult {
+  session_id: string;
+  assistant_message_id: string;
+  content: string;
+  tokens_in: number;
+  tokens_out: number;
+  model_name: string;
+}
+
+export interface UploadAttachmentInput {
+  session_id: string;
+  /** Absolute path from the Tauri native file dialog */
+  file_path: string;
+}
+
+// ============================================================
 // API — typed wrappers around invoke().
 // Tauri converts JS camelCase keys → Rust snake_case automatically.
 // ============================================================
@@ -319,6 +407,39 @@ export const api = {
     invoke<void>("delete_custom_skill", { name }),
 
   /**
+   * Save a Skill from the editor.
+   * - originalName=null: create new
+   * - originalName=builtin name: auto-suffixed to {name}-custom if name unchanged
+   * - originalName=user skill: overwrite (or rename + delete old)
+   */
+  saveSkill: (yamlContent: string, originalName: string | null) =>
+    invoke<SkillSpec>("save_skill", { yamlContent, originalName }),
+
+  /** Raw YAML for editor load. Builtin → embedded const, user → disk file. */
+  getSkillYaml: (name: string) =>
+    invoke<string>("get_skill_yaml", { name }),
+
+  /** Same content as getSkillYaml — semantic alias for download flow. */
+  exportSkill: (name: string) =>
+    invoke<string>("export_skill", { name }),
+
+  /**
+   * Test-run a skill against a paper without writing it. Returns full result;
+   * subscribe to "skill_test:token" event for streaming chunks. max_tokens
+   * capped at 1500 server-side to limit cost.
+   */
+  testSkillWithPaper: (
+    yamlContent: string,
+    paperId: string,
+    modelConfigId: string,
+  ) =>
+    invoke<TestResult>("test_skill_with_paper", {
+      yamlContent,
+      paperId,
+      modelConfigId,
+    }),
+
+  /**
    * Run a skill on a paper through a model. Returns full text on completion.
    * Subscribe to "parse:token" event for incremental streaming.
    */
@@ -396,4 +517,64 @@ export const api = {
 
   saveAppConfig: (config: AppConfig) =>
     invoke<void>("save_app_config", { config }),
+
+  // ============================================================
+  // Chat (V2.0.1)
+  // ============================================================
+
+  createChatSession: (
+    title: string | null,
+    modelConfigId: string | null,
+  ) =>
+    invoke<ChatSession>("create_chat_session", {
+      title,
+      modelConfigId,
+    }),
+
+  listChatSessions: (limit?: number) =>
+    invoke<ChatSessionSummary[]>("list_chat_sessions", {
+      limit: limit ?? null,
+    }),
+
+  deleteChatSession: (id: string) =>
+    invoke<void>("delete_chat_session", { id }),
+
+  renameChatSession: (id: string, title: string) =>
+    invoke<void>("rename_chat_session", { id, title }),
+
+  pinChatSession: (id: string, pinned: boolean) =>
+    invoke<void>("pin_chat_session", { id, pinned }),
+
+  getSessionDetail: (id: string) =>
+    invoke<ChatSessionDetail | null>("get_session_detail", { id }),
+
+  setChatSessionModel: (id: string, modelConfigId: string | null) =>
+    invoke<void>("set_chat_session_model", { id, modelConfigId }),
+
+  getMessagesBySession: (
+    sessionId: string,
+    limit?: number,
+    beforeId?: string,
+  ) =>
+    invoke<ChatMessage[]>("get_messages_by_session", {
+      sessionId,
+      limit: limit ?? null,
+      beforeId: beforeId ?? null,
+    }),
+
+  uploadChatAttachment: (input: UploadAttachmentInput) =>
+    invoke<ChatAttachment>("upload_chat_attachment", { input }),
+
+  referencePaperAsAttachment: (sessionId: string, paperId: string) =>
+    invoke<ChatAttachment>("reference_paper_as_attachment", {
+      sessionId,
+      paperId,
+    }),
+
+  /**
+   * Send one chat turn. Streams tokens via "chat:token" event;
+   * resolves with the final assembled result.
+   */
+  sendChatMessage: (input: ChatStreamInput) =>
+    invoke<ChatStreamResult>("send_chat_message", { input }),
 };
