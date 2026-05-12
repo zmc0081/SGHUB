@@ -123,7 +123,40 @@ export interface Skill {
   output_dimensions: OutputDimension[];
   recommended_models: string[];
   estimated_tokens: EstimatedTokens | null;
+  author: string | null;
+  version: string | null;
   source: string; // "builtin" | "user"
+}
+
+export interface SkillSummary {
+  name: string;
+  display_name: string;
+  description: string;
+  icon: string;
+  is_builtin: boolean;
+  recommended_models: string[];
+  author: string | null;
+  version: string | null;
+}
+
+export interface SkillSpec {
+  name: string;
+  display_name: string;
+  description: string;
+  prompt_template: string;
+  output_dimensions: OutputDimension[];
+  recommended_models: string[];
+  author: string | null;
+  version: string | null;
+  icon: string;
+  category: string;
+}
+
+export interface SkillUploadResult {
+  filename: string;
+  success: boolean;
+  skill: SkillSpec | null;
+  errors: string[];
 }
 
 export interface ParseResult {
@@ -271,7 +304,19 @@ export const api = {
 
   getPaper: (id: string) => invoke<Paper | null>("get_paper", { id }),
 
-  getSkills: () => invoke<Skill[]>("get_skills"),
+  getSkills: () => invoke<SkillSummary[]>("get_skills"),
+
+  getSkillDetail: (name: string) =>
+    invoke<Skill | null>("get_skill_detail", { name }),
+
+  uploadSkillFile: (content: string, filename: string) =>
+    invoke<SkillSpec>("upload_skill_file", { content, filename }),
+
+  uploadSkillZip: (zipBytes: number[]) =>
+    invoke<SkillUploadResult[]>("upload_skill_zip", { zipBytes }),
+
+  deleteCustomSkill: (name: string) =>
+    invoke<void>("delete_custom_skill", { name }),
 
   /**
    * Run a skill on a paper through a model. Returns full text on completion.

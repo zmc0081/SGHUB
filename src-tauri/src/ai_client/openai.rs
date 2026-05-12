@@ -11,7 +11,11 @@ use crate::ai_client::{
 };
 
 const TEST_TIMEOUT: Duration = Duration::from_secs(15);
-const STREAM_TIMEOUT: Duration = Duration::from_secs(30);
+/// Total stream timeout — covers very long generations (full HTML reports with
+/// embedded SVG / 12-tab structured reads can run 10-25 min on slower providers).
+/// Connect timeout is kept short so dead endpoints fail fast.
+const STREAM_TIMEOUT: Duration = Duration::from_secs(1800); // 30 min
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub struct OpenAiCompatible {
     api_key: String,
@@ -43,6 +47,7 @@ impl AiProvider for OpenAiCompatible {
 
         let client = reqwest::Client::builder()
             .timeout(STREAM_TIMEOUT)
+            .connect_timeout(CONNECT_TIMEOUT)
             .build()
             .map_err(AiError::from)?;
 

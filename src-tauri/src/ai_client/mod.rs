@@ -73,7 +73,7 @@ pub enum AiError {
     RateLimited,
     #[error("服务器返回 HTTP {status}: {body}")]
     Http { status: u16, body: String },
-    #[error("请求超时 (>30s)")]
+    #[error("请求超时 (>30min) — 长内容生成请检查网络或换用更快的模型")]
     Timeout,
     #[error("无法连接到服务: {0}")]
     Connection(String),

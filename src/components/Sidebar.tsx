@@ -13,6 +13,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/feed", icon: "📰", label: "今日推送" },
   { to: "/library", icon: "⭐", label: "收藏夹" },
   { to: "/parse", icon: "🧠", label: "AI 解析" },
+  { to: "/skills", icon: "✨", label: "Skill 管理" },
   { to: "/models", icon: "🤖", label: "模型配置" },
   { to: "/settings", icon: "⚙️", label: "设置" },
 ];

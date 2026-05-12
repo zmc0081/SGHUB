@@ -13,7 +13,8 @@ use crate::ai_client::{
 };
 
 const TEST_TIMEOUT: Duration = Duration::from_secs(5);
-const STREAM_TIMEOUT: Duration = Duration::from_secs(30);
+const STREAM_TIMEOUT: Duration = Duration::from_secs(1800); // 30 min
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct OllamaProvider;
 
@@ -33,6 +34,7 @@ impl AiProvider for OllamaProvider {
 
         let client = reqwest::Client::builder()
             .timeout(STREAM_TIMEOUT)
+            .connect_timeout(CONNECT_TIMEOUT)
             .build()
             .map_err(AiError::from)?;
 
