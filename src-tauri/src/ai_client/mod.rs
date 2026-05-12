@@ -235,7 +235,7 @@ fn row_to_config(row: &rusqlite::Row) -> rusqlite::Result<ModelConfig> {
 const SELECT_COLS: &str = "id, name, provider, endpoint, model_id, max_tokens, \
                            is_default, keychain_ref, created_at, updated_at";
 
-fn list_all(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<ModelConfig>> {
+pub(crate) fn list_all(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<ModelConfig>> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;

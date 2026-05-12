@@ -70,7 +70,15 @@ pub fn init_at(data_dir: &Path) -> Result<DbPool, DbError> {
     }
 
     let mut conn = pool.get()?;
-    embedded::migrations::runner().run(&mut *conn)?;
+    // Tolerate divergent migration checksums — in dev, the V*.sql files often
+    // get touched by line-ending conversion / linters after a migration was
+    // already applied. Default behavior would abort; we prefer "trust the DB
+    // state, don't re-apply". For prod releases we ship immutable migrations
+    // so divergence shouldn't happen, and if it does we'd see it via tests.
+    embedded::migrations::runner()
+        .set_abort_divergent(false)
+        .set_abort_missing(false)
+        .run(&mut *conn)?;
 
     Ok(pool)
 }

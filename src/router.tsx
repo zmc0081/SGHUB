@@ -13,6 +13,8 @@ import Parse from "./pages/Parse";
 import Models from "./pages/Models";
 import Settings from "./pages/Settings";
 import Skills from "./pages/Skills";
+import SkillEditor from "./components/SkillEditor";
+import Chat from "./pages/Chat";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -66,6 +68,36 @@ const skillsRoute = createRoute({
   component: Skills,
 });
 
+const chatRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/chat",
+  component: Chat,
+});
+
+const skillNewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/skills/new",
+  component: () => <SkillEditor mode="new" name={null} />,
+});
+
+const skillEditRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/skills/$name/edit",
+  component: function SkillEditPage() {
+    const { name } = skillEditRoute.useParams();
+    return <SkillEditor mode="edit" name={name} />;
+  },
+});
+
+const skillCopyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/skills/$name/copy",
+  component: function SkillCopyPage() {
+    const { name } = skillCopyRoute.useParams();
+    return <SkillEditor mode="copy" name={name} />;
+  },
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
@@ -79,7 +111,11 @@ const routeTree = rootRoute.addChildren([
   libraryRoute,
   parseRoute,
   modelsRoute,
+  chatRoute,
   skillsRoute,
+  skillNewRoute,
+  skillEditRoute,
+  skillCopyRoute,
   settingsRoute,
 ]);
 

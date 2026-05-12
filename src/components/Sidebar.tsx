@@ -6,6 +6,7 @@ type NavItem = {
   to: string;
   icon: string;
   label: string;
+  isNew?: boolean;
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -13,6 +14,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/feed", icon: "📰", label: "今日推送" },
   { to: "/library", icon: "⭐", label: "收藏夹" },
   { to: "/parse", icon: "🧠", label: "AI 解析" },
+  { to: "/chat", icon: "💬", label: "Chat", isNew: true },
   { to: "/skills", icon: "✨", label: "Skill 管理" },
   { to: "/models", icon: "🤖", label: "模型配置" },
   { to: "/settings", icon: "⚙️", label: "设置" },
@@ -42,6 +44,10 @@ function SidebarItem({
       {badge > 0 ? (
         <span className="bg-accent text-[#1A1F2E] text-[10px] font-semibold px-1.5 py-0.5 rounded leading-none">
           {badge > 99 ? "99+" : badge}
+        </span>
+      ) : item.isNew ? (
+        <span className="bg-emerald-500 text-white text-[9px] font-semibold px-1 py-0.5 rounded leading-none tracking-wider">
+          NEW
         </span>
       ) : null}
     </Link>

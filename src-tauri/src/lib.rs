@@ -1,6 +1,7 @@
 use tauri::Manager;
 
 pub mod ai_client;
+pub mod chat;
 pub mod config;
 pub mod db;
 pub mod keychain;
@@ -25,6 +26,7 @@ fn get_db_status(state: tauri::State<'_, AppState>) -> Result<db::DbStatus, Stri
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -82,6 +84,10 @@ pub fn run() {
             skill_engine::uploader::upload_skill_file,
             skill_engine::uploader::upload_skill_zip,
             skill_engine::uploader::delete_custom_skill,
+            skill_engine::uploader::save_skill,
+            skill_engine::uploader::get_skill_yaml,
+            skill_engine::uploader::export_skill,
+            skill_engine::uploader::test_skill_with_paper,
             subscription::create_subscription,
             subscription::update_subscription,
             subscription::delete_subscription,
@@ -101,6 +107,17 @@ pub fn run() {
             ai_client::get_model_presets,
             ai_client::test_model_connection,
             ai_client::ai_chat_stream,
+            chat::create_chat_session,
+            chat::list_chat_sessions,
+            chat::delete_chat_session,
+            chat::rename_chat_session,
+            chat::pin_chat_session,
+            chat::get_session_detail,
+            chat::set_chat_session_model,
+            chat::get_messages_by_session,
+            chat::upload_chat_attachment,
+            chat::reference_paper_as_attachment,
+            chat::send_chat_message,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
