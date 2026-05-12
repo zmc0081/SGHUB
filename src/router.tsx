@@ -12,6 +12,7 @@ import Library from "./pages/Library";
 import Parse from "./pages/Parse";
 import Models from "./pages/Models";
 import Settings from "./pages/Settings";
+import Skills from "./pages/Skills";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -59,6 +60,12 @@ const modelsRoute = createRoute({
   component: Models,
 });
 
+const skillsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/skills",
+  component: Skills,
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
@@ -72,6 +79,7 @@ const routeTree = rootRoute.addChildren([
   libraryRoute,
   parseRoute,
   modelsRoute,
+  skillsRoute,
   settingsRoute,
 ]);
 

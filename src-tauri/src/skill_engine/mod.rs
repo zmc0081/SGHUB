@@ -16,6 +16,8 @@ use crate::keychain;
 use crate::search::Paper;
 use crate::AppState;
 
+pub mod uploader;
+
 // ============================================================
 // Built-in skills — embedded at compile time
 // ============================================================
@@ -64,6 +66,10 @@ pub struct Skill {
     pub recommended_models: Vec<String>,
     #[serde(default)]
     pub estimated_tokens: Option<EstimatedTokens>,
+    #[serde(default)]
+    pub author: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
     /// Set by loader, not in YAML. "builtin" or "user".
     #[serde(default = "default_source")]
     pub source: String,
@@ -189,9 +195,44 @@ pub fn render_prompt(
 // Tauri commands
 // ============================================================
 
+/// Lean view returned by `get_skills` for list pages — keeps IPC payload
+/// small (skill prompts can be many KB). Use `get_skill_detail` for the
+/// full struct (needed by the parse page to render output_dimensions).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillSummary {
+    pub name: String,
+    pub display_name: String,
+    pub description: String,
+    pub icon: String,
+    pub is_builtin: bool,
+    pub recommended_models: Vec<String>,
+    pub author: Option<String>,
+    pub version: Option<String>,
+}
+
+impl From<&Skill> for SkillSummary {
+    fn from(s: &Skill) -> Self {
+        Self {
+            name: s.name.clone(),
+            display_name: s.display_name.clone(),
+            description: s.description.clone(),
+            icon: s.icon.clone(),
+            is_builtin: s.source == "builtin",
+            recommended_models: s.recommended_models.clone(),
+            author: s.author.clone(),
+            version: s.version.clone(),
+        }
+    }
+}
+
 #[tauri::command]
-pub fn get_skills(app: tauri::AppHandle) -> Vec<Skill> {
-    load_all_skills(&app)
+pub fn get_skills(app: tauri::AppHandle) -> Vec<SkillSummary> {
+    load_all_skills(&app).iter().map(SkillSummary::from).collect()
+}
+
+#[tauri::command]
+pub fn get_skill_detail(app: tauri::AppHandle, name: String) -> Option<Skill> {
+    find_skill(&app, &name)
 }
 
 #[tauri::command]

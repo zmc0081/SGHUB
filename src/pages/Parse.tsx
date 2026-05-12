@@ -6,6 +6,7 @@ import {
   type Paper,
   type ParseResult,
   type Skill,
+  type SkillSummary,
   type TokenPayload,
 } from "../lib/tauri";
 
@@ -48,50 +49,6 @@ function formatRelative(iso: string): string {
   if (diff < 3600) return `${Math.round(diff / 60)} 分钟前`;
   if (diff < 86400) return `${Math.round(diff / 3600)} 小时前`;
   return `${Math.round(diff / 86400)} 天前`;
-}
-
-// ============================================================
-// Skill picker — card grid
-// ============================================================
-
-function SkillCard({
-  skill,
-  selected,
-  onSelect,
-}: {
-  skill: Skill;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      onClick={onSelect}
-      className={`text-left bg-white rounded border p-3 transition-all ${
-        selected
-          ? "border-primary ring-2 ring-primary/30 bg-primary/5"
-          : "border-black/10 hover:border-primary/40"
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        <span className="text-lg">{skill.icon || "🤖"}</span>
-        <span className="font-semibold text-primary">{skill.display_name}</span>
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/5 text-app-fg/50 ml-auto">
-          {skill.source === "builtin" ? "内置" : "用户"}
-        </span>
-      </div>
-      {skill.description && (
-        <div className="mt-1 text-xs text-app-fg/60 line-clamp-2">
-          {skill.description}
-        </div>
-      )}
-      {skill.estimated_tokens && (
-        <div className="mt-1.5 text-[10px] text-app-fg/40">
-          预估 in≈{skill.estimated_tokens.input.toLocaleString()} · out≈
-          {skill.estimated_tokens.output.toLocaleString()}
-        </div>
-      )}
-    </button>
-  );
 }
 
 // ============================================================
@@ -164,7 +121,8 @@ function RawOutput({
 
 export default function Parse() {
   const [papers, setPapers] = useState<Paper[]>([]);
-  const [skills, setSkills] = useState<Skill[]>([]);
+  const [skills, setSkills] = useState<SkillSummary[]>([]);
+  const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [models, setModels] = useState<ModelConfig[]>([]);
   const [history, setHistory] = useState<ParseResult[]>([]);
 
@@ -232,10 +190,19 @@ export default function Parse() {
     () => papers.find((p) => p.id === paperId),
     [paperId, papers],
   );
-  const selectedSkill = useMemo(
-    () => skills.find((s) => s.name === skillName),
-    [skillName, skills],
-  );
+
+  // Lazy-load full Skill (incl. output_dimensions + prompt_template) for the
+  // selected skill — get_skills now returns SkillSummary only to keep IPC small.
+  useEffect(() => {
+    if (!skillName) {
+      setSelectedSkill(null);
+      return;
+    }
+    api
+      .getSkillDetail(skillName)
+      .then(setSelectedSkill)
+      .catch((e) => console.warn("getSkillDetail", e));
+  }, [skillName]);
 
   const startParse = async () => {
     if (!paperId || !skillName || !modelId) {
@@ -375,24 +342,44 @@ export default function Parse() {
             </button>
           </div>
 
-          <div>
-            <div className="text-xs text-app-fg/60 mb-1.5">Skill</div>
-            <div className="grid grid-cols-3 gap-2">
+          <div className="flex gap-2 items-center">
+            <label className="text-xs text-app-fg/60 w-12 shrink-0">Skill</label>
+            <select
+              value={skillName}
+              onChange={(e) => setSkillName(e.target.value)}
+              className="flex-1 px-2.5 py-1.5 text-sm bg-white border border-black/10 rounded"
+            >
               {skills.length === 0 && (
-                <div className="text-xs text-app-fg/40 col-span-3">
-                  未加载到 Skill
-                </div>
+                <option value="">(未加载到 Skill)</option>
               )}
               {skills.map((s) => (
-                <SkillCard
-                  key={s.name}
-                  skill={s}
-                  selected={s.name === skillName}
-                  onSelect={() => setSkillName(s.name)}
-                />
+                <option key={s.name} value={s.name}>
+                  {s.icon ? `${s.icon} ` : ""}
+                  {s.display_name}
+                  {s.is_builtin ? "  · 内置" : "  · 用户"}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
+
+          {/* Selected Skill info line — description + recommended models */}
+          {(() => {
+            const sel = skills.find((s) => s.name === skillName);
+            if (!sel) return null;
+            return (
+              <div className="flex gap-2 items-start">
+                <div className="w-12 shrink-0" />
+                <div className="flex-1 text-[11px] text-app-fg/55 leading-snug">
+                  {sel.description}
+                  {sel.recommended_models.length > 0 && (
+                    <span className="ml-2 text-app-fg/40">
+                      · 推荐 {sel.recommended_models.slice(0, 3).join(" · ")}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Output */}

@@ -16,7 +16,8 @@ use crate::ai_client::{
 };
 
 const TEST_TIMEOUT: Duration = Duration::from_secs(15);
-const STREAM_TIMEOUT: Duration = Duration::from_secs(30);
+const STREAM_TIMEOUT: Duration = Duration::from_secs(1800); // 30 min
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 
 pub struct AnthropicProvider {
@@ -59,6 +60,7 @@ impl AiProvider for AnthropicProvider {
 
         let client = reqwest::Client::builder()
             .timeout(STREAM_TIMEOUT)
+            .connect_timeout(CONNECT_TIMEOUT)
             .build()
             .map_err(AiError::from)?;
 
