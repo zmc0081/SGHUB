@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { api, type Folder, type Paper } from "../lib/tauri";
+import { api, type Paper } from "../lib/tauri";
+import { PaperActions } from "../components/PaperActions";
 
 const SOURCES = [
   { value: "all", label: "全部" },
@@ -56,47 +57,8 @@ function applySort(papers: Paper[], sortBy: string): Paper[] {
   return papers;
 }
 
-function pdfUrlFor(p: Paper): string | null {
-  if (p.source === "arxiv" && p.source_id) {
-    return `https://arxiv.org/pdf/${p.source_id}`;
-  }
-  return null;
-}
-
 function PaperCard({ paper }: { paper: Paper }) {
-  const pdf = pdfUrlFor(paper);
-  const sourceCls =
-    SOURCE_BADGE[paper.source] ?? "bg-app-fg/20 text-app-fg";
-
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerFolders, setPickerFolders] = useState<Folder[]>([]);
-  const [pickerError, setPickerError] = useState<string | null>(null);
-  const [savedTo, setSavedTo] = useState<string | null>(null);
-
-  const openPicker = async () => {
-    setPickerError(null);
-    setSavedTo(null);
-    try {
-      const fs = await api.getFolders();
-      setPickerFolders(fs);
-      setPickerOpen(true);
-    } catch (e) {
-      setPickerError(String(e));
-      setPickerOpen(true);
-    }
-  };
-
-  const saveTo = async (folder: Folder) => {
-    try {
-      await api.addToFolder(folder.id, paper.id);
-      setSavedTo(folder.name);
-      setPickerOpen(false);
-      setTimeout(() => setSavedTo(null), 2200);
-    } catch (e) {
-      setPickerError(String(e));
-    }
-  };
-
+  const sourceCls = SOURCE_BADGE[paper.source] ?? "bg-app-fg/20 text-app-fg";
   return (
     <article className="bg-white rounded border border-black/10 p-4 hover:border-primary/30 transition-colors">
       <div className="flex items-start justify-between gap-3">
@@ -106,14 +68,9 @@ function PaperCard({ paper }: { paper: Paper }) {
           >
             {SOURCE_LABEL[paper.source] ?? paper.source}
           </span>
-          <a
-            href={paper.source_url ?? "#"}
-            target="_blank"
-            rel="noreferrer"
-            className="text-base font-semibold text-primary hover:underline leading-snug truncate"
-          >
+          <span className="text-base font-semibold text-primary leading-snug truncate">
             {paper.title}
-          </a>
+          </span>
         </div>
       </div>
       <div className="mt-1.5 text-xs text-app-fg/70">
@@ -131,72 +88,8 @@ function PaperCard({ paper }: { paper: Paper }) {
           {paper.abstract}
         </p>
       )}
-      <div className="mt-3 flex items-center gap-1.5 text-xs">
-        <div className="relative">
-          <button
-            onClick={() => (pickerOpen ? setPickerOpen(false) : openPicker())}
-            className={`px-2 py-1 rounded border transition-colors ${
-              savedTo
-                ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                : pickerOpen
-                  ? "border-primary bg-primary/5"
-                  : "border-black/10 hover:border-primary/30 hover:bg-primary/5"
-            }`}
-          >
-            {savedTo ? `✓ 已加入「${savedTo}」` : "⭐ 收藏"}
-          </button>
-          {pickerOpen && (
-            <div
-              className="absolute z-20 left-0 mt-1 min-w-44 bg-white border border-black/10 rounded shadow-lg overflow-hidden"
-              onMouseLeave={() => setPickerOpen(false)}
-            >
-              {pickerError && (
-                <div className="px-3 py-2 text-xs text-red-600 border-b border-black/5">
-                  {pickerError}
-                </div>
-              )}
-              {!pickerError && pickerFolders.length === 0 && (
-                <div className="px-3 py-2 text-xs text-app-fg/60">
-                  还没有文件夹 — 请先到「⭐ 收藏夹」新建
-                </div>
-              )}
-              {pickerFolders.map((f) => (
-                <button
-                  key={f.id}
-                  onClick={() => saveTo(f)}
-                  className="block w-full text-left px-3 py-2 text-xs hover:bg-accent/15 hover:text-app-fg transition-colors flex items-center gap-2"
-                >
-                  <span>📁</span>
-                  <span className="flex-1 truncate">{f.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <button
-          onClick={() => alert("AI 精读 — 待实现 (跳转 /parse)")}
-          className="px-2 py-1 rounded border border-black/10 hover:border-primary/30 hover:bg-primary/5"
-        >
-          🧠 AI 精读
-        </button>
-        {paper.source_url && (
-          <a
-            href={paper.source_url}
-            target="_blank"
-            rel="noreferrer"
-            className="px-2 py-1 rounded border border-black/10 hover:border-primary/30 hover:bg-primary/5"
-          >
-            📄 原文
-          </a>
-        )}
-        <button
-          onClick={() => pdf && window.open(pdf, "_blank")}
-          disabled={!pdf}
-          className="px-2 py-1 rounded border border-black/10 hover:border-primary/30 hover:bg-primary/5 disabled:opacity-40 disabled:cursor-not-allowed"
-          title={pdf ? "下载 PDF" : "该来源未提供 PDF 链接"}
-        >
-          📥 下载 PDF
-        </button>
+      <div className="mt-3">
+        <PaperActions paper={paper} />
       </div>
     </article>
   );

@@ -50,10 +50,32 @@ const libraryRoute = createRoute({
   component: Library,
 });
 
+// ============================================================
+// /parse — accepts `paper_id` + optional `skill` search params so any
+// page can deep-link "open this paper in Parse, optionally with this
+// Skill preselected". validateSearch coerces unknown query strings into
+// a typed shape (or drops them silently).
+// ============================================================
+
+interface ParseSearch {
+  paper_id?: string;
+  skill?: string;
+}
+
 const parseRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/parse",
   component: Parse,
+  validateSearch: (search: Record<string, unknown>): ParseSearch => {
+    const out: ParseSearch = {};
+    if (typeof search.paper_id === "string" && search.paper_id.trim()) {
+      out.paper_id = search.paper_id;
+    }
+    if (typeof search.skill === "string" && search.skill.trim()) {
+      out.skill = search.skill;
+    }
+    return out;
+  },
 });
 
 const modelsRoute = createRoute({
