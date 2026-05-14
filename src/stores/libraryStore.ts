@@ -18,6 +18,12 @@ import {
   type PaperFolderChangedPayload,
 } from "../lib/tauri";
 
+// Stable empty-array sentinel — handed out by usePaperFolders when a
+// paper has no entry yet, so subscribers don't re-render on every
+// unrelated store mutation. (`[] !== []` by Object.is, the default
+// Zustand selector equality.)
+const EMPTY_FOLDERS: readonly string[] = Object.freeze([]) as readonly string[];
+
 interface LibraryState {
   /** paper_id → folder_id[] (sorted, empty array if known-not-favorited). */
   paperFolders: Record<string, string[]>;
@@ -27,6 +33,11 @@ interface LibraryState {
   loadedFor: Set<string>;
   /** Lifecycle: set once when the event listener is wired. */
   listenerActive: boolean;
+  /** De-dupes concurrent `loadFolders` calls: many FavoriteButtons mount
+   *  simultaneously and would otherwise all fire the same two IPCs. */
+  _foldersInFlight: Promise<void> | null;
+  /** De-dupes concurrent `loadPaperFolders` calls per paperId. */
+  _paperFoldersInFlight: Map<string, Promise<string[]>>;
 
   // Mutations
   loadFolders: () => Promise<void>;
@@ -52,26 +63,53 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   folderTree: [],
   loadedFor: new Set(),
   listenerActive: false,
+  _foldersInFlight: null,
+  _paperFoldersInFlight: new Map(),
 
   loadFolders: async () => {
-    const [folders, folderTree] = await Promise.all([
-      api.getFolders(),
-      api.getFolderTree(),
-    ]);
-    set({ folders, folderTree });
+    // Coalesce parallel callers onto the same promise — otherwise N
+    // FavoriteButtons mounting at once each fire `getFolders` +
+    // `getFolderTree` and each `set` triggers cascading re-renders.
+    const inflight = get()._foldersInFlight;
+    if (inflight) return inflight;
+    const p = (async () => {
+      try {
+        const [folders, folderTree] = await Promise.all([
+          api.getFolders(),
+          api.getFolderTree(),
+        ]);
+        set({ folders, folderTree });
+      } finally {
+        set({ _foldersInFlight: null });
+      }
+    })();
+    set({ _foldersInFlight: p });
+    return p;
   },
 
   loadPaperFolders: async (paperId) => {
-    const ids = await api.getPaperFolders(paperId);
-    set((s) => {
-      const next = new Set(s.loadedFor);
-      next.add(paperId);
-      return {
-        paperFolders: { ...s.paperFolders, [paperId]: ids },
-        loadedFor: next,
-      };
-    });
-    return ids;
+    const map = get()._paperFoldersInFlight;
+    const existing = map.get(paperId);
+    if (existing) return existing;
+    const p = (async () => {
+      try {
+        const ids = await api.getPaperFolders(paperId);
+        set((s) => {
+          const next = new Set(s.loadedFor);
+          next.add(paperId);
+          return {
+            paperFolders: { ...s.paperFolders, [paperId]: ids },
+            loadedFor: next,
+          };
+        });
+        return ids;
+      } finally {
+        // Always clear so a later call can refetch (e.g. after an event).
+        get()._paperFoldersInFlight.delete(paperId);
+      }
+    })();
+    map.set(paperId, p);
+    return p;
   },
 
   ensureLoaded: async (paperId) => {
@@ -173,7 +211,10 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 // ============================================================
 
 export function usePaperFolders(paperId: string): string[] {
-  return useLibraryStore((s) => s.paperFolders[paperId] ?? []);
+  // Cast away the readonly — callers only iterate / index; never mutate.
+  return useLibraryStore(
+    (s) => (s.paperFolders[paperId] ?? EMPTY_FOLDERS) as string[],
+  );
 }
 
 export function useIsFavorited(paperId: string): boolean {
