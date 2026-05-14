@@ -5,6 +5,7 @@ import {
   type SubscriptionInput,
   type SubscriptionResult,
 } from "../lib/tauri";
+import { PaperActions } from "../components/PaperActions";
 
 // ============================================================
 // Constants
@@ -279,16 +280,13 @@ function SubscriptionItem({
 
 function ResultCard({
   result,
-  onCollect,
   onMarkRead,
 }: {
   result: SubscriptionResult;
-  onCollect: () => void;
   onMarkRead: () => void;
 }) {
   const { paper } = result;
-  const sourceCls =
-    SOURCE_BADGE[paper.source] ?? "bg-app-fg/20 text-app-fg";
+  const sourceCls = SOURCE_BADGE[paper.source] ?? "bg-app-fg/20 text-app-fg";
   return (
     <article
       className={`bg-white border rounded p-3 transition-colors ${
@@ -305,14 +303,9 @@ function ResultCard({
           >
             {paper.source}
           </span>
-          <a
-            href={paper.source_url ?? "#"}
-            target="_blank"
-            rel="noreferrer"
-            className="text-sm font-semibold text-primary hover:underline leading-snug truncate"
-          >
+          <span className="text-sm font-semibold text-primary leading-snug truncate">
             {paper.title}
-          </a>
+          </span>
         </div>
         <span className="shrink-0 text-[10px] text-app-fg/40">
           {new Date(result.found_at).toLocaleString()}
@@ -328,23 +321,12 @@ function ResultCard({
           {paper.abstract}
         </p>
       )}
-      <div className="mt-2 flex items-center gap-1.5 text-[11px]">
-        <button
-          onClick={onCollect}
-          className="px-2 py-0.5 rounded border border-black/10 hover:border-primary/30 hover:bg-primary/5"
-        >
-          ⭐ 收藏
-        </button>
-        <button
-          onClick={() => alert("AI 精读 — 跳转 /parse 待接入")}
-          className="px-2 py-0.5 rounded border border-black/10 hover:border-primary/30 hover:bg-primary/5"
-        >
-          🧠 AI 精读
-        </button>
+      <div className="mt-2 flex items-center gap-2 flex-wrap">
+        <PaperActions paper={paper} />
         {!result.is_read && (
           <button
             onClick={onMarkRead}
-            className="px-2 py-0.5 rounded border border-black/10 text-app-fg/60 hover:border-primary/30"
+            className="px-2 py-1 rounded border border-black/10 text-app-fg/60 hover:border-primary/30 text-xs"
           >
             标已读
           </button>
@@ -408,25 +390,6 @@ export default function Feed() {
     }
     return m;
   }, [results]);
-
-  const collect = async (paperId: string) => {
-    try {
-      const folders = await api.getFolders();
-      if (folders.length === 0) {
-        alert("还没有文件夹 — 请先到「⭐ 收藏夹」新建");
-        return;
-      }
-      const list = folders.map((f, i) => `${i + 1}. ${f.name}`).join("\n");
-      const choice = prompt(`添加到哪个文件夹?\n\n${list}`, "1");
-      if (!choice) return;
-      const idx = parseInt(choice, 10) - 1;
-      if (Number.isNaN(idx) || idx < 0 || idx >= folders.length) return;
-      await api.addToFolder(folders[idx].id, paperId);
-      alert(`✓ 已加入「${folders[idx].name}」`);
-    } catch (e) {
-      alert(`收藏失败: ${e}`);
-    }
-  };
 
   const markRead = async (subId: string, paperId: string) => {
     try {
@@ -610,7 +573,6 @@ export default function Feed() {
                       <ResultCard
                         key={`${r.subscription_id}-${r.paper.id}`}
                         result={r}
-                        onCollect={() => collect(r.paper.id)}
                         onMarkRead={() => markRead(r.subscription_id, r.paper.id)}
                       />
                     ))}
@@ -627,7 +589,6 @@ export default function Feed() {
                 <ResultCard
                   key={`${r.subscription_id}-${r.paper.id}`}
                   result={r}
-                  onCollect={() => collect(r.paper.id)}
                   onMarkRead={() => markRead(r.subscription_id, r.paper.id)}
                 />
               ))}

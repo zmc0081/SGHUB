@@ -577,4 +577,64 @@ export const api = {
    */
   sendChatMessage: (input: ChatStreamInput) =>
     invoke<ChatStreamResult>("send_chat_message", { input }),
+
+  // ============================================================
+  // Library helpers — favorites + external URL + PDF download
+  // ============================================================
+
+  /** Folder IDs a paper currently belongs to (empty → not yet favorited). */
+  getPaperFolders: (paperId: string) =>
+    invoke<string[]>("get_paper_folders", { paperId }),
+
+  /** Convenience for the FavoriteButton "+ new folder" path. */
+  createQuickFolder: (name: string, parentId: string | null) =>
+    invoke<Folder>("create_quick_folder", { name, parentId }),
+
+  /** Resolve a paper to its best external URL (doi → source_url → arxiv abs → pubmed). */
+  resolvePaperUrl: (paperId: string) =>
+    invoke<string | null>("resolve_paper_url", { paperId }),
+
+  /** Open a URL in the OS-default browser. http(s) only. */
+  openExternalUrl: (url: string) =>
+    invoke<void>("open_external_url", { url }),
+
+  /** Open a local PDF in the OS-default viewer. */
+  openLocalPdf: (path: string) => invoke<void>("open_local_pdf", { path }),
+
+  /**
+   * Download an OA paper's PDF; emits `download:progress` events keyed by paper_id.
+   * Returns the absolute path on success.
+   */
+  downloadPaperPdf: (paperId: string) =>
+    invoke<string>("download_paper_pdf", { paperId }),
+
+  /** Cooperative cancel — the active download polls this flag per chunk. */
+  cancelDownload: (paperId: string) =>
+    invoke<void>("cancel_download", { paperId }),
 };
+
+// ============================================================
+// Event payload types — match Rust serde structs in library/
+// ============================================================
+
+export interface PaperFolderChangedPayload {
+  paper_id: string;
+  /** "added" | "removed" | "moved" */
+  kind: "added" | "removed" | "moved";
+  folder_id: string | null;
+  from_folder_id: string | null;
+  to_folder_id: string | null;
+}
+
+export interface DownloadProgressPayload {
+  paper_id: string;
+  /** 0..=100, or -1 when Content-Length unknown. */
+  percent: number;
+  received: number;
+  total: number | null;
+  /** "downloading" | "done" | "error" | "cancelled" */
+  status: "downloading" | "done" | "error" | "cancelled";
+  error: string | null;
+  /** Absolute path on `status: "done"`. */
+  path: string | null;
+}

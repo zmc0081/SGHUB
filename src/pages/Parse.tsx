@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { useSearch } from "@tanstack/react-router";
 import {
   api,
   type ModelConfig,
@@ -120,6 +121,11 @@ function RawOutput({
 // ============================================================
 
 export default function Parse() {
+  const search = useSearch({ from: "/parse" }) as {
+    paper_id?: string;
+    skill?: string;
+  };
+
   const [papers, setPapers] = useState<Paper[]>([]);
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
@@ -139,21 +145,72 @@ export default function Parse() {
 
   // Stable refs for token append (avoid stale closure in Tauri event handler)
   const outputRef = useRef("");
+  // After deep-link load, scroll the "开始解析" button into view but don't
+  // auto-fire it — the user does a final visual confirm before spending
+  // an API call.
+  const startBtnRef = useRef<HTMLButtonElement>(null);
 
   // Load reference data
   useEffect(() => {
-    api.getRecentPapers(50).then(setPapers).catch((e) => setError(String(e)));
-    api.getSkills().then((s) => {
-      setSkills(s);
-      if (s.length > 0 && !skillName) setSkillName(s[0].name);
-    }).catch((e) => setError(String(e)));
-    api.getModelConfigs().then((m) => {
-      setModels(m);
-      const def = m.find((x) => x.is_default) ?? m[0];
-      if (def && !modelId) setModelId(def.id);
-    }).catch((e) => setError(String(e)));
+    // If we arrived here via /parse?paper_id=...&skill=..., the recent
+    // 50-paper list may not contain that paper. Fetch the single paper
+    // by id and prepend it so the <select> can preselect it.
+    const loadPapers = async () => {
+      try {
+        const recent = await api.getRecentPapers(50);
+        if (search.paper_id && !recent.some((p) => p.id === search.paper_id)) {
+          try {
+            const target = await api.getPaper(search.paper_id);
+            if (target) setPapers([target, ...recent]);
+            else setPapers(recent);
+          } catch {
+            setPapers(recent);
+          }
+        } else {
+          setPapers(recent);
+        }
+      } catch (e) {
+        setError(String(e));
+      }
+    };
+    void loadPapers();
+
+    api
+      .getSkills()
+      .then((s) => {
+        setSkills(s);
+        // Search-param skill wins; otherwise fall back to first.
+        if (search.skill && s.some((x) => x.name === search.skill)) {
+          setSkillName(search.skill);
+        } else if (s.length > 0 && !skillName) {
+          setSkillName(s[0].name);
+        }
+      })
+      .catch((e) => setError(String(e)));
+    api
+      .getModelConfigs()
+      .then((m) => {
+        setModels(m);
+        const def = m.find((x) => x.is_default) ?? m[0];
+        if (def && !modelId) setModelId(def.id);
+      })
+      .catch((e) => setError(String(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [search.paper_id, search.skill]);
+
+  // Apply paper_id from URL once papers list is ready.
+  useEffect(() => {
+    if (search.paper_id && papers.some((p) => p.id === search.paper_id)) {
+      setPaperId(search.paper_id);
+      // Scroll the start button into view so the user knows where to click.
+      setTimeout(() => {
+        startBtnRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }, 100);
+    }
+  }, [search.paper_id, papers]);
 
   // Subscribe to streaming events
   useEffect(() => {
@@ -334,6 +391,7 @@ export default function Parse() {
               ))}
             </select>
             <button
+              ref={startBtnRef}
               onClick={startParse}
               disabled={streaming || !paperId || !skillName || !modelId}
               className="px-4 py-1.5 text-sm rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50"

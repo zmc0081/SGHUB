@@ -14,6 +14,7 @@ import {
   type Paper,
   type Tag,
 } from "../lib/tauri";
+import { PaperActions } from "../components/PaperActions";
 
 const READ_STATUS_BAR: Record<string, string> = {
   unread: "bg-gray-300",
@@ -227,11 +228,12 @@ function TagCloud({ tags, onChange }: { tags: Tag[]; onChange: () => void }) {
 
 function PaperRow({
   paper,
-  currentFolderId,
   onChange,
 }: {
   paper: Paper;
-  currentFolderId: string | null;
+  /** Kept for backward-compat callers; FavoriteButton + PaperActions now
+   *  handle folder membership directly via libraryStore events. */
+  currentFolderId?: string | null;
   onChange: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -255,17 +257,6 @@ function PaperRow({
     }
   };
 
-  const removeFromCurrent = async () => {
-    if (!currentFolderId) return;
-    if (!confirm("从当前文件夹移除这篇文献?(原文不会删除)")) return;
-    try {
-      await api.removeFromFolder(currentFolderId, paper.id);
-      onChange();
-    } catch (e) {
-      alert(`移除失败: ${e}`);
-    }
-  };
-
   return (
     <div
       ref={setNodeRef}
@@ -282,68 +273,44 @@ function PaperRow({
           READ_STATUS_BAR[paper.read_status] ?? "bg-gray-300"
         }`}
       />
-      <div
-        className="flex-1 p-3 cursor-grab active:cursor-grabbing"
-        {...listeners}
-        {...attributes}
-      >
-        <div className="flex items-start gap-2">
-          <span
-            className={`shrink-0 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold ${
-              SOURCE_BADGE[paper.source] ?? "bg-app-fg/20 text-app-fg"
-            }`}
-          >
-            {paper.source}
-          </span>
-          <a
-            href={paper.source_url ?? "#"}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-sm font-semibold text-primary hover:underline leading-snug truncate"
-          >
-            {paper.title}
-          </a>
-        </div>
-        <div className="mt-1 text-xs text-app-fg/70">
-          {paper.authors.slice(0, 4).join(", ")}
-          {paper.authors.length > 4 && ` 等`}
-          {paper.published_at && ` · ${paper.published_at.slice(0, 10)}`}
-        </div>
-        {paper.abstract && (
-          <p className="mt-1.5 text-xs text-app-fg/70 line-clamp-2">
-            {paper.abstract}
-          </p>
-        )}
-      </div>
-      <div className="flex flex-col gap-1 p-2 text-[10px] text-app-fg/40 shrink-0">
-        <button
-          onClick={() =>
-            alert("AI 精读 — 待实现 (跳转 /parse?paperId=...)")
-          }
-          className="hover:text-primary"
-          title="AI 精读"
+      <div className="flex-1 p-3 flex flex-col gap-2">
+        {/* Top half — drag handle on title block, action row separately so
+            clicks don't initiate a drag. */}
+        <div
+          className="cursor-grab active:cursor-grabbing"
+          {...listeners}
+          {...attributes}
         >
-          🧠
-        </button>
-        {paper.pdf_path && (
-          <button
-            onClick={() => alert(`打开 PDF: ${paper.pdf_path}`)}
-            className="hover:text-primary"
-            title="打开本地 PDF"
-          >
-            📄
-          </button>
-        )}
-        {currentFolderId && (
-          <button
-            onClick={removeFromCurrent}
-            className="hover:text-red-600"
-            title="从当前文件夹移除"
-          >
-            ✕
-          </button>
-        )}
+          <div className="flex items-start gap-2">
+            <span
+              className={`shrink-0 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold ${
+                SOURCE_BADGE[paper.source] ?? "bg-app-fg/20 text-app-fg"
+              }`}
+            >
+              {paper.source}
+            </span>
+            <span className="text-sm font-semibold text-primary leading-snug truncate">
+              {paper.title}
+            </span>
+          </div>
+          <div className="mt-1 text-xs text-app-fg/70">
+            {paper.authors.slice(0, 4).join(", ")}
+            {paper.authors.length > 4 && ` 等`}
+            {paper.published_at && ` · ${paper.published_at.slice(0, 10)}`}
+          </div>
+          {paper.abstract && (
+            <p className="mt-1.5 text-xs text-app-fg/70 line-clamp-2">
+              {paper.abstract}
+            </p>
+          )}
+        </div>
+        {/* Bottom half — actions (PaperActions handles fav / parse / pdf).
+            currentFolderId is implicitly tracked via the FavoriteButton's
+            folder picker; the Library-specific "remove from this folder"
+            is now done by clicking ⭐ → toggling the current folder off. */}
+        <div onClick={(e) => e.stopPropagation()}>
+          <PaperActions paper={paper} />
+        </div>
       </div>
     </div>
   );

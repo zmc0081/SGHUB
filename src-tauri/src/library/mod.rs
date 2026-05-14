@@ -2,9 +2,33 @@ use std::collections::HashMap;
 
 use rusqlite::{params, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
+use tauri::Emitter;
 
 use crate::search::Paper;
 use crate::AppState;
+
+pub mod pdf_download;
+
+// ============================================================
+// Event payloads (broadcast on library mutations so any open page
+// — Search / Feed / Library / Chat — can reactively refresh state.
+// ============================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaperFolderChangedPayload {
+    pub paper_id: String,
+    /// "added" | "removed" | "moved"
+    pub kind: String,
+    pub folder_id: Option<String>,
+    pub from_folder_id: Option<String>,
+    pub to_folder_id: Option<String>,
+}
+
+fn emit_paper_folder_changed(app: &tauri::AppHandle, payload: &PaperFolderChangedPayload) {
+    if let Err(e) = app.emit("library:paper_folder_changed", payload) {
+        log::warn!("emit library:paper_folder_changed failed: {}", e);
+    }
+}
 
 const UNCATEGORIZED_ID: &str = "00000000-0000-0000-0000-000000000001";
 
@@ -354,6 +378,25 @@ fn db_move_paper_to_folder(
     )?;
     tx.commit()?;
     Ok(())
+}
+
+/// List the folder IDs a paper currently belongs to. Empty when the paper
+/// has not been collected yet — that's the signal the frontend uses to
+/// render the ☆/⭐ state of the FavoriteButton.
+fn db_get_paper_folders(
+    pool: &crate::db::DbPool,
+    paper_id: &str,
+) -> rusqlite::Result<Vec<String>> {
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let mut stmt = conn.prepare(
+        "SELECT folder_id FROM folder_papers WHERE paper_id = ?1 ORDER BY folder_id",
+    )?;
+    let rows: Vec<String> = stmt
+        .query_map([paper_id], |r| r.get(0))?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(rows)
 }
 
 fn db_batch_add_to_folder(
@@ -706,56 +749,145 @@ pub async fn reorder_folders(
 
 #[tauri::command]
 pub async fn add_to_folder(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     folder_id: String,
     paper_id: String,
 ) -> Result<(), String> {
     let pool = state.db_pool.clone();
-    tokio::task::spawn_blocking(move || db_add_to_folder(&pool, &folder_id, &paper_id))
+    let folder_for_db = folder_id.clone();
+    let paper_for_db = paper_id.clone();
+    tokio::task::spawn_blocking(move || db_add_to_folder(&pool, &folder_for_db, &paper_for_db))
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())?;
+    emit_paper_folder_changed(
+        &app,
+        &PaperFolderChangedPayload {
+            paper_id,
+            kind: "added".into(),
+            folder_id: Some(folder_id),
+            from_folder_id: None,
+            to_folder_id: None,
+        },
+    );
     Ok(())
 }
 
 #[tauri::command]
 pub async fn remove_from_folder(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     folder_id: String,
     paper_id: String,
 ) -> Result<(), String> {
     let pool = state.db_pool.clone();
-    tokio::task::spawn_blocking(move || db_remove_from_folder(&pool, &folder_id, &paper_id))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?;
+    let folder_for_db = folder_id.clone();
+    let paper_for_db = paper_id.clone();
+    tokio::task::spawn_blocking(move || {
+        db_remove_from_folder(&pool, &folder_for_db, &paper_for_db)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())?;
+    emit_paper_folder_changed(
+        &app,
+        &PaperFolderChangedPayload {
+            paper_id,
+            kind: "removed".into(),
+            folder_id: Some(folder_id),
+            from_folder_id: None,
+            to_folder_id: None,
+        },
+    );
     Ok(())
 }
 
 #[tauri::command]
 pub async fn move_paper_to_folder(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     paper_id: String,
     from_folder_id: String,
     to_folder_id: String,
 ) -> Result<(), String> {
     let pool = state.db_pool.clone();
+    let paper_for_db = paper_id.clone();
+    let from_for_db = from_folder_id.clone();
+    let to_for_db = to_folder_id.clone();
     tokio::task::spawn_blocking(move || {
-        db_move_paper_to_folder(&pool, &paper_id, &from_folder_id, &to_folder_id)
+        db_move_paper_to_folder(&pool, &paper_for_db, &from_for_db, &to_for_db)
     })
     .await
     .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
+    .map_err(|e| e.to_string())?;
+    emit_paper_folder_changed(
+        &app,
+        &PaperFolderChangedPayload {
+            paper_id,
+            kind: "moved".into(),
+            folder_id: None,
+            from_folder_id: Some(from_folder_id),
+            to_folder_id: Some(to_folder_id),
+        },
+    );
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn batch_add_to_folder(
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     folder_id: String,
     paper_ids: Vec<String>,
 ) -> Result<usize, String> {
     let pool = state.db_pool.clone();
-    tokio::task::spawn_blocking(move || db_batch_add_to_folder(&pool, &folder_id, &paper_ids))
+    let folder_for_db = folder_id.clone();
+    let ids_for_db = paper_ids.clone();
+    let n = tokio::task::spawn_blocking(move || {
+        db_batch_add_to_folder(&pool, &folder_for_db, &ids_for_db)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())?;
+    for pid in paper_ids {
+        emit_paper_folder_changed(
+            &app,
+            &PaperFolderChangedPayload {
+                paper_id: pid,
+                kind: "added".into(),
+                folder_id: Some(folder_id.clone()),
+                from_folder_id: None,
+                to_folder_id: None,
+            },
+        );
+    }
+    Ok(n)
+}
+
+#[tauri::command]
+pub async fn get_paper_folders(
+    state: tauri::State<'_, AppState>,
+    paper_id: String,
+) -> Result<Vec<String>, String> {
+    let pool = state.db_pool.clone();
+    tokio::task::spawn_blocking(move || db_get_paper_folders(&pool, &paper_id))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+/// Convenience wrapper that creates a folder and is more explicit on the
+/// FavoriteButton's "+ new folder" path. Returns the freshly-created folder
+/// (frontend can then call `add_to_folder` to drop the paper in immediately).
+#[tauri::command]
+pub async fn create_quick_folder(
+    state: tauri::State<'_, AppState>,
+    name: String,
+    parent_id: Option<String>,
+) -> Result<Folder, String> {
+    let pool = state.db_pool.clone();
+    tokio::task::spawn_blocking(move || db_create_folder(&pool, &name, parent_id.as_deref()))
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())
