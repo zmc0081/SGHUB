@@ -8,6 +8,8 @@ use crate::search::Paper;
 use crate::AppState;
 
 pub mod pdf_download;
+pub mod metadata_extractor;
+pub mod uploader;
 
 // ============================================================
 // Event payloads (broadcast on library mutations so any open page
