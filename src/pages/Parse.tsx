@@ -148,9 +148,23 @@ export default function Parse() {
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const [tokensOut, setTokensOut] = useState(0);
 
-  // Local PDF upload state
+  // Local PDF upload state — `uploadStatus` keeps the file-name list
+  // visible AFTER the upload completes too (user feedback: "uploaded
+  // file disappears, can't tell anything happened"). The `kind` field
+  // drives the row's visual treatment; user dismisses via × manually.
   const [uploadProgress, setUploadProgress] =
     useState<UploadProgressPayload | null>(null);
+  type UploadFileStatus = {
+    name: string;
+    status: "pending" | "ok" | "error";
+    error?: string;
+    paperId?: string;
+    needsReview?: boolean;
+  };
+  const [uploadStatus, setUploadStatus] = useState<{
+    kind: "uploading" | "done";
+    files: UploadFileStatus[];
+  } | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorData, setEditorData] = useState<{
     paperId: string;
@@ -331,22 +345,41 @@ export default function Parse() {
     const paths = Array.isArray(picked) ? picked : [picked];
     if (paths.length === 0) return;
 
+    // Seed all files as "pending" so the row shows up immediately with
+    // every name visible — no fly-in surprise.
+    const fileNames = paths.map(
+      (p) => p.split(/[/\\]/).pop() ?? "(unknown)",
+    );
+    setUploadStatus({
+      kind: "uploading",
+      files: fileNames.map((n) => ({ name: n, status: "pending" })),
+    });
     setUploadProgress({ current: 0, total: paths.length, current_file: "" });
+
     try {
       if (paths.length === 1) {
         // Single file → call upload_local_paper directly so we get the
         // full UploadResult (includes partial_metadata + needs_user_review).
         const result = await api.uploadLocalPaper(paths[0]);
-        // Refresh recent papers so the new one is in the picker's
-        // recent-fallback list.
         const recent = await api.getRecentPapers(50);
         setPapers(recent);
         setPaperId(result.paper_id);
+        setUploadStatus({
+          kind: "done",
+          files: [
+            {
+              name: fileNames[0],
+              status: "ok",
+              paperId: result.paper_id,
+              needsReview: result.needs_user_review,
+            },
+          ],
+        });
         if (result.needs_user_review) {
           setEditorData({
             paperId: result.paper_id,
             initial: result.partial_metadata,
-            pdfPath: null, // pdf_path stored relative — reset modal disables that link
+            pdfPath: null,
           });
           setEditorOpen(true);
         }
@@ -354,19 +387,38 @@ export default function Parse() {
         const results = await api.uploadLocalPapersBatch(paths);
         const recent = await api.getRecentPapers(50);
         setPapers(recent);
-        const ok = results.filter((r) => r.success).length;
-        const fail = results.length - ok;
-        setError(
-          fail > 0
-            ? `批量上传完成:✓ ${ok} / ✗ ${fail}(失败详情见控制台)`
-            : null,
-        );
-        if (fail > 0) {
-          console.warn("upload failures:", results.filter((r) => !r.success));
+        setUploadStatus({
+          kind: "done",
+          files: results.map((r, i) => ({
+            name: fileNames[i],
+            status: r.success ? "ok" : "error",
+            error: r.error ?? undefined,
+            paperId: r.paper_id ?? undefined,
+            needsReview: r.needs_user_review,
+          })),
+        });
+        if (results.some((r) => !r.success)) {
+          console.warn(
+            "upload failures:",
+            results.filter((r) => !r.success),
+          );
         }
       }
     } catch (e) {
       setError(`上传失败: ${e}`);
+      // Mark whole batch as error so the user still sees what they uploaded.
+      setUploadStatus((prev) =>
+        prev
+          ? {
+              kind: "done",
+              files: prev.files.map((f) => ({
+                ...f,
+                status: f.status === "ok" ? "ok" : "error",
+                error: f.error ?? String(e),
+              })),
+            }
+          : null,
+      );
     } finally {
       setUploadProgress(null);
     }
@@ -468,26 +520,108 @@ export default function Parse() {
             </button>
           </div>
 
-          {/* Upload progress bar */}
-          {uploadProgress && (
-            <div className="flex items-center gap-2 text-[11px] text-app-fg/70 pl-14">
-              <div className="flex-1 h-1.5 bg-black/10 rounded overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{
-                    width: `${
-                      uploadProgress.total > 0
-                        ? (uploadProgress.current / uploadProgress.total) * 100
-                        : 0
-                    }%`,
-                  }}
-                />
+          {/* Upload status row — stays visible AFTER upload too, so the
+              user can see exactly what they uploaded. Dismiss with ×.
+              During upload it doubles as the progress bar. */}
+          {uploadStatus && (
+            <div className="pl-14">
+              <div
+                className={`flex items-start gap-2 px-2.5 py-2 rounded border text-[11px] ${
+                  uploadStatus.kind === "uploading"
+                    ? "border-amber-300 bg-amber-50"
+                    : uploadStatus.files.some((f) => f.status === "error")
+                      ? "border-red-300 bg-red-50"
+                      : "border-emerald-300 bg-emerald-50"
+                }`}
+              >
+                <div className="flex-1 min-w-0">
+                  {uploadStatus.kind === "uploading" && uploadProgress ? (
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-black/10 rounded overflow-hidden">
+                        <div
+                          className="h-full bg-primary transition-all"
+                          style={{
+                            width: `${
+                              uploadProgress.total > 0
+                                ? (uploadProgress.current /
+                                    uploadProgress.total) *
+                                  100
+                                : 0
+                            }%`,
+                          }}
+                        />
+                      </div>
+                      <span className="tabular-nums shrink-0 text-amber-800">
+                        ⏳ {uploadProgress.current} / {uploadProgress.total}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="font-medium text-app-fg">
+                      {uploadStatus.files.every((f) => f.status === "ok")
+                        ? `✓ 已上传 ${uploadStatus.files.length} 个文件`
+                        : `上传完成:✓ ${
+                            uploadStatus.files.filter(
+                              (f) => f.status === "ok",
+                            ).length
+                          } / ✗ ${
+                            uploadStatus.files.filter(
+                              (f) => f.status === "error",
+                            ).length
+                          }`}
+                    </div>
+                  )}
+                  {/* File-by-file list (always rendered so the names are
+                      visible during AND after upload) */}
+                  <ul className="mt-1 flex flex-col gap-0.5">
+                    {uploadStatus.files.map((f, i) => (
+                      <li
+                        key={i}
+                        className="flex items-center gap-1.5 text-[10.5px]"
+                      >
+                        <span className="shrink-0">
+                          {f.status === "pending"
+                            ? "⏳"
+                            : f.status === "ok"
+                              ? "✓"
+                              : "✗"}
+                        </span>
+                        <span
+                          className={`truncate ${
+                            f.status === "error"
+                              ? "text-red-700"
+                              : f.status === "ok"
+                                ? "text-emerald-800"
+                                : "text-amber-800"
+                          }`}
+                          title={f.error ?? f.name}
+                        >
+                          {f.name}
+                          {f.needsReview && (
+                            <span className="ml-1 text-amber-700">
+                              · 待补全元数据
+                            </span>
+                          )}
+                          {f.error && (
+                            <span className="ml-1 text-red-600">
+                              · {f.error.slice(0, 40)}
+                              {f.error.length > 40 ? "…" : ""}
+                            </span>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {uploadStatus.kind === "done" && (
+                  <button
+                    onClick={() => setUploadStatus(null)}
+                    className="shrink-0 text-app-fg/40 hover:text-app-fg/80 px-1"
+                    title="关闭"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-              <span className="tabular-nums shrink-0">
-                {uploadProgress.current} / {uploadProgress.total}
-                {uploadProgress.current_file &&
-                  ` · ${uploadProgress.current_file.slice(0, 30)}${uploadProgress.current_file.length > 30 ? "…" : ""}`}
-              </span>
             </div>
           )}
 
