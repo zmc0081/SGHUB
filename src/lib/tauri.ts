@@ -309,6 +309,55 @@ export interface UploadAttachmentInput {
 }
 
 // ============================================================
+// Local paper upload + FTS search (V2.0.3)
+// ============================================================
+
+export interface PartialMetadata {
+  title: string;
+  authors: string[];
+  abstract: string | null;
+  doi: string | null;
+  /** 0..=1; UI forces a review modal when < 0.5 */
+  confidence: number;
+  /** "pdf_info" | "first_page" | "filename" */
+  source: string;
+}
+
+export interface UploadResult {
+  paper_id: string;
+  partial_metadata: PartialMetadata;
+  needs_user_review: boolean;
+}
+
+export interface BatchUploadItem {
+  file_path: string;
+  success: boolean;
+  paper_id: string | null;
+  needs_user_review: boolean;
+  error: string | null;
+}
+
+export interface UploadProgressPayload {
+  current: number;
+  total: number;
+  current_file: string;
+}
+
+export interface PaperSearchResult {
+  id: string;
+  title: string;
+  /** HTML snippet with `<mark>…</mark>` around hits. */
+  title_highlight: string;
+  authors: string[];
+  source: string;
+  abstract: string | null;
+  doi: string | null;
+  pdf_path: string | null;
+  current_folder_path: string | null;
+  rank: number;
+}
+
+// ============================================================
 // API — typed wrappers around invoke().
 // Tauri converts JS camelCase keys → Rust snake_case automatically.
 // ============================================================
@@ -611,6 +660,40 @@ export const api = {
   /** Cooperative cancel — the active download polls this flag per chunk. */
   cancelDownload: (paperId: string) =>
     invoke<void>("cancel_download", { paperId }),
+
+  // ============================================================
+  // Local PDF upload + FTS search (V2.0.3)
+  // ============================================================
+
+  uploadLocalPaper: (filePath: string) =>
+    invoke<UploadResult>("upload_local_paper", { filePath }),
+
+  uploadLocalPapersBatch: (filePaths: string[]) =>
+    invoke<BatchUploadItem[]>("upload_local_papers_batch", { filePaths }),
+
+  updatePaperMetadata: (
+    paperId: string,
+    title: string,
+    authors: string[],
+    abstractText: string | null,
+    doi: string | null,
+  ) =>
+    invoke<void>("update_paper_metadata", {
+      paperId,
+      title,
+      authors,
+      abstractText,
+      doi,
+    }),
+
+  searchLocalPapers: (keyword: string, limit?: number) =>
+    invoke<PaperSearchResult[]>("search_local_papers", {
+      keyword,
+      limit: limit ?? null,
+    }),
+
+  reExtractPaperMetadata: (paperId: string) =>
+    invoke<PartialMetadata>("re_extract_paper_metadata", { paperId }),
 };
 
 // ============================================================

@@ -1,15 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useSearch } from "@tanstack/react-router";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import {
   api,
   type ModelConfig,
   type Paper,
   type ParseResult,
+  type PartialMetadata,
   type Skill,
   type SkillSummary,
   type TokenPayload,
+  type UploadProgressPayload,
 } from "../lib/tauri";
+import { PaperPicker } from "../components/PaperPicker";
+import { PaperMetadataEditor } from "../components/PaperMetadataEditor";
 
 // ============================================================
 // Helpers
@@ -142,6 +147,16 @@ export default function Parse() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const [tokensOut, setTokensOut] = useState(0);
+
+  // Local PDF upload state
+  const [uploadProgress, setUploadProgress] =
+    useState<UploadProgressPayload | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorData, setEditorData] = useState<{
+    paperId: string;
+    initial: PartialMetadata;
+    pdfPath: string | null;
+  } | null>(null);
 
   // Stable refs for token append (avoid stale closure in Tauri event handler)
   const outputRef = useRef("");
@@ -285,6 +300,78 @@ export default function Parse() {
     }
   };
 
+  // ============================================================
+  // Subscribe to upload:progress events (lives for the page lifetime)
+  // ============================================================
+  useEffect(() => {
+    let unlisten: UnlistenFn | undefined;
+    listen<UploadProgressPayload>("upload:progress", (event) => {
+      setUploadProgress(event.payload);
+    }).then((u) => {
+      unlisten = u;
+    });
+    return () => unlisten?.();
+  }, []);
+
+  // ============================================================
+  // Local PDF upload
+  // ============================================================
+  const handleUploadClick = async () => {
+    let picked: string | string[] | null;
+    try {
+      picked = await openDialog({
+        multiple: true,
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+      });
+    } catch (e) {
+      setError(`打开文件选择器失败: ${e}`);
+      return;
+    }
+    if (!picked) return;
+    const paths = Array.isArray(picked) ? picked : [picked];
+    if (paths.length === 0) return;
+
+    setUploadProgress({ current: 0, total: paths.length, current_file: "" });
+    try {
+      if (paths.length === 1) {
+        // Single file → call upload_local_paper directly so we get the
+        // full UploadResult (includes partial_metadata + needs_user_review).
+        const result = await api.uploadLocalPaper(paths[0]);
+        // Refresh recent papers so the new one is in the picker's
+        // recent-fallback list.
+        const recent = await api.getRecentPapers(50);
+        setPapers(recent);
+        setPaperId(result.paper_id);
+        if (result.needs_user_review) {
+          setEditorData({
+            paperId: result.paper_id,
+            initial: result.partial_metadata,
+            pdfPath: null, // pdf_path stored relative — reset modal disables that link
+          });
+          setEditorOpen(true);
+        }
+      } else {
+        const results = await api.uploadLocalPapersBatch(paths);
+        const recent = await api.getRecentPapers(50);
+        setPapers(recent);
+        const ok = results.filter((r) => r.success).length;
+        const fail = results.length - ok;
+        setError(
+          fail > 0
+            ? `批量上传完成:✓ ${ok} / ✗ ${fail}(失败详情见控制台)`
+            : null,
+        );
+        if (fail > 0) {
+          console.warn("upload failures:", results.filter((r) => !r.success));
+        }
+      }
+    } catch (e) {
+      setError(`上传失败: ${e}`);
+    } finally {
+      setUploadProgress(null);
+    }
+  };
+
   const loadHistoryItem = (h: ParseResult) => {
     let text = h.result_json;
     try {
@@ -361,19 +448,48 @@ export default function Parse() {
 
           <div className="flex gap-2 items-center">
             <label className="text-xs text-app-fg/60 w-12 shrink-0">文献</label>
-            <select
-              value={paperId}
-              onChange={(e) => setPaperId(e.target.value)}
-              className="flex-1 px-2.5 py-1.5 text-sm bg-white border border-black/10 rounded"
+            <PaperPicker
+              selectedId={paperId}
+              onSelect={(p) => setPaperId(p?.id ?? "")}
+              recentFallback={papers.map((p) => ({
+                id: p.id,
+                title: p.title,
+                authors: p.authors,
+                source: p.source,
+              }))}
+            />
+            <button
+              onClick={handleUploadClick}
+              disabled={!!uploadProgress}
+              className="shrink-0 px-3 py-1.5 text-xs rounded border border-primary text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title="上传本地 PDF"
             >
-              <option value="">— 选择文献(最近 50 篇)—</option>
-              {papers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.title.length > 80 ? p.title.slice(0, 80) + "…" : p.title}
-                </option>
-              ))}
-            </select>
+              📤 上传文献
+            </button>
           </div>
+
+          {/* Upload progress bar */}
+          {uploadProgress && (
+            <div className="flex items-center gap-2 text-[11px] text-app-fg/70 pl-14">
+              <div className="flex-1 h-1.5 bg-black/10 rounded overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{
+                    width: `${
+                      uploadProgress.total > 0
+                        ? (uploadProgress.current / uploadProgress.total) * 100
+                        : 0
+                    }%`,
+                  }}
+                />
+              </div>
+              <span className="tabular-nums shrink-0">
+                {uploadProgress.current} / {uploadProgress.total}
+                {uploadProgress.current_file &&
+                  ` · ${uploadProgress.current_file.slice(0, 30)}${uploadProgress.current_file.length > 30 ? "…" : ""}`}
+              </span>
+            </div>
+          )}
 
           <div className="flex gap-2 items-center">
             <label className="text-xs text-app-fg/60 w-12 shrink-0">模型</label>
@@ -496,6 +612,24 @@ export default function Parse() {
           )}
         </div>
       </main>
+
+      {/* Metadata editor — opens automatically when upload returns
+          needs_user_review: true */}
+      {editorOpen && editorData && (
+        <PaperMetadataEditor
+          paperId={editorData.paperId}
+          initial={editorData.initial}
+          pdfPath={editorData.pdfPath}
+          onClose={() => {
+            setEditorOpen(false);
+            setEditorData(null);
+          }}
+          onSaved={() => {
+            // Refresh recent papers so the corrected title shows up.
+            void api.getRecentPapers(50).then(setPapers);
+          }}
+        />
+      )}
     </div>
   );
 }

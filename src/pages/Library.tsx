@@ -12,9 +12,11 @@ import {
   api,
   type FolderNode,
   type Paper,
+  type PartialMetadata,
   type Tag,
 } from "../lib/tauri";
 import { PaperActions } from "../components/PaperActions";
+import { PaperMetadataEditor } from "../components/PaperMetadataEditor";
 
 const READ_STATUS_BAR: Record<string, string> = {
   unread: "bg-gray-300",
@@ -42,6 +44,7 @@ const SOURCE_BADGE: Record<string, string> = {
   semantic_scholar: "bg-[#1857B6] text-white",
   pubmed: "bg-[#00897B] text-white",
   openalex: "bg-[#7B3FBF] text-white",
+  local: "bg-gray-500 text-white",
 };
 
 const TAG_PALETTE = [
@@ -229,12 +232,16 @@ function TagCloud({ tags, onChange }: { tags: Tag[]; onChange: () => void }) {
 function PaperRow({
   paper,
   onChange,
+  onReExtract,
 }: {
   paper: Paper;
   /** Kept for backward-compat callers; FavoriteButton + PaperActions now
    *  handle folder membership directly via libraryStore events. */
   currentFolderId?: string | null;
   onChange: () => void;
+  /** Only invoked for local papers — re-runs PDF metadata extraction
+   *  and opens the editor with the fresh result. */
+  onReExtract?: (paperId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: `paper:${paper.id}`, data: { paper } });
@@ -308,8 +315,17 @@ function PaperRow({
             currentFolderId is implicitly tracked via the FavoriteButton's
             folder picker; the Library-specific "remove from this folder"
             is now done by clicking ⭐ → toggling the current folder off. */}
-        <div onClick={(e) => e.stopPropagation()}>
+        <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-1.5 flex-wrap">
           <PaperActions paper={paper} />
+          {paper.source === "local" && onReExtract && (
+            <button
+              onClick={() => onReExtract(paper.id)}
+              className="px-2 py-1 rounded border border-black/10 hover:border-primary/30 hover:bg-primary/5 text-xs text-app-fg/70"
+              title="重新提取 PDF 元数据(用于修正旧记录)"
+            >
+              ♻ 重新提取
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -330,6 +346,26 @@ export default function Library() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [error, setError] = useState<string | null>(null);
+  // Re-extract metadata flow — opens editor with freshly-extracted result.
+  const [editorData, setEditorData] = useState<{
+    paperId: string;
+    initial: PartialMetadata;
+    pdfPath: string | null;
+  } | null>(null);
+
+  const handleReExtract = async (paperId: string) => {
+    try {
+      const fresh = await api.reExtractPaperMetadata(paperId);
+      const paper = papers.find((p) => p.id === paperId);
+      setEditorData({
+        paperId,
+        initial: fresh,
+        pdfPath: paper?.pdf_path ?? null,
+      });
+    } catch (e) {
+      alert(`重新提取失败: ${e}`);
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -543,6 +579,7 @@ export default function Library() {
                     paper={p}
                     currentFolderId={selectedId}
                     onChange={refreshAll}
+                    onReExtract={handleReExtract}
                   />
                 ))}
               </div>
@@ -576,6 +613,20 @@ export default function Library() {
           </div>
         </main>
       </div>
+
+      {/* Re-extract metadata editor modal */}
+      {editorData && (
+        <PaperMetadataEditor
+          paperId={editorData.paperId}
+          initial={editorData.initial}
+          pdfPath={editorData.pdfPath}
+          onClose={() => setEditorData(null)}
+          onSaved={() => {
+            setEditorData(null);
+            refreshPapers();
+          }}
+        />
+      )}
     </DndContext>
   );
 }
