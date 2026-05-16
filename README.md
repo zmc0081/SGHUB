@@ -105,7 +105,6 @@ com.sghub.app/
 │   ├── pdfs/           # 下载的 PDF
 │   └── cache/          # 检索缓存
 ├── skills/             # 用户自定义 Skill YAML
-├── backups/            # 自动备份(保留 7 天)
 └── logs/               # 应用日志
 ```
 
