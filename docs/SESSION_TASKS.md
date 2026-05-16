@@ -1071,6 +1071,634 @@ git push --tags
 
 ---
 
+## M2.0.2 · 体验打磨与设置完善(Week 22-25)
+
+> V2.0.2 在 V2.0.1 已发布的基础上,聚焦设置体系完善、多语言基础设施、Token 统计启用、以及一个有产品价值的 Skill 自然语言生成器。
+> 配套文档:PRD V2.0.2 / 架构方案 V2.0.2 / 实施方案 V2.0.2。
+
+### 在开始 Session 19 之前
+
+确认 V2.0.1 已发布且本地分支已同步:
+```cmd
+cd D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub
+git checkout main
+git pull
+git checkout -b feature/v2.0.2
+```
+
+所有 V2.0.2 的 Session 都在 `feature/v2.0.2` 分支上做,完成后再合并到 main 发布。
+
+---
+
+### Session 19: 菜单顺序调整 + 移除自动备份
+
+```
+读取 CLAUDE.md。本次任务是 V2.0.2 的快赢任务,改两个地方:
+
+任务一:左侧菜单顺序调整 + 新增 Skill 管理入口
+
+打开 src/components/Sidebar.tsx,把"工作区"分组的菜单项按以下顺序重新排列:
+1. 💬 Chat
+2. 🔍 文献检索
+3. 📰 今日推送
+4. 🧠 AI 解析
+5. ⭐ 收藏夹
+6. ✨ Skill 管理   (这一项可能在 V2.0.1 已加,确认存在;若不存在则补上,路由 /skills)
+7. 🤖 模型配置
+8. ⚙️ 设置
+
+要求:
+- 把"工作区"和"设置"两个分组合并为一个统一的导航列表(原来的分组结构去掉)
+- 保持原有的图标、徽章(NEW、未读计数)逻辑不变
+- "Skill 管理"路由到 /skills 页面(V2.0.1 Session 14 已实现);若侧栏还没这一项,补上
+- 当前选中项的高亮逻辑保持不变
+
+任务二:移除"自动备份"设置项
+
+打开 src/pages/Settings.tsx 的"💾 数据管理"卡片,删除以下两行设置:
+- "自动备份" 开关
+- "自动备份周期"(如有)
+
+保留:数据目录(打开目录)、导出全部数据、从备份恢复、从 Zotero 导入。
+
+任务三:同步更新文档
+
+- 修改 docs/PRD V2.0.2 或 docs/changelog.md(如有)中关于"自动备份"的描述,删除相关条款
+- 修改 CLAUDE.md 的"数据目录"章节,移除 backups/ 子目录(因为不再自动写入)
+
+最后运行 npm run build 与 cargo clippy -- -D warnings 确保通过。
+```
+
+验证:
+- `cargo tauri dev` 启动,左侧菜单顺序正确,Skill 管理可访问
+- 设置页面"自动备份"选项已消失
+- `git add . && git commit -m "feat: session 19 - menu reorder and remove auto-backup"`
+
+---
+
+### Session 20: 多语言基础设施 + 跟随系统语言
+
+```
+读取 CLAUDE.md。本次任务实现多语言支持:简体中文、繁体中文、英语、日语、法语,默认跟随系统语言,可手动切换。
+
+任务范围:
+
+1. i18n 配置完善 (src/i18n/):
+   - 安装(若未安装): npm install react-i18next i18next i18next-browser-languagedetector
+   - 创建 src/i18n/index.ts,导出已配置的 i18n 实例
+   - 支持的语言代码:zh-CN(简体中文)/ zh-TW(繁体中文)/ en-US(英语)/ ja-JP(日语)/ fr-FR(法语)
+   - 默认语言:跟随系统(通过 Tauri API 获取),失败时回退到 en-US
+   - 语言变更后立即生效,不需要重启(react-i18next 原生支持)
+
+2. 语言包文件 (locales/):
+   - 创建 5 个 JSON 文件:zh-CN.json / zh-TW.json / en-US.json / ja-JP.json / fr-FR.json
+   - 完整翻译范围:
+     * common(常用按钮、状态文字)
+     * sidebar(侧栏导航项)
+     * search / feed / library / parse / chat / models / skills / settings(7 个主页面)
+     * errors(常见错误提示)
+     * notifications(系统通知文案)
+   - **本次只把 zh-CN 和 en-US 翻译完整**,其他三种语言:
+     * zh-TW:暂用简繁转换工具(opencc-js)批量从 zh-CN 转换,人工抽查关键术语
+     * ja-JP / fr-FR:先用 en-US 的 key 占位,value 也填 en-US 文本,加 [NEEDS_TRANSLATION] 前缀标记,后续社区贡献完善
+   - 在 locales/README.md 中说明贡献翻译的流程
+
+3. Rust 侧 (src-tauri/src/config/):
+   - 新增 Tauri Command get_system_locale() -> String:
+     * 通过 tauri::api::os::locale() 或标准库 sys-locale crate 获取
+     * 匹配到 5 种支持语言之一,否则回退 en-US
+     * 匹配规则:zh-CN / zh-Hans → zh-CN;zh-TW / zh-Hant / zh-HK → zh-TW;en-* → en-US;ja-* → ja-JP;fr-* → fr-FR
+   - 修改 AppConfig 结构体:
+     * 新增字段 language: Option<String>(None 表示跟随系统)
+
+4. 前端集成:
+   - 应用启动时(src/main.tsx):
+     1. 调用 invoke('get_app_config') 读取用户配置
+     2. 如果 language 为 null/undefined → 调用 invoke('get_system_locale') 获取系统语言
+     3. 调用 i18next.changeLanguage() 设置当前语言
+   - 创建 src/hooks/useT.ts,封装 react-i18next 的 useTranslation,提供更短的语法
+   - 替换所有页面中的硬编码中文文本为 t('key') 调用
+   - **优先级处理**:
+     * P0:Sidebar / Settings / Chat / 通用按钮(确认、取消、保存、删除等)
+     * P1:其他页面在后续 Session 渐进替换
+   - 在大型组件顶部加注释 // i18n: 本组件文案已国际化 标记进度
+
+5. 设置页面 - 语言切换 (src/pages/Settings.tsx):
+   - 在"🌐 通用"卡片中,语言选项改为下拉:
+     * 跟随系统(默认)
+     * 简体中文
+     * 繁體中文
+     * English
+     * 日本語
+     * Français
+   - 选择"跟随系统"时,language 字段设为 null,保存到配置
+   - 选择具体语言时,设为对应代码
+   - 切换后立即调用 i18next.changeLanguage(),界面实时更新
+   - 当前显示语言来源标记:若是跟随系统,在下拉旁标注"(跟随系统:简体中文)"
+
+6. 测试:
+   - 写一个简单的语言切换 E2E:启动 → 默认中文 → 切换到英文 → UI 立即变化 → 切换到"跟随系统"恢复
+   - 修改系统语言为日文(macOS / Windows 系统设置),启动应用观察是否自动切到 [NEEDS_TRANSLATION] 占位的日文版
+
+7. 文档:
+   - 在 README.md 末尾新增"Localization"小节,说明:支持的语言、翻译完成度、贡献翻译的方式
+   - 创建 docs/i18n-guide.md,详细描述给社区贡献者的翻译流程(fork → 改 JSON → PR)
+
+确保 cargo clippy 通过,npm run build 通过。
+```
+
+验证:
+- 启动应用,默认显示当前系统语言对应的版本
+- 在设置中切换 5 种语言,UI 实时变化
+- 切回"跟随系统",显示系统语言
+- `git commit -m "feat: session 20 - i18n with 5 languages and system locale"`
+
+---
+
+### Session 21: 自动更新调度配置
+
+```
+读取 CLAUDE.md。本次任务实现自动更新的精细化调度配置:开关、频率、时间。
+
+任务范围:
+
+1. 数据模型(配置文件,无需 DB 迁移):
+   修改 src-tauri/src/config/mod.rs 的 AppConfig 结构,新增 updater 子结构:
+   
+   pub struct UpdaterConfig {
+     pub enabled: bool,                    // 总开关,默认 true
+     pub frequency_type: String,           // "daily" | "weekly"
+     pub frequency_value: u32,             // daily: 每 N 天(1-30);weekly: 位掩码 0-127 表示哪几天(Mon=1, Tue=2, ..., Sun=64)
+     pub check_time: String,               // "HH:MM" 24 小时制,默认 "09:00"
+     pub action: String,                   // "notify" | "silent_download" | "check_only"
+                                            // notify: 检查到新版本时弹通知让用户选择
+                                            // silent_download: 检查到时静默下载,等用户主动重启
+                                            // check_only: 只检查,不下载也不弹通知(在 UI 角标显示)
+     pub last_check_at: Option<String>,    // 上次检查时间(ISO 8601)
+   }
+   
+   pub struct AppConfig {
+     // ... 已有字段
+     pub updater: UpdaterConfig,
+   }
+   
+   默认值:enabled=true, frequency_type="daily", frequency_value=7, check_time="09:00", action="notify"
+
+2. Rust 侧调度逻辑 (src-tauri/src/updater/scheduler.rs 新建):
+   - 使用 tokio-cron-scheduler(V2.0.0 已引入)
+   - 启动时根据 UpdaterConfig 注册定时任务
+   - 任务逻辑:
+     a. 判断是否到达预设时间(根据 check_time)
+     b. 调用 tauri-plugin-updater 检查更新
+     c. 根据 action 字段决定后续行为
+     d. 更新 last_check_at
+   - 配置变更时(用户在设置页修改),重新调度
+   - frequency_type="weekly" 时:cron 表达式根据位掩码生成(如 "Mon, Wed, Fri" = 1+4+16=21)
+
+3. 配置变更监听 (src-tauri/src/config/):
+   - save_app_config 完成后,emit "config:updater_changed" event
+   - updater::scheduler 监听该 event,重新调度任务
+
+4. Tauri Commands:
+   - get_updater_status() -> UpdaterStatus
+     * 返回:{ next_check_at, last_check_at, current_version, has_pending_update, pending_version }
+   - check_update_now() -> CheckResult
+     * 手动触发一次检查(忽略调度,但更新 last_check_at)
+   - install_pending_update() -> ()
+     * 触发下载并安装已检测到的更新
+
+5. 前端 - 设置页面 (src/pages/Settings.tsx):
+   修改原有的"🔒 隐私与更新"卡片,把"自动检查更新"开关扩展为详细设置区:
+   
+   - 总开关(自动检查更新)
+     - 关闭后,以下子选项全部禁用(灰色)
+   - 检查频率:
+     - 单选:每日 / 每周
+     - 每日模式:数字输入框(每 N 天,1-30,默认 7)
+     - 每周模式:复选框(Mon/Tue/Wed/Thu/Fri/Sat/Sun),至少选一天
+   - 检查时间(本地时区)
+     - 时间选择器(HH:MM,15 分钟为步长)
+   - 检查到更新后的行为:
+     - 单选:弹出通知让我决定 / 后台静默下载 / 只标记不通知
+   - 状态展示:
+     - 当前版本 / 最近一次检查 / 下次计划检查 / (若有)待安装版本号
+   - 操作按钮:
+     - "立即检查"按钮:调用 check_update_now
+     - 若有待安装更新:"立即安装"按钮:调用 install_pending_update
+
+6. UI 细节:
+   - 频率与时间的修改实时保存并立即重新调度,不需要"保存"按钮
+   - 总开关关闭后,所有子项灰显但保留数值(用户重新开启时恢复)
+   - 频率类型切换时,使用平滑动画切换显示区域
+   - "下次检查时间"实时计算并展示(纯前端推算,不需要后端)
+
+7. 测试:
+   - 写 Rust 单元测试:验证 cron 表达式根据配置正确生成
+     - 每日 7 天:"0 0 9 */7 * *"(根据具体 cron 库语法)
+     - 每周 Mon/Wed/Fri:"0 0 9 * * MON,WED,FRI"
+   - 手动测试:配置为每天 09:01 → 等到时间验证是否触发
+   - 关闭自动更新 → 验证调度任务被取消
+
+确保 cargo test updater:: 通过。
+```
+
+验证:
+- 设置页面所有控件交互正常,实时保存
+- 修改配置后,后台调度任务自动重建(看日志确认)
+- 关闭总开关,所有子项灰显但状态保留
+- `git commit -m "feat: session 21 - configurable auto-update scheduler"`
+
+---
+
+### Session 22: 数据目录可配置 + 迁移逻辑
+
+```
+读取 CLAUDE.md。本次任务实现数据目录可配置功能,这是 V2.0.2 最复杂的一项。
+关键设计:数据目录路径本身的配置不能存在数据目录里(否则循环依赖),必须存放在
+OS 标准配置目录(Windows: %APPDATA%\sghub-config\;macOS: ~/Library/Preferences/sghub/)。
+
+任务范围:
+
+1. 引导路径设计(src-tauri/src/config/bootstrap.rs 新建):
+   定义"引导配置"(只存放数据目录路径),独立于主配置:
+   
+   pub struct BootstrapConfig {
+     pub data_dir: Option<PathBuf>,    // None = 使用默认 app_data_dir
+   }
+   
+   - 路径(Windows): %APPDATA%\sghub-bootstrap\bootstrap.toml
+   - 路径(macOS):  ~/Library/Preferences/sghub-bootstrap/bootstrap.toml
+   - 读取函数 load_bootstrap() -> BootstrapConfig
+   - 保存函数 save_bootstrap(config: BootstrapConfig) -> Result<()>
+   - 解析数据目录:get_effective_data_dir(app: &AppHandle) -> PathBuf
+     * 若 bootstrap 中指定了 data_dir 且路径存在 → 使用该路径
+     * 否则 → 使用 app.path().app_data_dir() 默认路径
+   
+2. 修改所有数据访问点使用 get_effective_data_dir:
+   - db::init():数据库路径
+   - skill_engine:自定义 Skill 目录
+   - chat::attachment:Chat 附件目录
+   - library::uploader:PDF 上传目录
+   - tracing 日志输出目录
+   - 全局封装一个 paths.rs 模块,集中管理这些路径派生
+
+3. Tauri Commands:
+   - get_current_data_dir() -> { path: String, is_custom: bool, size_mb: f64 }
+     * 返回当前实际使用的数据目录、是否自定义、占用空间
+   - select_new_data_dir() -> Option<String>
+     * 调用 tauri-plugin-dialog 打开目录选择对话框
+     * 返回用户选择的路径(取消时返回 None)
+   - migrate_data_dir(new_path: String, mode: String) -> MigrationResult
+     * mode = "migrate":把当前数据目录的所有文件复制到新路径,验证完整性后更新 bootstrap.toml
+     * mode = "fresh":只更新 bootstrap.toml,不迁移数据(用户希望新位置从零开始)
+     * mode = "use_existing":只更新 bootstrap.toml,如果新路径已有 sghub 数据则直接使用(用于多端同步场景)
+     * 返回:{ success: bool, migrated_files: u32, total_size_mb: f64, errors: Vec<String> }
+     * 迁移过程通过 emit "data_migration:progress" { current_file, percent } 推送进度
+   - validate_data_dir(path: String) -> ValidationResult
+     * 检查路径合法性:存在、可读写、有足够空间(至少 1GB)
+     * 检查路径是否已有 SGHUB 数据(sghub.db 是否存在)
+
+4. 迁移逻辑细节(src-tauri/src/config/migration.rs):
+   - 迁移开始前:关闭数据库连接池(让 SQLite 文件可以安全复制)
+   - 复制文件:遍历源目录,逐个复制到目标(用 fs::copy 或 fs_extra crate 的递归复制)
+   - 校验:复制后比对每个文件的字节数 / SHA256(关键文件:sghub.db、所有 .yaml)
+   - 失败回滚:如果复制中途出错,删除已写入的目标文件,保留源目录不变
+   - 成功:更新 bootstrap.toml,重启数据库连接池指向新路径
+   - 询问用户:迁移成功后弹窗"是否删除旧目录数据?"(保留 vs 清空)
+
+5. 前端 - 设置页面 (src/pages/Settings.tsx):
+   修改"💾 数据管理"卡片的"数据目录"行:
+   
+   - 显示当前路径(monospace 字体,可点击复制完整路径)
+   - 显示标签:"默认路径" / "自定义路径"
+   - 显示占用空间:"占用 1.2 GB"
+   - 三个操作按钮:
+     a. "📂 打开目录"(原有功能,保留)
+     b. "🔄 修改路径"(新增,触发路径修改流程)
+     c. "↩️ 恢复默认"(仅当 is_custom=true 时显示)
+
+6. 修改路径流程(三步弹窗):
+   Step 1: 选择新路径
+     - 提示用户:数据目录是 SGHUB 存储所有论文、Skill、Chat 历史、PDF 的位置
+     - "选择新目录"按钮 → 调 select_new_data_dir
+     - 选定后调用 validate_data_dir 显示验证结果
+   
+   Step 2: 选择数据处理方式(单选)
+     - 选项 A:**迁移现有数据到新路径**(推荐)
+       - 把当前所有数据复制到新路径,完成后切换
+       - 适合换新电脑、整理目录结构
+     - 选项 B:**新路径从零开始**
+       - 不迁移当前数据,新路径作为全新的数据目录
+       - 适合需要多个独立环境的高级用户
+     - 选项 C:**使用新路径中已有的 SGHUB 数据**(仅当新路径已有 sghub.db 时可选)
+       - 直接切换到该路径,使用其中的现有数据
+       - 适合从备份恢复或在多设备共享数据(配合 OneDrive / Dropbox / iCloud Drive)
+   
+   Step 3: 确认与执行
+     - 显示摘要:旧路径 → 新路径,处理方式,预估耗时
+     - 大红色警告:"操作期间请勿关闭应用,完成后应用将自动重启"
+     - "确认执行"按钮 → 调用 migrate_data_dir
+     - 显示进度条 + 当前正在迁移的文件名
+     - 完成后:弹窗询问"是否删除旧目录数据?",用户选择后应用自动重启
+
+7. 安全考虑:
+   - 路径校验:禁止选择系统关键目录(C:\, C:\Windows, /, /usr, /System 等),返回错误
+   - 路径校验:禁止选择当前数据目录本身或其子目录(逻辑混乱)
+   - 写权限校验:在目标路径创建一个 .sghub-writetest 文件并删除,验证可写
+   - 大小校验:目标路径剩余空间必须 >= 源目录大小 × 1.5(留缓冲)
+   - 用户数据安全:迁移成功且用户确认前,源目录数据始终保留
+
+8. 测试:
+   - 单元测试:bootstrap.toml 的读写
+   - 集成测试:三种迁移模式各跑一次,验证数据完整性
+   - 手动测试:
+     a. 默认 → 自定义路径(迁移模式),验证数据保留
+     b. 自定义 → 恢复默认
+     c. 自定义 A → 自定义 B,选"使用已有数据"模式
+     d. 选择无权限路径,验证错误提示
+
+9. 文档:
+   - 更新 docs/data-management.md(若无则新建)
+   - 详细说明三种迁移模式的适用场景与注意事项
+
+确保 cargo test 全部通过。
+```
+
+验证:
+- 完整跑一遍 8 中的 4 个测试场景
+- 在 OneDrive / Dropbox 路径下使用"新路径"模式,验证多端可访问
+- `git commit -m "feat: session 22 - configurable data directory with migration"`
+
+---
+
+### Session 23: Token 统计写入路径打通 + 7 天统计
+
+```
+读取 CLAUDE.md。本次任务把当前未启用的 usage_stats 表实际写入打通,
+并改造模型配置页的统计展示为"近 7 天"模式。
+
+任务范围:
+
+1. 数据写入路径排查与修复 (src-tauri/src/ai_client/):
+   - 检查 chat_stream / 现有的 ai_client 调用结束位置
+   - 确认 token 计数是否正确:
+     * OpenAI 兼容:从最后一个 chunk 的 usage 字段读取
+     * Anthropic:从 stream 的 message_delta 事件中读取 usage.input_tokens / output_tokens
+     * Ollama:从最后一个 chunk 的 prompt_eval_count / eval_count 读取
+   - 如果上述字段未提供(部分 endpoint 不返回),用 tiktoken-rs 本地估算
+
+2. 新建 usage_stats 写入逻辑(src-tauri/src/ai_client/usage.rs):
+   - record_usage(model_config_id, tokens_in, tokens_out, cost_estimate_usd) Tauri 内部函数
+   - 实现按日聚合的 UPSERT:
+     INSERT INTO usage_stats (id, model_config_id, date, tokens_in_total, tokens_out_total, call_count, cost_est_total)
+     VALUES (?, ?, date('now'), ?, ?, 1, ?)
+     ON CONFLICT(model_config_id, date) DO UPDATE SET
+       tokens_in_total = tokens_in_total + excluded.tokens_in_total,
+       tokens_out_total = tokens_out_total + excluded.tokens_out_total,
+       call_count = call_count + 1,
+       cost_est_total = cost_est_total + excluded.cost_est_total;
+   - 成本估算:基于 ModelConfig 中的价格元数据(input_price_per_1m_tokens / output_price_per_1m_tokens)
+     * model_configs 表新增这两列(本 session 同时做 V004 migration)
+     * 默认值:为内置模型预填(Claude Opus 输入 $15/1M、输出 $75/1M;GPT-5 输入 $5/1M、输出 $15/1M;DeepSeek V3 输入 $0.27/1M、输出 $1.10/1M;Ollama 本地为 $0)
+   - 在三个调用路径上接入:
+     * Chat 模块的 streaming.rs(send_chat_message 结束时)
+     * AI 解析的 start_parse(完成时)
+     * Skill 编辑器的 test_skill_with_paper(完成时)
+
+3. V004 migration(src-tauri/migrations/V004__model_pricing.sql):
+   ALTER TABLE model_configs ADD COLUMN input_price_per_1m_tokens REAL NOT NULL DEFAULT 0.0;
+   ALTER TABLE model_configs ADD COLUMN output_price_per_1m_tokens REAL NOT NULL DEFAULT 0.0;
+   
+   -- 为预设模型回填价格(基于 model_id 匹配)
+   UPDATE model_configs SET input_price_per_1m_tokens = 15.0, output_price_per_1m_tokens = 75.0 
+     WHERE model_id LIKE 'claude-opus%';
+   UPDATE model_configs SET input_price_per_1m_tokens = 3.0, output_price_per_1m_tokens = 15.0 
+     WHERE model_id LIKE 'claude-sonnet%';
+   UPDATE model_configs SET input_price_per_1m_tokens = 5.0, output_price_per_1m_tokens = 15.0 
+     WHERE model_id LIKE 'gpt-5%';
+   UPDATE model_configs SET input_price_per_1m_tokens = 0.27, output_price_per_1m_tokens = 1.10 
+     WHERE model_id LIKE 'deepseek%';
+   UPDATE model_configs SET input_price_per_1m_tokens = 0, output_price_per_1m_tokens = 0 
+     WHERE provider = 'ollama';
+
+4. 模型配置页价格字段:
+   - 新增 / 编辑模型时,新增两个可选字段:"输入价格 ($/1M tokens)" / "输出价格 ($/1M tokens)"
+   - 内置模型自动填充默认价格,用户可修改
+   - 自定义模型默认 0(用户自行填写)
+   - UI 上加 tooltip 说明"用于成本估算,可在模型提供商官网查询定价"
+
+5. 统计查询 Tauri Command:
+   - get_usage_stats_7days() -> UsageStats7Days
+     * 查询近 7 天(包括今天)每个模型每天的统计
+     * 返回数据结构:
+       struct UsageStats7Days {
+         total_tokens_in: i64,
+         total_tokens_out: i64,
+         total_call_count: i64,
+         total_cost_est: f64,
+         daily_breakdown: Vec<DailyUsage>,      // 7 天每日明细
+         by_model: Vec<ModelUsage>,             // 按模型聚合
+       }
+     * SQL:WHERE date >= date('now', '-6 days') GROUP BY date, model_config_id
+
+6. 前端 - 模型配置页改造(src/pages/Models.tsx):
+   - 把原来的"4 格用量统计"卡片改为:
+     * 第 1 格:已配置模型数(不变)
+     * 第 2 格:近 7 天调用次数
+     * 第 3 格:近 7 天 Token 消耗(输入 + 输出,缩写显示如 1.2M)
+     * 第 4 格:近 7 天预估成本($)
+     - 卡片标题统一加副标题"近 7 天"
+   - 新增一个迷你柱状图区域(放在 4 格卡片下方):
+     * 横轴:近 7 天的日期(MM/DD)
+     * 纵轴:每日 Token 消耗
+     * 用 recharts(若未安装:npm install recharts)
+     * 高度约 120px,简洁风格
+     * 鼠标 hover 显示当日详情:N 次调用、输入 X tokens、输出 Y tokens、成本 $Z
+   - 数据加载:页面挂载时 invoke('get_usage_stats_7days')
+   - 模型列表中每个模型的"近 30 天用量"小字保留,但改为"近 7 天用量",数据来自 by_model
+
+7. 数据补全(可选):
+   - 如果用户之前已经用过 Chat 或 AI 解析但 usage_stats 是空的(因为之前没接入),
+     提供一个 Tauri Command:rebuild_usage_stats() 从 chat_messages + ai_parse_results 表反向构建历史数据
+   - 在模型配置页加一个"重建统计"按钮(灰色文字,不显眼),供 V2.0.1 升级用户使用
+
+8. 测试:
+   - 写单元测试:模拟一次 chat_stream 完成,验证 usage_stats 表正确写入并聚合
+   - 重复调用 3 次同一模型,验证 call_count = 3
+   - 跨日测试:模拟昨天和今天各 2 次调用,验证近 7 天查询返回 2 行
+   - 前端:打开 Chat,发送一条消息,刷新模型配置页,验证数据增加
+
+确保 cargo test ai_client::usage:: 与前端手动测试都通过。
+```
+
+验证:
+- 在 Chat 中和 AI 解析中各发起几次调用
+- 打开模型配置页,看到近 7 天统计有数据,柱状图显示每日 token 消耗
+- `git commit -m "feat: session 23 - usage stats 7-day with cost estimation"`
+
+---
+
+### Session 24: Skill 自然语言生成器 ⭐
+
+```
+读取 CLAUDE.md 与 skills/general_read.yaml。本次任务实现 V2.0.2 的核心新功能:
+用自然语言描述需求,自动生成符合 SGHUB Skill 规范的 YAML。
+参考 Claude.ai 的 Skills 构建体验(对话式 Skill 创建)。
+
+任务范围:
+
+1. 元提示词(Meta Prompt)设计 (src-tauri/src/skill_engine/generator.rs 新建):
+   - 设计一个高质量的 meta prompt,引导任意配置好的大模型生成 SGHUB Skill YAML
+   - meta prompt 关键内容:
+     a. 角色定义:你是 SGHUB 的 Skill 设计专家,擅长把用户的自然语言需求转化为结构化的 Skill 配置
+     b. SGHUB Skill YAML 规范说明(完整 schema)
+     c. 已有 Skill 范例(从 skills/general_read.yaml 内联,作为 few-shot)
+     d. 用户原始需求会插入在末尾
+     e. 输出要求:严格输出有效的 YAML(用 ```yaml 包裹),不要任何额外文字解释
+   - 把 meta prompt 模板存为 src-tauri/templates/skill_generator_prompt.md(用 include_str! 编译时嵌入)
+
+2. Tauri Commands:
+   - generate_skill_from_description(description: String, model_config_id: Option<String>) -> Result<String>
+     * 输入:用户自然语言描述,如:"我想要一个 Skill 用来分析临床试验文献,重点关注实验设计、样本量、统计方法、副作用,输出中文"
+     * 加载 meta prompt 模板,把用户描述插入
+     * 调用 ai_client::chat_stream(使用指定模型或用户默认模型)
+     * 提取响应中的 YAML 块(去掉 ```yaml 包裹)
+     * 解析验证 YAML 合法性(用 skill_engine::validate_skill 校验)
+     * 如果解析失败,把错误信息和原 YAML 一并传给模型,让其修正(最多重试 1 次)
+     * 返回生成的 YAML 字符串
+     * 流式输出:通过 emit "skill_gen:token" 推送进度
+   - refine_skill_from_chat(current_yaml: String, refine_instruction: String, model_config_id: Option<String>) -> Result<String>
+     * 用户对已生成的 Skill 提出修改意见,例如:"输出维度再加一项:作者机构信息"
+     * 元提示词:基于当前 YAML 和用户的修改意见生成新版本
+     * 同样流式输出
+   
+3. 前端 - 全新的"用 AI 创建 Skill"界面(src/pages/SkillGenerator.tsx 新建):
+   设计为类 Claude.ai 的对话式构建体验:
+   
+   - 路由:/skills/generate
+   - 入口:Skill 管理页顶部"+ 新建 Skill"按钮展开下拉,提供两个选项:
+     a. ✨ 用 AI 创建(推荐)→ /skills/generate
+     b. 📝 手动创建(高级)→ 跳转原有的 Skill 编辑器
+   
+   - 页面布局(类 Claude.ai 的对话风格):
+     * 左侧 50%:对话式构建区
+       - 标题:"✨ 用 AI 创建 Skill"
+       - 副标题:"描述你想要的 Skill,AI 会帮你自动生成配置"
+       - 顶部模型选择器(右上角,小型,允许切换用哪个模型生成)
+       - 引导提示卡片(初次访问):
+         "试试这样描述:
+          - 我想分析临床试验文献,重点关注实验设计和统计方法
+          - 帮我做一个 Skill 用来评估论文的新颖性和影响力
+          - 我需要一个专门读综述的 Skill,输出领域脉络和未解问题"
+       - 对话消息列表(类似 Chat 模块):
+         * 用户消息:右侧蓝色气泡
+         * AI 消息:左侧白色气泡,流式渲染
+         * AI 第一次回复后,在消息下方显示一个折叠卡片:"✅ Skill 已生成,在右侧预览"
+       - 底部输入框:
+         * 多行 textarea
+         * 占位符:"描述你想要的 Skill,或者对当前 Skill 提建议..."
+         * 发送按钮
+     
+     * 右侧 50%:Skill 实时预览
+       - 顶部 Tab 切换:配置 / YAML 源码 / 测试运行
+       - 配置 Tab(默认):
+         * 友好展示:名称、描述、推荐模型徽章、输出维度列表(图标 + 名称)
+         * Prompt 模板:折叠展示,点击展开
+       - YAML 源码 Tab:Monaco 只读模式,显示生成的完整 YAML
+       - 测试运行 Tab:
+         * 选择一篇示例文献 + 模型,点击"运行测试"
+         * 实时展示解析结果(按 output_dimensions 渲染)
+       - 底部操作栏:
+         * "💾 保存为 Skill" 按钮(主色):保存后跳转到 Skill 管理页
+         * "✏️ 切换到高级编辑器" 链接:把当前生成的 YAML 传入手动编辑器
+         * "🗑️ 重新开始" 链接
+
+4. 关键交互细节:
+   - 用户首次输入需求 → 调用 generate_skill_from_description → 流式生成 → 右侧预览自动切换到"配置"Tab
+   - 用户在对话中继续提改进意见 → 调用 refine_skill_from_chat → 替换右侧预览
+   - 用户在右侧"配置"Tab 中直接修改字段(比如改名称、加输出维度),也会反映到 YAML
+   - 保存前再做一次完整校验
+   - 防丢失:对话内容与最新 YAML 自动暂存到 localStorage(key: skill-gen-draft)
+
+5. UI 状态管理 (src/stores/skillGeneratorStore.ts):
+   - messages: Message[](对话历史)
+   - currentYaml: string(最新生成的 YAML)
+   - currentSpec: SkillSpec | null(解析后的结构)
+   - selectedModel: string
+   - streamingMessageId: string | null
+   - actions: sendMessage / refineSkill / saveSkill / reset / loadDraft
+
+6. 失败处理:
+   - 模型未配置:首次进入页面,如果用户还没配置任何模型,显示引导提示
+     "✨ AI 创建 Skill 需要先配置一个 AI 模型 → [前往模型配置]"
+   - 生成的 YAML 解析失败:自动重试 1 次;再失败时,给用户友好提示
+     "AI 生成的 Skill 格式有问题,你可以重新描述,或切换到高级编辑器手动修改"
+   - API 限流 / 网络错误:展示错误信息,允许用户重试
+
+7. 性能与体验:
+   - 流式渲染:用 useTransition 包裹 token 追加
+   - 大段 YAML(>500 行)的预览解析采用 debounce 500ms
+   - 保存按钮:在 YAML 校验通过前为灰色不可点
+
+8. 文档与示例:
+   - 在 docs/ 下新增 skill-authoring-guide.md
+     - 说明 Skill 的两种创建方式(AI 自动 vs 手动)
+     - 给出 5 个高质量的"自然语言描述"示例,方便用户参考
+   - 在 Skill 管理页的 hero 区域,加一个"查看示例 Skills"链接,指向官方仓库的 examples 目录
+
+9. 测试:
+   - 单元测试(Rust):验证 meta prompt 渲染正确、YAML 提取正确、校验失败时重试逻辑正确
+   - E2E:输入一个真实需求,验证生成的 YAML 能通过 validate_skill 校验
+   - 手动测试:
+     a. "我想要一个分析临床试验文献的 Skill" → 检查生成的 Skill 是否合理
+     b. 继续说"加一个输出维度:伦理审查情况" → 验证 refine 工作
+     c. "把推荐模型改为 GPT-5" → 验证 refine 工作
+     d. 保存 → 在 AI 解析中能选择并使用
+
+确保 cargo test skill_engine::generator:: 通过,手动测试 4 个场景都正常工作。
+```
+
+验证:
+- 用 3-4 个不同的自然语言描述测试,生成的 Skill 都合理可用
+- 在 AI 解析中使用生成的 Skill 对真实论文执行解析
+- `git commit -m "feat: session 24 - AI-powered skill generator"`
+
+---
+
+### V2.0.2 收尾:Beta + 发布
+
+完成 Session 19-24 后,进入 Beta 与发布阶段:
+
+1. 合并 feature/v2.0.2 到 main:
+```cmd
+git checkout main
+git merge --no-ff feature/v2.0.2
+git push
+```
+
+2. 打 Beta tag:
+```cmd
+git tag v2.0.2-beta.1
+git push --tags
+```
+
+3. GitHub Releases 创建 prerelease,邀请 V2.0.1 活跃用户参与 Beta。
+
+4. Beta 期 1 周,重点关注:
+   - 数据迁移功能(高风险)的稳定性
+   - 多语言显示在不同系统下的兼容性
+   - Skill 生成器的产出质量
+
+5. 正式发布:
+```cmd
+git tag v2.0.2
+git push --tags
+```
+
+6. 公告:重点宣传"AI 自然语言创建 Skill"(差异化亮点)、多语言支持(国际化)、数据目录可配置(进阶用户福音)。
+
+---
+
 ## 每个 Session 完成后的验证步骤
 
 在 VS Code 终端 (路径: D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub) 执行:
@@ -1117,3 +1745,28 @@ git push
 | 18 | 本地文献上传 + 名称检索 | CHG-03 | 0.5 周 |
 
 **总计**: ~4 周 (与实施方案 V2.0.1 一致)
+
+---
+
+## V2.0.2 Session 速查
+
+| Session | 主题 | 对应需求 | 预估时长 |
+|---------|------|---------|---------|
+| 19 | 菜单顺序调整 + 移除自动备份 | R4 + R6(快赢) | 0.5 天 |
+| 20 | 多语言基础设施(5 语言 + 跟随系统) | R3 | 1 周 |
+| 21 | 自动更新调度配置(开关 + 频率 + 时间) | R2 | 3 天 |
+| 22 | 数据目录可配置 + 迁移逻辑 | R1 | 1 周 |
+| 23 | Token 统计写入 + 近 7 天展示 | R5 | 0.5 周 |
+| 24 | Skill 自然语言生成器 ⭐ | R7 | 1 周 |
+
+**总计**: ~4 周(与实施方案 V2.0.2 一致)
+
+---
+
+## 所有版本 Session 对照
+
+| 版本 | Session 范围 | 主题 | 状态 |
+|------|------------|------|------|
+| V2.0.0 | 1-12 | 桌面客户端核心功能基线 | 已发布 |
+| V2.0.1 | 13-18 | Chat + Skill 编辑 + 跨模块跳转 | 已发布 |
+| V2.0.2 | 19-24 | 设置完善 + 国际化 + Skill 智能生成 | 开发中 |

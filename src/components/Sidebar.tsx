@@ -9,12 +9,16 @@ type NavItem = {
   isNew?: boolean;
 };
 
+// Single flat nav list — the old "工作区" / "设置" grouping was removed
+// (V2.1.0). Order: Chat first (newest, most-used), then read flow
+// (search → feed → parse → library), then management (skills → models
+// → settings).
 const NAV_ITEMS: NavItem[] = [
+  { to: "/chat", icon: "💬", label: "Chat", isNew: true },
   { to: "/search", icon: "🔍", label: "文献检索" },
   { to: "/feed", icon: "📰", label: "今日推送" },
-  { to: "/library", icon: "⭐", label: "收藏夹" },
   { to: "/parse", icon: "🧠", label: "AI 解析" },
-  { to: "/chat", icon: "💬", label: "Chat", isNew: true },
+  { to: "/library", icon: "⭐", label: "收藏夹" },
   { to: "/skills", icon: "✨", label: "Skill 管理" },
   { to: "/models", icon: "🤖", label: "模型配置" },
   { to: "/settings", icon: "⚙️", label: "设置" },
@@ -85,7 +89,7 @@ export default function Sidebar() {
           SGHUB
         </div>
         <div className="text-[10px] text-sidebar-fg/60 mt-0.5 tracking-wide">
-          v2.0.1
+          v2.1.0
         </div>
       </div>
       <nav className="flex flex-col flex-1 overflow-y-auto">

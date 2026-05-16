@@ -108,7 +108,6 @@ D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub\
 │   ├── pdfs\                            # 下载的 PDF
 │   └── cache\                           # 检索缓存
 ├── skills\                              # 用户自定义 Skill YAML
-├── backups\                             # 自动备份
 └── logs\                                # 应用日志 (保留 7 天)
 ```
 

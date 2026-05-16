@@ -79,18 +79,8 @@ export default function Settings() {
               ● {config.auto_update ? "开启" : "关闭"}
             </span>
           </Row>
-          <Row label="自动备份">
-            <span
-              className={
-                config.auto_backup ? "text-green-700" : "text-app-fg/50"
-              }
-            >
-              ● {config.auto_backup ? "开启" : "关闭"}
-            </span>
-            <span className="text-xs text-app-fg/50 ml-2">
-              (保留 {config.backup_retention_days} 天)
-            </span>
-          </Row>
+          {/* "自动备份" 设置项已于 V2.1.0 移除 —— 后端 auto_backup /
+              backup_retention_days 字段保留供未来扩展,但 UI 不再展示。 */}
           <Row label="默认模型">
             {config.default_model_id ? (
               <code className="text-xs">{config.default_model_id}</code>
