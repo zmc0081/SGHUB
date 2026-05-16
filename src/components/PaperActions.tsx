@@ -12,6 +12,7 @@
  * can be downloading simultaneously and each one shows its own bar.
  */
 
+// i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import {
@@ -20,6 +21,7 @@ import {
 } from "../lib/tauri";
 import { useAppNavigation } from "../hooks/useAppNavigation";
 import { FavoriteButton } from "./FavoriteButton";
+import { useT } from "../hooks/useT";
 
 interface Props {
   paper: Paper;
@@ -50,6 +52,7 @@ export function PaperActions({
   showFavorite = true,
   size = "sm",
 }: Props) {
+  const t = useT();
   const nav = useAppNavigation();
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState<number>(0);
@@ -73,18 +76,19 @@ export function PaperActions({
       } else if (status === "cancelled") {
         setDownloading(false);
         setProgress(0);
-        setError("已取消");
+        setError(t("paper_actions.download_cancelled"));
         setTimeout(() => setError(null), 2200);
       } else if (status === "error") {
         setDownloading(false);
         setProgress(0);
-        setError(err ?? "下载失败");
+        setError(err ?? t("paper_actions.download_failed"));
         setTimeout(() => setError(null), 4200);
       }
     }).then((u) => {
       unlisten = u;
     });
     return () => unlisten?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paper.id]);
 
   // ============================================================
@@ -98,10 +102,10 @@ export function PaperActions({
   const onOpenExternal = async () => {
     try {
       const url = await nav.openPaperExternal(paper.id);
-      if (!url) setError("该文献无可用的原文链接");
+      if (!url) setError(t("paper_actions.no_source_url"));
       else setError(null);
     } catch (e) {
-      setError(`打开失败: ${e}`);
+      setError(t("paper_actions.open_failed", { detail: String(e) }));
     }
     if (error) setTimeout(() => setError(null), 2500);
   };
@@ -115,9 +119,11 @@ export function PaperActions({
       setLocalPath(path);
     } catch (e) {
       // The error event already triggered the UI message; swallow here so
-      // it doesn't surface twice.
+      // it doesn't surface twice. Detect the cancellation marker in either
+      // language so we don't double-display.
       const msg = String(e);
-      if (!msg.includes("已取消")) {
+      const cancelled = t("paper_actions.download_cancelled");
+      if (!msg.includes(cancelled) && !msg.includes("Cancelled") && !msg.includes("已取消")) {
         setError(msg);
         setTimeout(() => setError(null), 4200);
       }
@@ -135,7 +141,7 @@ export function PaperActions({
     try {
       await nav.openLocalPdf(localPath);
     } catch (e) {
-      setError(`打开失败: ${e}`);
+      setError(t("paper_actions.open_failed", { detail: String(e) }));
       setTimeout(() => setError(null), 2500);
     }
   };
@@ -161,15 +167,15 @@ export function PaperActions({
       )}
 
       <button onClick={onOpenParse} className={`${btnBase} ${btnNormal}`}>
-        🧠 AI 精读
+        {t("paper_actions.ai_read")}
       </button>
 
       <button
         onClick={onOpenExternal}
         className={`${btnBase} ${btnNormal}`}
-        title="在浏览器打开原文"
+        title={t("paper_actions.view_source_title")}
       >
-        📄 原文
+        {t("paper_actions.view_source")}
       </button>
 
       {/* Download / local-open / progress */}
@@ -179,7 +185,7 @@ export function PaperActions({
           className={`${btnBase} ${btnNormal}`}
           title={localPath}
         >
-          📂 打开 PDF
+          {t("paper_actions.open_pdf")}
         </button>
       ) : downloading ? (
         <div className="inline-flex items-center gap-1.5 text-xs">
@@ -197,7 +203,7 @@ export function PaperActions({
           <button
             onClick={onCancel}
             className="text-red-600 hover:underline"
-            title="取消"
+            title={t("paper_actions.cancel_title")}
           >
             ✕
           </button>
@@ -207,9 +213,13 @@ export function PaperActions({
           onClick={onDownload}
           disabled={!oa}
           className={`${btnBase} ${oa ? btnNormal : btnDisabled}`}
-          title={oa ? "下载 PDF" : "非开放获取,无法下载"}
+          title={
+            oa
+              ? t("paper_actions.download_title")
+              : t("paper_actions.not_oa_title")
+          }
         >
-          📥 下载 PDF
+          {t("paper_actions.download_pdf")}
         </button>
       )}
 

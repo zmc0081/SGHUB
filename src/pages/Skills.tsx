@@ -1,3 +1,4 @@
+// i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useNavigate } from "@tanstack/react-router";
@@ -6,6 +7,7 @@ import {
   type SkillSummary,
   type SkillUploadResult,
 } from "../lib/tauri";
+import { useT } from "../hooks/useT";
 
 // ============================================================
 // Toast (light, in-component — avoids adding a UI dep)
@@ -76,6 +78,7 @@ function SkillRow({
   onEdit?: () => void;
   onCopy?: () => void;
 }) {
+  const t = useT();
   return (
     <div className="bg-white border border-black/10 rounded p-3 flex items-start gap-3">
       <div className="text-2xl shrink-0 leading-none mt-0.5">
@@ -118,7 +121,7 @@ function SkillRow({
             onClick={onEdit}
             className="px-2 py-1 text-[11px] rounded border border-black/10 hover:border-primary hover:text-primary"
           >
-            编辑
+            {t("skills.edit")}
           </button>
         )}
         {onCopy && (
@@ -126,7 +129,7 @@ function SkillRow({
             onClick={onCopy}
             className="px-2 py-1 text-[11px] rounded border border-black/10 hover:border-primary hover:text-primary whitespace-nowrap"
           >
-            复制并编辑
+            {t("skills.duplicate")}
           </button>
         )}
         {onDelete && (
@@ -134,7 +137,7 @@ function SkillRow({
             onClick={onDelete}
             className="px-2 py-1 text-[11px] rounded border border-black/10 text-red-600 hover:border-red-600 hover:bg-red-50"
           >
-            删除
+            {t("skills.delete")}
           </button>
         )}
       </div>
@@ -147,6 +150,7 @@ function SkillRow({
 // ============================================================
 
 export default function Skills() {
+  const t = useT();
   const navigate = useNavigate();
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -215,15 +219,19 @@ export default function Skills() {
         const fails = results.filter((r) => !r.success);
         if (results.length === 0) {
           pushToast("error", [
-            `${file.name}: 压缩包内未找到 .yaml / .yml / .skill / SKILL.md 文件`,
+            t("skills.zip_no_skill", { name: file.name }),
           ]);
         } else if (fails.length === 0) {
           pushToast("success", [
-            `${file.name}: 上传完成 — 成功 ${ok} 个`,
+            t("skills.zip_ok_count", { name: file.name, ok }),
           ]);
         } else {
           const lines = [
-            `${file.name}: 成功 ${ok} 个,失败 ${fails.length} 个`,
+            t("skills.zip_mixed", {
+              name: file.name,
+              ok,
+              fail: fails.length,
+            }),
             ...fails.flatMap((f) =>
               f.errors.map((e) => `  ${f.filename}: ${e}`),
             ),
@@ -231,21 +239,28 @@ export default function Skills() {
           pushToast(ok > 0 ? "success" : "error", lines);
         }
       } catch (e) {
-        pushToast("error", [`${file.name}: 解析失败 — ${e}`]);
+        pushToast("error", [
+          t("skills.zip_parse_failed", {
+            name: file.name,
+            detail: String(e),
+          }),
+        ]);
       }
     } else if (isYamlLike) {
       // Text path — decode UTF-8 and dispatch
       const text = new TextDecoder("utf-8").decode(bytes);
       try {
         const spec = await api.uploadSkillFile(text, file.name);
-        pushToast("success", [`Skill「${spec.display_name}」已上传`]);
+        pushToast("success", [
+          t("skills.uploaded_toast", { name: spec.display_name }),
+        ]);
       } catch (e) {
         const errors = Array.isArray(e) ? (e as string[]) : [String(e)];
         pushToast("error", errors);
       }
     } else {
       pushToast("error", [
-        `不支持的文件格式: ${file.name} (期望 .yaml / .yml / .skill / .zip)`,
+        t("skills.unsupported_format", { name: file.name }),
       ]);
     }
     // Reset input so the same file can be picked again
@@ -255,13 +270,22 @@ export default function Skills() {
   const onUploadClick = () => fileInputRef.current?.click();
 
   const handleDelete = async (skill: SkillSummary) => {
-    if (!confirm(`确定删除自定义 Skill「${skill.display_name}」?`)) return;
+    if (
+      !confirm(
+        t("skills.confirm_delete_custom", { name: skill.display_name }),
+      )
+    )
+      return;
     try {
       await api.deleteCustomSkill(skill.name);
-      pushToast("success", [`已删除「${skill.display_name}」`]);
+      pushToast("success", [
+        t("skills.deleted_toast", { name: skill.display_name }),
+      ]);
       refresh();
     } catch (e) {
-      pushToast("error", [`删除失败: ${e}`]);
+      pushToast("error", [
+        t("skills.delete_failed_toast", { detail: String(e) }),
+      ]);
     }
   };
 
@@ -273,33 +297,30 @@ export default function Skills() {
       <ToastList toasts={toasts} onDismiss={dismissToast} />
 
       <div className="text-xs text-app-fg/50 mb-2">
-        <span>设置</span>
+        <span>{t("skills.breadcrumb_settings")}</span>
         <span className="mx-1">/</span>
-        <span className="text-app-fg/80">Skill 管理</span>
+        <span className="text-app-fg/80">{t("skills.title")}</span>
       </div>
 
       <div className="flex items-baseline justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-primary mb-1">
-            Skill 管理
+            {t("skills.title")}
           </h1>
-          <p className="text-sm text-app-fg/60">
-            内置 Skill 不可改;自定义 Skill 存于 ~/.sghub/skills/,支持
-            .yaml / .skill (Claude/Anthropic) / .zip (ChatGPT) 上传
-          </p>
+          <p className="text-sm text-app-fg/60">{t("skills.subtitle")}</p>
         </div>
         <div className="flex gap-2 shrink-0">
           <button
             onClick={() => navigate({ to: "/skills/new" })}
             className="px-3 py-1.5 text-sm rounded border border-primary text-primary hover:bg-primary/5"
           >
-            ✨ 新建 Skill
+            {t("skills.new")}
           </button>
           <button
             onClick={onUploadClick}
             className="px-3 py-1.5 text-sm rounded bg-primary text-white hover:bg-primary/90"
           >
-            ⬆ 上传 Skill
+            {t("skills.upload")}
           </button>
           <input
             ref={fileInputRef}
@@ -317,12 +338,12 @@ export default function Skills() {
       {/* Custom Skills */}
       <section className="mb-8">
         <div className="text-xs uppercase tracking-wider text-app-fg/50 mb-2 flex items-center gap-2">
-          <span>自定义 Skill</span>
+          <span>{t("skills.custom_section")}</span>
           <span className="text-app-fg/40">({custom.length})</span>
         </div>
         {custom.length === 0 ? (
           <div className="bg-white border border-dashed border-black/15 rounded p-6 text-center text-sm text-app-fg/50">
-            还没有自定义 Skill — 点右上「上传 Skill」开始
+            {t("skills.no_custom_yet")}
           </div>
         ) : (
           <div className="grid gap-2">
@@ -341,7 +362,7 @@ export default function Skills() {
       {/* Builtin Skills */}
       <section>
         <div className="text-xs uppercase tracking-wider text-app-fg/50 mb-2 flex items-center gap-2">
-          <span>内置 Skill</span>
+          <span>{t("skills.builtin_section")}</span>
           <span className="text-app-fg/40">({builtin.length})</span>
         </div>
         <div className="grid gap-2 opacity-90">

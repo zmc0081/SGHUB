@@ -12,9 +12,11 @@
  * the paper is already collected.
  */
 
+// i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLibraryStore, usePaperFolders } from "../stores/libraryStore";
 import type { Folder, FolderNode } from "../lib/tauri";
+import { useT } from "../hooks/useT";
 
 const UNCATEGORIZED_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -128,6 +130,7 @@ export function FavoriteButton({
   variant = "compact",
   onChange,
 }: Props) {
+  const t = useT();
   const currentFolders = usePaperFolders(paperId);
   const folderTree = useLibraryStore((s) => s.folderTree);
   const folders = useLibraryStore((s) => s.folders);
@@ -182,11 +185,11 @@ export function FavoriteButton({
     setBusy(true);
     try {
       await addToFolder(paperId, UNCATEGORIZED_ID);
-      push("✓ 已收藏到「未分类」");
+      push(t("favorite_button.toast_added", { name: t("library.uncategorized") }));
       onChange?.(UNCATEGORIZED_ID);
       setOpen(false);
     } catch (e) {
-      push(`收藏失败: ${e}`, "err");
+      push(t("favorite_button.toast_failed", { detail: String(e) }), "err");
     } finally {
       setBusy(false);
     }
@@ -198,16 +201,16 @@ export function FavoriteButton({
     try {
       if (currentFolders.includes(folder.id)) {
         await removeFromFolder(paperId, folder.id);
-        push(`已从「${folder.name}」移除`);
+        push(t("favorite_button.toast_removed", { name: folder.name }));
         onChange?.(null);
       } else {
         await addToFolder(paperId, folder.id);
-        push(`✓ 已加入「${folder.name}」`);
+        push(t("favorite_button.toast_added", { name: folder.name }));
         onChange?.(folder.id);
       }
       setOpen(false);
     } catch (e) {
-      push(`操作失败: ${e}`, "err");
+      push(t("favorite_button.toast_failed", { detail: String(e) }), "err");
     } finally {
       setBusy(false);
     }
@@ -221,13 +224,13 @@ export function FavoriteButton({
     try {
       const f = await createQuickFolder(name, null);
       await addToFolder(paperId, f.id);
-      push(`✓ 新建并加入「${f.name}」`);
+      push(t("favorite_button.toast_added", { name: f.name }));
       onChange?.(f.id);
       setNewName("");
       setCreating(false);
       setOpen(false);
     } catch (e) {
-      push(`创建失败: ${e}`, "err");
+      push(t("favorite_button.toast_failed", { detail: String(e) }), "err");
     } finally {
       setBusy(false);
     }
@@ -235,18 +238,18 @@ export function FavoriteButton({
 
   const unfavoriteAll = async () => {
     if (busy || currentFolders.length === 0) return;
-    if (!confirm("从所有收藏夹中移除这篇文献?")) return;
+    if (!confirm(t("favorite_button.unfavorite"))) return;
     setBusy(true);
     try {
       // Iterate sequentially so each removal emits its own event reliably.
       for (const fid of [...currentFolders]) {
         await removeFromFolder(paperId, fid);
       }
-      push("已取消收藏");
+      push(t("favorite_button.toast_unfavorited"));
       onChange?.(null);
       setOpen(false);
     } catch (e) {
-      push(`操作失败: ${e}`, "err");
+      push(t("favorite_button.toast_failed", { detail: String(e) }), "err");
     } finally {
       setBusy(false);
     }
@@ -273,13 +276,17 @@ export function FavoriteButton({
         className={`${triggerClass} ${stateClass}`}
         title={
           isFavorited
-            ? `已收藏 — ${currentNames.join(" · ")}`
-            : "收藏到文件夹"
+            ? `${t("favorite_button.favorited")} — ${currentNames.join(" · ")}`
+            : t("favorite_button.favorite")
         }
         disabled={busy}
       >
         <span className="shrink-0">{isFavorited ? "⭐" : "☆"}</span>
-        <span>{isFavorited ? "已收藏" : "收藏"}</span>
+        <span>
+          {isFavorited
+            ? t("favorite_button.favorited").replace("⭐ ", "")
+            : t("favorite_button.favorite").replace("☆ ", "")}
+        </span>
         <span className="opacity-60">▾</span>
       </button>
 
@@ -291,14 +298,14 @@ export function FavoriteButton({
             disabled={busy || currentFolders.includes(UNCATEGORIZED_ID)}
             className="block w-full text-left px-3 py-2 text-xs font-medium bg-primary/5 hover:bg-primary/10 text-primary disabled:opacity-40 border-b border-black/5"
           >
-            ⭐ 快速收藏到「未分类」
+            ⭐ {t("favorite_button.quick_collect")}
           </button>
 
           {/* Folder tree (scrollable) */}
           <div className="max-h-60 overflow-y-auto">
             {folderTree.length === 0 && (
               <div className="px-3 py-2 text-xs text-app-fg/50">
-                还没有文件夹 — 用下方的按钮新建一个
+                {t("library.empty_folder_hint")}
               </div>
             )}
             {folderTree.map((n) => (
@@ -327,7 +334,7 @@ export function FavoriteButton({
                       setNewName("");
                     }
                   }}
-                  placeholder="文件夹名称"
+                  placeholder={t("favorite_button.new_folder_placeholder")}
                   className="flex-1 px-2 py-1 text-xs border border-black/10 rounded focus:outline-none focus:border-primary"
                 />
                 <button
@@ -335,7 +342,7 @@ export function FavoriteButton({
                   disabled={busy || !newName.trim()}
                   className="px-2 py-1 text-xs bg-primary text-white rounded disabled:opacity-50"
                 >
-                  确定
+                  {t("favorite_button.create_btn")}
                 </button>
               </div>
             ) : (
@@ -343,7 +350,7 @@ export function FavoriteButton({
                 onClick={() => setCreating(true)}
                 className="block w-full text-left px-3 py-2 text-xs text-app-fg/70 hover:bg-primary/5"
               >
-                + 新建文件夹
+                {t("favorite_button.new_folder")}
               </button>
             )}
           </div>
@@ -355,7 +362,7 @@ export function FavoriteButton({
               disabled={busy}
               className="block w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 border-t border-black/5 disabled:opacity-40"
             >
-              ✕ 取消收藏
+              {t("favorite_button.unfavorite")}
             </button>
           )}
         </div>

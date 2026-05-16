@@ -118,6 +118,19 @@ com.sghub.app/
 
 欢迎提 Issue / PR。开发环境搭建、代码规范、PR 流程详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
+## Localization
+
+SGHUB 默认跟随系统语言;也可在「设置 → 语言」手动切换。
+
+| Code  | Language     | Status                              |
+| ----- | ------------ | ----------------------------------- |
+| zh-CN | 简体中文     | ✅ Complete (default)               |
+| en-US | English      | ✅ Complete                         |
+
+OS locales like `zh-TW` / `zh-HK` resolve to zh-CN; everything else
+resolves to en-US. Other languages may be re-introduced once we have
+committed maintainers — see [`docs/i18n-guide.md`](docs/i18n-guide.md).
+
 ## License
 
 [MIT](LICENSE) © 2026 SGHUB Contributors

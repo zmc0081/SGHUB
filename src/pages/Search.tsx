@@ -1,27 +1,31 @@
+// i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { api, type Paper } from "../lib/tauri";
 import { PaperActions } from "../components/PaperActions";
+import { useT } from "../hooks/useT";
 
+// Each option carries an i18n labelKey instead of a hardcoded label —
+// see SOURCES_T() in component body for the rendered version.
 const SOURCES = [
-  { value: "all", label: "全部" },
+  { value: "all", labelKey: "search.source_all" },
   { value: "arxiv", label: "arXiv" },
   { value: "semantic_scholar", label: "Semantic Scholar" },
   { value: "pubmed", label: "PubMed" },
   { value: "openalex", label: "OpenAlex" },
-];
+] as Array<{ value: string; label?: string; labelKey?: string }>;
 
 const TIME_RANGES = [
-  { value: "all", label: "不限", days: null as number | null },
-  { value: "7d", label: "近 7 天", days: 7 },
-  { value: "30d", label: "近 30 天", days: 30 },
-  { value: "1y", label: "近 1 年", days: 365 },
+  { value: "all", labelKey: "search.time_all", days: null as number | null },
+  { value: "7d", labelKey: "search.time_7d", days: 7 },
+  { value: "30d", labelKey: "search.time_30d", days: 30 },
+  { value: "1y", labelKey: "search.time_1y", days: 365 },
 ];
 
 const SORT_OPTIONS = [
-  { value: "relevance", label: "相关性" },
-  { value: "latest", label: "最新" },
-  { value: "citation", label: "引用 (待支持)" },
+  { value: "relevance", labelKey: "search.sort_relevance" },
+  { value: "latest", labelKey: "search.sort_latest" },
+  { value: "citation", labelKey: "search.sort_citation" },
 ];
 
 const SOURCE_BADGE: Record<string, string> = {
@@ -58,6 +62,7 @@ function applySort(papers: Paper[], sortBy: string): Paper[] {
 }
 
 function PaperCard({ paper }: { paper: Paper }) {
+  const t = useT();
   const sourceCls = SOURCE_BADGE[paper.source] ?? "bg-app-fg/20 text-app-fg";
   return (
     <article className="bg-white rounded border border-black/10 p-4 hover:border-primary/30 transition-colors">
@@ -75,7 +80,8 @@ function PaperCard({ paper }: { paper: Paper }) {
       </div>
       <div className="mt-1.5 text-xs text-app-fg/70">
         {paper.authors.slice(0, 5).join(", ")}
-        {paper.authors.length > 5 && ` 等 ${paper.authors.length} 人`}
+        {paper.authors.length > 5 &&
+          t("search.authors_more", { count: paper.authors.length })}
         {paper.published_at && (
           <span className="ml-2">· {paper.published_at.slice(0, 10)}</span>
         )}
@@ -157,6 +163,7 @@ function PaperList({ papers }: { papers: Paper[] }) {
 }
 
 export default function Search() {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [source, setSource] = useState("all");
   const [timeRange, setTimeRange] = useState("all");
@@ -193,18 +200,17 @@ export default function Search() {
 
   return (
     <div className="p-8 max-w-5xl">
-      <h1 className="text-2xl font-semibold text-primary mb-1">文献检索</h1>
-      <p className="text-sm text-app-fg/60 mb-6">
-        多源聚合 — arXiv / Semantic Scholar / PubMed (E-utilities) /
-        OpenAlex 4 源并发,10s 超时单源降级,DOI + 标题双重去重,结果自动入库
-      </p>
+      <h1 className="text-2xl font-semibold text-primary mb-1">
+        {t("search.title")}
+      </h1>
+      <p className="text-sm text-app-fg/60 mb-6">{t("search.subtitle")}</p>
 
       <div className="flex gap-2 mb-3">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && runSearch()}
-          placeholder="关键词,如 transformer / RLHF / AlphaFold"
+          placeholder={t("search.placeholder")}
           className="flex-1 px-3 py-2 bg-white border border-black/10 rounded text-sm focus:outline-none focus:border-primary"
         />
         <select
@@ -214,7 +220,7 @@ export default function Search() {
         >
           {SOURCES.map((s) => (
             <option key={s.value} value={s.value}>
-              {s.label}
+              {s.labelKey ? t(s.labelKey) : s.label}
             </option>
           ))}
         </select>
@@ -223,35 +229,35 @@ export default function Search() {
           disabled={loading || !query.trim()}
           className="px-4 py-2 bg-primary text-white rounded text-sm hover:bg-primary/90 transition-colors disabled:opacity-50"
         >
-          {loading ? "检索中…" : "检索"}
+          {loading ? t("search.searching") : t("search.search_button")}
         </button>
       </div>
 
       <div className="flex gap-3 items-center mb-4 text-xs text-app-fg/70">
         <label className="flex items-center gap-1.5">
-          时间:
+          {t("search.time_label")}
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
             className="bg-white border border-black/10 rounded px-2 py-1"
           >
-            {TIME_RANGES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
+            {TIME_RANGES.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {t(opt.labelKey)}
               </option>
             ))}
           </select>
         </label>
         <label className="flex items-center gap-1.5">
-          排序:
+          {t("search.sort_label")}
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             className="bg-white border border-black/10 rounded px-2 py-1"
           >
-            {SORT_OPTIONS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {t(opt.labelKey)}
               </option>
             ))}
           </select>
@@ -261,29 +267,29 @@ export default function Search() {
       {loading && (
         <div className="flex items-center gap-2 text-sm text-app-fg/60 animate-pulse">
           <div className="h-2 w-2 bg-accent rounded-full animate-bounce" />
-          正在并发请求 arXiv 与 Semantic Scholar…
+          {t("search.loading_sources")}
         </div>
       )}
       {error && (
         <div className="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded">
-          错误: {error}
+          {t("search.error_prefix", { detail: error })}
         </div>
       )}
 
       {!loading && papers.length === 0 && !error && (
         <div className="text-sm text-app-fg/50">
-          {query.trim() ? "暂无结果" : "输入关键词后回车开始检索"}
+          {query.trim() ? t("search.no_results") : t("search.empty_prompt")}
         </div>
       )}
 
       {!loading && papers.length > 0 && (
         <>
           <div className="text-xs text-app-fg/50 mb-3">
-            {visible.length} 条结果
+            {t("search.results_count", { count: visible.length })}
             {visible.length !== papers.length &&
-              ` (从 ${papers.length} 条中筛选)`}
+              t("search.results_filtered_from", { total: papers.length })}
             {duration !== null && ` · ${duration}ms`}
-            {papers.length > 100 && " · 已启用虚拟滚动"}
+            {papers.length > 100 && t("search.results_virtual")}
           </div>
           <PaperList papers={visible} />
         </>

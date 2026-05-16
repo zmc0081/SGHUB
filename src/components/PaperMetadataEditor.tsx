@@ -9,8 +9,10 @@
  * extracted (low-confidence) row stays as-is and can be fixed later.
  */
 
+// i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useState } from "react";
 import { api, type PartialMetadata } from "../lib/tauri";
+import { useT } from "../hooks/useT";
 
 interface Props {
   paperId: string;
@@ -22,10 +24,10 @@ interface Props {
   onSaved?: () => void;
 }
 
-const SOURCE_LABEL: Record<string, string> = {
-  pdf_info: "PDF /Info 字典",
-  first_page: "首页文本启发式",
-  filename: "文件名兜底",
+const SOURCE_KEY: Record<string, string> = {
+  pdf_info: "paper_metadata_editor.source_pdf_info",
+  first_page: "paper_metadata_editor.source_first_page",
+  filename: "paper_metadata_editor.source_filename",
 };
 
 export function PaperMetadataEditor({
@@ -35,6 +37,7 @@ export function PaperMetadataEditor({
   onClose,
   onSaved,
 }: Props) {
+  const t = useT();
   const [title, setTitle] = useState(initial.title);
   const [authors, setAuthors] = useState<string[]>(initial.authors);
   const [abstract, setAbstract] = useState(initial.abstract ?? "");
@@ -60,7 +63,7 @@ export function PaperMetadataEditor({
 
   const save = async () => {
     if (!title.trim()) {
-      setErr("标题不能为空");
+      setErr(t("paper_metadata_editor.validation_title_required"));
       return;
     }
     setSaving(true);
@@ -97,23 +100,28 @@ export function PaperMetadataEditor({
         {/* Header */}
         <div className="flex items-start justify-between p-4 border-b border-black/10">
           <div>
-            <div className="text-sm font-semibold text-primary">补全文献元数据</div>
+            <div className="text-sm font-semibold text-primary">
+              {t("paper_metadata_editor.title")}
+            </div>
             <div className="text-[11px] text-app-fg/60 mt-1 flex items-center gap-3">
               <span>
-                提取来源:
+                {t("paper_metadata_editor.extraction_source")}
                 <strong className="ml-1">
-                  {SOURCE_LABEL[initial.source] ?? initial.source}
+                  {SOURCE_KEY[initial.source]
+                    ? t(SOURCE_KEY[initial.source])
+                    : initial.source}
                 </strong>
               </span>
               <span className={confColor}>
-                置信度 <strong>{confidencePct}%</strong>
+                {t("paper_metadata_editor.confidence_label")}{" "}
+                <strong>{confidencePct}%</strong>
               </span>
               {pdfPath && (
                 <button
                   onClick={() => void api.openLocalPdf(pdfPath)}
                   className="text-primary hover:underline"
                 >
-                  📄 对照原文
+                  {t("paper_metadata_editor.view_original")}
                 </button>
               )}
             </div>
@@ -129,7 +137,9 @@ export function PaperMetadataEditor({
         {/* Form */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           <label className="block">
-            <div className="text-xs text-app-fg/70 mb-1">标题 *</div>
+            <div className="text-xs text-app-fg/70 mb-1">
+              {t("paper_metadata_editor.title_field")}
+            </div>
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -139,18 +149,18 @@ export function PaperMetadataEditor({
 
           <div>
             <div className="text-xs text-app-fg/70 mb-1 flex items-center justify-between">
-              <span>作者列表</span>
+              <span>{t("paper_metadata_editor.authors_field")}</span>
               <button
                 onClick={addAuthor}
                 className="text-[11px] text-primary hover:underline"
               >
-                + 添加
+                {t("paper_metadata_editor.add_author")}
               </button>
             </div>
             <div className="flex flex-col gap-1">
               {authors.length === 0 && (
                 <div className="text-[11px] text-app-fg/40 italic">
-                  暂无 — 点击「+ 添加」录入
+                  {t("paper_metadata_editor.authors_empty")}
                 </div>
               )}
               {authors.map((a, i) => (
@@ -158,7 +168,7 @@ export function PaperMetadataEditor({
                   <input
                     value={a}
                     onChange={(e) => updateAuthor(i, e.target.value)}
-                    placeholder="First Last"
+                    placeholder={t("paper_metadata_editor.first_last_placeholder")}
                     className="flex-1 px-2 py-1 text-xs border border-black/10 rounded focus:outline-none focus:border-primary"
                   />
                   <button
@@ -173,7 +183,9 @@ export function PaperMetadataEditor({
           </div>
 
           <label className="block">
-            <div className="text-xs text-app-fg/70 mb-1">摘要</div>
+            <div className="text-xs text-app-fg/70 mb-1">
+              {t("paper_metadata_editor.abstract_field")}
+            </div>
             <textarea
               value={abstract}
               onChange={(e) => setAbstract(e.target.value)}
@@ -183,11 +195,13 @@ export function PaperMetadataEditor({
           </label>
 
           <label className="block">
-            <div className="text-xs text-app-fg/70 mb-1">DOI(可选)</div>
+            <div className="text-xs text-app-fg/70 mb-1">
+              {t("paper_metadata_editor.doi_field")}
+            </div>
             <input
               value={doi}
               onChange={(e) => setDoi(e.target.value)}
-              placeholder="10.1234/example"
+              placeholder={t("paper_metadata_editor.doi_placeholder")}
               className="w-full px-2.5 py-1.5 text-sm border border-black/10 rounded font-mono focus:outline-none focus:border-primary"
             />
           </label>
@@ -205,14 +219,16 @@ export function PaperMetadataEditor({
             onClick={onClose}
             className="px-3 py-1 text-xs rounded border border-black/10 text-app-fg/70 hover:bg-black/5"
           >
-            跳过(保留原提取)
+            {t("paper_metadata_editor.skip")}
           </button>
           <button
             onClick={save}
             disabled={saving}
             className="px-3 py-1 text-xs rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
           >
-            {saving ? "保存中…" : "保存"}
+            {saving
+              ? t("paper_metadata_editor.saving")
+              : t("paper_metadata_editor.save")}
           </button>
         </div>
       </div>

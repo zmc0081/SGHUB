@@ -1,7 +1,9 @@
+// i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useRef, useState } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { api, type ModelConfig, type SkillSummary } from "../../lib/tauri";
 import { useChatStore } from "../../stores/chatStore";
+import { useT } from "../../hooks/useT";
 
 // ============================================================
 // Pending upload tracking — keeps chip visible from "user picked
@@ -97,6 +99,7 @@ function PendingChip({
   item: PendingUpload;
   onDismiss: () => void;
 }) {
+  const t = useT();
   const isError = item.status === "error";
   // Using Tailwind built-in palette (amber / red) instead of theme tokens
   // because our `--accent` CSS var is hex, not the rgb-triplet form that
@@ -108,7 +111,7 @@ function PendingChip({
           ? "border-red-400 bg-red-50"
           : "border-amber-500 bg-amber-100"
       }`}
-      title={isError ? item.errorMsg : "正在读取并提取文本…"}
+      title={isError ? item.errorMsg : t("chat.uploading")}
     >
       <div className="shrink-0">
         {isError ? (
@@ -127,8 +130,8 @@ function PendingChip({
           }`}
         >
           {isError
-            ? `失败: ${item.errorMsg ?? "未知错误"}`
-            : "⏳ 上传中 — 正在提取文本"}
+            ? `✗ ${item.errorMsg ?? t("errors.unknown", { detail: "" })}`
+            : `⏳ ${t("chat.uploading")}`}
         </div>
       </div>
       <button
@@ -143,6 +146,7 @@ function PendingChip({
 }
 
 export function InputArea() {
+  const t = useT();
   const {
     currentInput,
     currentAttachments,
@@ -372,7 +376,7 @@ export function InputArea() {
                 onClick={handlePickAndUpload}
                 className="block w-full text-left px-3 py-1.5 text-xs hover:bg-primary/5"
               >
-                📎 上传附件 (.pdf/.md/.txt)
+                📎 {t("chat.upload_attachment")}
               </button>
               <div className="border-t border-black/5 my-1" />
               <div className="px-3 py-1 text-[10px] text-app-fg/50 uppercase tracking-wider">
@@ -387,7 +391,7 @@ export function InputArea() {
                   currentSkill === null ? "text-primary font-medium" : ""
                 }`}
               >
-                {currentSkill === null ? "✓ " : ""}无 Skill (普通聊天)
+                {currentSkill === null ? "✓ " : ""}{t("chat.no_skill")}
               </button>
               {skills.map((s) => (
                 <button
@@ -419,8 +423,8 @@ export function InputArea() {
           onCompositionEnd={() => setComposing(false)}
           placeholder={
             currentSkill
-              ? `[Skill: ${currentSkill}] 提问…(Enter 发送 / Shift+Enter 换行)`
-              : "提问…(Enter 发送 / Shift+Enter 换行)"
+              ? t("chat.input_with_skill", { skill: currentSkill })
+              : t("chat.input_placeholder")
           }
           rows={1}
           className="flex-1 px-3 py-2 text-sm bg-white border border-black/10 rounded resize-none focus:outline-none focus:border-primary"
@@ -457,10 +461,10 @@ export function InputArea() {
           }`}
           title={
             streamingMessageId
-              ? "正在生成…"
+              ? t("chat.generating")
               : pending.some((p) => p.status === "uploading")
-                ? "等附件处理完成"
-                : "发送"
+                ? t("chat.wait_for_attachment")
+                : t("chat.send")
           }
         >
           {streamingMessageId ? (

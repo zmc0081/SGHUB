@@ -1071,10 +1071,10 @@ git push --tags
 
 ---
 
-## M2.0.2 · 体验打磨与设置完善(Week 22-25)
+## M2.1.0 · 体验打磨与设置完善(Week 22-25)
 
-> V2.0.2 在 V2.0.1 已发布的基础上,聚焦设置体系完善、多语言基础设施、Token 统计启用、以及一个有产品价值的 Skill 自然语言生成器。
-> 配套文档:PRD V2.0.2 / 架构方案 V2.0.2 / 实施方案 V2.0.2。
+> V2.1.0 在 V2.0.1 已发布的基础上,聚焦设置体系完善、多语言基础设施、Token 统计启用、以及一个有产品价值的 Skill 自然语言生成器。
+> 配套文档:PRD V2.1.0 / 架构方案 V2.1.0 / 实施方案 V2.1.0。
 
 ### 在开始 Session 19 之前
 
@@ -1083,17 +1083,17 @@ git push --tags
 cd D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub
 git checkout main
 git pull
-git checkout -b feature/v2.0.2
+git checkout -b feature/v2.1.0
 ```
 
-所有 V2.0.2 的 Session 都在 `feature/v2.0.2` 分支上做,完成后再合并到 main 发布。
+所有 V2.1.0 的 Session 都在 `feature/v2.1.0` 分支上做,完成后再合并到 main 发布。
 
 ---
 
 ### Session 19: 菜单顺序调整 + 移除自动备份
 
 ```
-读取 CLAUDE.md。本次任务是 V2.0.2 的快赢任务,改两个地方:
+读取 CLAUDE.md。本次任务是 V2.1.0 的快赢任务,改两个地方:
 
 任务一:左侧菜单顺序调整 + 新增 Skill 管理入口
 
@@ -1123,7 +1123,7 @@ git checkout -b feature/v2.0.2
 
 任务三:同步更新文档
 
-- 修改 docs/PRD V2.0.2 或 docs/changelog.md(如有)中关于"自动备份"的描述,删除相关条款
+- 修改 docs/PRD V2.1.0 或 docs/changelog.md(如有)中关于"自动备份"的描述,删除相关条款
 - 修改 CLAUDE.md 的"数据目录"章节,移除 backups/ 子目录(因为不再自动写入)
 
 最后运行 npm run build 与 cargo clippy -- -D warnings 确保通过。
@@ -1313,7 +1313,7 @@ git checkout -b feature/v2.0.2
 ### Session 22: 数据目录可配置 + 迁移逻辑
 
 ```
-读取 CLAUDE.md。本次任务实现数据目录可配置功能,这是 V2.0.2 最复杂的一项。
+读取 CLAUDE.md。本次任务实现数据目录可配置功能,这是 V2.1.0 最复杂的一项。
 关键设计:数据目录路径本身的配置不能存在数据目录里(否则循环依赖),必须存放在
 OS 标准配置目录(Windows: %APPDATA%\sghub-config\;macOS: ~/Library/Preferences/sghub/)。
 
@@ -1541,7 +1541,7 @@ OS 标准配置目录(Windows: %APPDATA%\sghub-config\;macOS: ~/Library/Preferen
 ### Session 24: Skill 自然语言生成器 ⭐
 
 ```
-读取 CLAUDE.md 与 skills/general_read.yaml。本次任务实现 V2.0.2 的核心新功能:
+读取 CLAUDE.md 与 skills/general_read.yaml。本次任务实现 V2.1.0 的核心新功能:
 用自然语言描述需求,自动生成符合 SGHUB Skill 规范的 YAML。
 参考 Claude.ai 的 Skills 构建体验(对话式 Skill 创建)。
 
@@ -1665,20 +1665,20 @@ OS 标准配置目录(Windows: %APPDATA%\sghub-config\;macOS: ~/Library/Preferen
 
 ---
 
-### V2.0.2 收尾:Beta + 发布
+### V2.1.0 收尾:Beta + 发布
 
 完成 Session 19-24 后,进入 Beta 与发布阶段:
 
-1. 合并 feature/v2.0.2 到 main:
+1. 合并 feature/v2.1.0 到 main:
 ```cmd
 git checkout main
-git merge --no-ff feature/v2.0.2
+git merge --no-ff feature/v2.1.0
 git push
 ```
 
 2. 打 Beta tag:
 ```cmd
-git tag v2.0.2-beta.1
+git tag v2.1.0-beta.1
 git push --tags
 ```
 
@@ -1691,7 +1691,7 @@ git push --tags
 
 5. 正式发布:
 ```cmd
-git tag v2.0.2
+git tag v2.1.0
 git push --tags
 ```
 
@@ -1748,7 +1748,7 @@ git push
 
 ---
 
-## V2.0.2 Session 速查
+## V2.1.0 Session 速查
 
 | Session | 主题 | 对应需求 | 预估时长 |
 |---------|------|---------|---------|
@@ -1759,7 +1759,7 @@ git push
 | 23 | Token 统计写入 + 近 7 天展示 | R5 | 0.5 周 |
 | 24 | Skill 自然语言生成器 ⭐ | R7 | 1 周 |
 
-**总计**: ~4 周(与实施方案 V2.0.2 一致)
+**总计**: ~4 周(与实施方案 V2.1.0 一致)
 
 ---
 
@@ -1769,4 +1769,4 @@ git push
 |------|------------|------|------|
 | V2.0.0 | 1-12 | 桌面客户端核心功能基线 | 已发布 |
 | V2.0.1 | 13-18 | Chat + Skill 编辑 + 跨模块跳转 | 已发布 |
-| V2.0.2 | 19-24 | 设置完善 + 国际化 + Skill 智能生成 | 开发中 |
+| V2.1.0 | 19-24 | 设置完善 + 国际化 + Skill 智能生成 | 开发中 |

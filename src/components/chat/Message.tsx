@@ -1,3 +1,4 @@
+// i18n: 本组件文案已国际化 (V2.1.0)
 import { memo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -7,6 +8,7 @@ import type {
   ChatAttachment,
   ChatMessage as ChatMessageType,
 } from "../../lib/tauri";
+import { useT } from "../../hooks/useT";
 
 function iconFor(kind: string): string {
   switch (kind) {
@@ -40,6 +42,7 @@ function AttachmentChip({
   attachment: ChatAttachment;
   isUser: boolean;
 }) {
+  const t = useT();
   const previewLen = attachment.extracted_text?.length ?? 0;
   return (
     <span
@@ -50,7 +53,10 @@ function AttachmentChip({
       }`}
       title={
         previewLen > 0
-          ? `${attachment.file_name} · 已提取 ${previewLen.toLocaleString()} 字符内容供模型参考`
+          ? t("chat.attachment_extracted_chars", {
+              name: attachment.file_name,
+              chars: previewLen.toLocaleString(),
+            })
           : attachment.file_name
       }
     >
@@ -62,7 +68,10 @@ function AttachmentChip({
         </span>
       )}
       {previewLen > 0 && (
-        <span className="text-emerald-600 shrink-0" title="文本内容已提取并发送给模型">
+        <span
+          className="text-emerald-600 shrink-0"
+          title={t("chat.attachment_text_extracted_title")}
+        >
           ✓
         </span>
       )}
@@ -77,6 +86,7 @@ interface Props {
 }
 
 function MessageImpl({ message, streaming, onRegenerate }: Props) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const isUser = message.role === "user";
 
@@ -104,7 +114,7 @@ function MessageImpl({ message, streaming, onRegenerate }: Props) {
             : "bg-accent/20 text-app-fg"
         }`}
       >
-        {isUser ? "我" : "🤖"}
+        {isUser ? t("chat.avatar_user") : t("chat.avatar_bot")}
       </div>
 
       {/* Bubble */}
@@ -138,10 +148,12 @@ function MessageImpl({ message, streaming, onRegenerate }: Props) {
             </div>
           ) : streaming ? (
             <span className="text-xs text-app-fg/50 animate-pulse">
-              正在生成…
+              {t("chat.msg_generating")}
             </span>
           ) : (
-            <span className="text-xs text-app-fg/40 italic">(空消息)</span>
+            <span className="text-xs text-app-fg/40 italic">
+              {t("chat.empty_message")}
+            </span>
           )}
         </div>
 
@@ -153,11 +165,11 @@ function MessageImpl({ message, streaming, onRegenerate }: Props) {
             }`}
           >
             <button onClick={copy} className="hover:text-primary px-1">
-              {copied ? "✓ 已复制" : "复制"}
+              {copied ? t("chat.msg_copied") : t("chat.msg_copy")}
             </button>
             {!isUser && onRegenerate && (
               <button onClick={onRegenerate} className="hover:text-primary px-1">
-                重新生成
+                {t("chat.msg_regenerate")}
               </button>
             )}
             {message.model_name && (

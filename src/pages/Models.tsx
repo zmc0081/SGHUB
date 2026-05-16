@@ -1,3 +1,4 @@
+// i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useState } from "react";
 import {
   api,
@@ -5,12 +6,15 @@ import {
   type ModelConfigInput,
   type TestResult,
 } from "../lib/tauri";
+import { useT } from "../hooks/useT";
 
-const PROVIDER_LABEL: Record<string, string> = {
-  anthropic: "Anthropic",
-  openai: "OpenAI",
-  ollama: "Ollama (本地)",
-  custom: "自定义",
+// Provider names are resolved at render time via models.provider_label_*
+// keys. Static maps keep code paths simple where t() isn't reachable.
+const PROVIDER_LABEL_KEY: Record<string, string> = {
+  anthropic: "models.provider_label_anthropic",
+  openai: "models.provider_label_openai",
+  ollama: "models.provider_label_ollama",
+  custom: "models.provider_label_custom",
 };
 
 const PROVIDER_ICON: Record<string, string> = {
@@ -36,11 +40,28 @@ const EMPTY_INPUT: ModelConfigInput = {
 // ============================================================
 
 function StatsCards({ models }: { models: ModelConfig[] }) {
+  const t = useT();
   const cards = [
-    { label: "已配置模型", value: models.length, hint: "来自 SQLite" },
-    { label: "本月调用", value: 0, hint: "usage_stats 待接入" },
-    { label: "Token 消耗", value: "0", hint: "in / out 累加" },
-    { label: "预估成本 (USD)", value: "$0.00", hint: "按官方定价折算" },
+    {
+      label: t("models.stat_configured_models"),
+      value: models.length,
+      hint: t("models.stat_configured_models_hint"),
+    },
+    {
+      label: t("models.stat_monthly_calls"),
+      value: 0,
+      hint: t("models.stat_monthly_calls_hint"),
+    },
+    {
+      label: t("models.stat_tokens"),
+      value: "0",
+      hint: t("models.stat_tokens_hint"),
+    },
+    {
+      label: t("models.stat_cost"),
+      value: "$0.00",
+      hint: t("models.stat_cost_hint"),
+    },
   ];
   return (
     <div className="grid grid-cols-4 gap-3 mb-6">
@@ -71,6 +92,7 @@ function ModelRow({
   model: ModelConfig;
   onChanged: () => void;
 }) {
+  const t = useT();
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<TestResult | null>(null);
   const [editing, setEditing] = useState(false);
@@ -97,8 +119,7 @@ function ModelRow({
   };
 
   const remove = () => {
-    if (!confirm(`删除模型 "${model.name}"?Keychain 里的 Key 也会一并清掉。`))
-      return;
+    if (!confirm(t("models.confirm_delete", { name: model.name }))) return;
     api.deleteModelConfig(model.id).then(onChanged).catch(alert);
   };
 
@@ -127,11 +148,13 @@ function ModelRow({
             <div className="font-semibold text-primary">{model.name}</div>
             {model.is_default && (
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent font-semibold">
-                默认
+                {t("models.default")}
               </span>
             )}
             <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-              {PROVIDER_LABEL[model.provider] ?? model.provider}
+              {PROVIDER_LABEL_KEY[model.provider]
+                ? t(PROVIDER_LABEL_KEY[model.provider])
+                : model.provider}
             </span>
           </div>
           <div className="text-xs text-app-fg/60 mt-0.5 font-mono truncate">
@@ -143,15 +166,15 @@ function ModelRow({
           </div>
           {model.keychain_ref ? (
             <div className="text-[10px] text-green-700 mt-0.5">
-              🔒 Key 已存 Windows Credential Manager
+              {t("models.key_stored")}
             </div>
           ) : model.provider === "ollama" ? (
             <div className="text-[10px] text-app-fg/50 mt-0.5">
-              本地服务,无需 API Key
+              {t("models.no_key_needed_local")}
             </div>
           ) : (
             <div className="text-[10px] text-amber-600 mt-0.5">
-              ⚠️ 未配置 API Key,无法调用
+              {t("models.key_missing_warn")}
             </div>
           )}
         </div>
@@ -162,27 +185,27 @@ function ModelRow({
               disabled={testing}
               className="px-2.5 py-1 text-xs rounded border border-primary text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50"
             >
-              {testing ? "测试中…" : "测试连接"}
+              {testing ? t("models.testing") : t("models.test_connection")}
             </button>
             {!model.is_default && (
               <button
                 onClick={setAsDefault}
                 className="px-2.5 py-1 text-xs rounded border border-black/10 text-app-fg hover:border-accent hover:text-accent"
               >
-                设为默认
+                {t("models.set_default")}
               </button>
             )}
             <button
               onClick={() => setEditing(true)}
               className="px-2.5 py-1 text-xs rounded border border-black/10 text-app-fg hover:border-primary"
             >
-              编辑
+              {t("models.edit_model")}
             </button>
             <button
               onClick={remove}
               className="px-2.5 py-1 text-xs rounded border border-black/10 text-red-600 hover:border-red-600 hover:bg-red-50"
             >
-              删除
+              {t("models.delete_model")}
             </button>
           </div>
         </div>
@@ -201,7 +224,9 @@ function ModelRow({
           </div>
           {result.model_response && (
             <div className="mt-1 text-app-fg/70 font-mono text-[11px]">
-              响应:「{result.model_response}」
+              {t("models.test_response_prefix", {
+                response: result.model_response,
+              })}
             </div>
           )}
         </div>
@@ -227,6 +252,7 @@ function ModelForm({
   onSave: (input: ModelConfigInput) => Promise<void>;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [form, setForm] = useState<ModelConfigInput>(initial);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -257,12 +283,14 @@ function ModelForm({
   return (
     <div className="bg-white border border-primary/30 rounded p-5">
       <div className="font-semibold text-primary mb-4">
-        {isEdit ? "编辑模型" : "添加模型"}
+        {isEdit ? t("models.form_edit_title") : t("models.form_create_title")}
       </div>
 
       {!isEdit && presets.length > 0 && (
         <div className="mb-4 pb-4 border-b border-black/5">
-          <label className="text-xs text-app-fg/60">预设模板:</label>
+          <label className="text-xs text-app-fg/60">
+            {t("models.form_preset_label")}
+          </label>
           <div className="flex gap-2 mt-2 flex-wrap">
             {presets.map((p, i) => (
               <button
@@ -278,7 +306,7 @@ function ModelForm({
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="名称">
+        <Field label={t("models.form_name_label")}>
           <input
             value={form.name}
             onChange={(e) => update("name", e.target.value)}
@@ -294,7 +322,7 @@ function ModelForm({
           >
             {PROVIDERS.map((p) => (
               <option key={p} value={p}>
-                {PROVIDER_LABEL[p] ?? p}
+                {PROVIDER_LABEL_KEY[p] ? t(PROVIDER_LABEL_KEY[p]) : p}
               </option>
             ))}
           </select>
@@ -326,7 +354,11 @@ function ModelForm({
           />
         </Field>
         <Field
-          label={isEdit ? "API Key (留空保持不变,空字符串清除)" : "API Key"}
+          label={
+            isEdit
+              ? t("models.form_api_key_edit_label")
+              : t("models.form_api_key_label")
+          }
           className="col-span-2"
         >
           <input
@@ -335,21 +367,21 @@ function ModelForm({
             onChange={(e) => update("api_key", e.target.value)}
             placeholder={
               form.provider === "ollama"
-                ? "本地模型无需填写"
+                ? t("models.form_local_no_key")
                 : "sk-..."
             }
             disabled={form.provider === "ollama"}
             className="w-full px-2.5 py-1.5 border border-black/10 rounded text-sm font-mono focus:outline-none focus:border-primary disabled:bg-black/5 disabled:cursor-not-allowed"
           />
           <div className="text-[10px] text-app-fg/50 mt-1">
-            🔒 Windows Credential Manager 加密存储,从不写明文文件,从不写日志
+            {t("models.key_storage_note")}
           </div>
         </Field>
       </div>
 
       {err && (
         <div className="mt-3 text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded">
-          错误: {err}
+          {t("models.error_label", { detail: err })}
         </div>
       )}
 
@@ -358,14 +390,18 @@ function ModelForm({
           onClick={onCancel}
           className="px-3 py-1.5 text-sm rounded border border-black/10 text-app-fg/70 hover:bg-black/5"
         >
-          取消
+          {t("models.cancel")}
         </button>
         <button
           onClick={submit}
           disabled={saving || !form.name || !form.endpoint || !form.model_id}
           className="px-3 py-1.5 text-sm rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
         >
-          {saving ? "保存中…" : isEdit ? "保存修改" : "添加"}
+          {saving
+            ? t("models.saving")
+            : isEdit
+              ? t("models.save_changes")
+              : t("models.create")}
         </button>
       </div>
     </div>
@@ -422,6 +458,7 @@ function ModelEditForm({
 // ============================================================
 
 export default function Models() {
+  const t = useT();
   const [models, setModels] = useState<ModelConfig[]>([]);
   const [presets, setPresets] = useState<ModelConfigInput[]>([]);
   const [loading, setLoading] = useState(true);
@@ -447,19 +484,19 @@ export default function Models() {
 
   return (
     <div className="p-8 max-w-5xl">
-      <h1 className="text-2xl font-semibold text-primary mb-1">模型配置</h1>
-      <p className="text-sm text-app-fg/60 mb-6">
-        BYOK — API Key 加密存于 Windows Credential Manager,本地不留明文,不入日志
-      </p>
+      <h1 className="text-2xl font-semibold text-primary mb-1">
+        {t("models.title")}
+      </h1>
+      <p className="text-sm text-app-fg/60 mb-6">{t("models.subtitle")}</p>
 
       <StatsCards models={models} />
 
       {loading && (
-        <div className="text-sm text-app-fg/60">加载中…</div>
+        <div className="text-sm text-app-fg/60">{t("models.loading")}</div>
       )}
       {error && (
         <div className="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded">
-          错误: {error}
+          {t("models.error_label", { detail: error })}
         </div>
       )}
 
@@ -467,7 +504,7 @@ export default function Models() {
         <div className="flex flex-col gap-3">
           {models.length === 0 && !showAddForm && (
             <div className="bg-white border border-dashed border-black/15 rounded p-8 text-center text-sm text-app-fg/60">
-              还没配置任何模型 — 点下方「添加模型」开始
+              {t("models.empty_state_hint")}
             </div>
           )}
 
@@ -492,7 +529,7 @@ export default function Models() {
               onClick={() => setShowAddForm(true)}
               className="self-start px-4 py-2 text-sm rounded border border-dashed border-primary/40 text-primary hover:bg-primary/5"
             >
-              + 添加模型
+              {t("models.add_model_btn")}
             </button>
           )}
         </div>
