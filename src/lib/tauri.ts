@@ -210,7 +210,8 @@ export interface Notification {
 }
 
 export interface AppConfig {
-  language: string;
+  /** `null` / undefined → follow OS locale (V2.1.0). */
+  language?: string | null;
   theme: string;
   data_dir: string;
   auto_update: boolean;
@@ -566,6 +567,9 @@ export const api = {
 
   saveAppConfig: (config: AppConfig) =>
     invoke<void>("save_app_config", { config }),
+
+  /** Returns one of the 5 supported app locale codes (V2.1.0). */
+  getSystemLocale: () => invoke<string>("get_system_locale"),
 
   // ============================================================
   // Chat (V2.0.1)

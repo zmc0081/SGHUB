@@ -1,6 +1,9 @@
+// i18n: 本组件文案已国际化 (V2.1.0)
 import { useChatStore } from "../../stores/chatStore";
+import { useT } from "../../hooks/useT";
 
 export function SessionList() {
+  const t = useT();
   const {
     sessions,
     currentSessionId,
@@ -24,19 +27,19 @@ export function SessionList() {
           onClick={newChat}
           className="w-full px-3 py-1.5 text-sm rounded bg-primary text-white hover:bg-primary/90"
         >
-          + 新建对话
+          {t("chat.new_session")}
         </button>
       </div>
       <div className="flex-1 overflow-y-auto px-2 py-2">
         {sessions.length === 0 && (
           <div className="text-[11px] text-app-fg/40 text-center py-6">
-            还没有对话
+            {t("chat.no_sessions")}
           </div>
         )}
         {pinned.length > 0 && (
           <>
             <div className="text-[10px] uppercase tracking-wider text-app-fg/50 px-2 py-1">
-              置顶
+              {t("chat.pinned_section")}
             </div>
             {pinned.map((s) => (
               <SessionItem
@@ -46,11 +49,15 @@ export function SessionList() {
                 onSelect={() => void selectSession(s.id)}
                 onPin={() => void pinSession(s.id, false)}
                 onRename={() => {
-                  const t = prompt("重命名对话", s.title);
-                  if (t && t !== s.title) void renameSession(s.id, t);
+                  const next = prompt(t("chat.rename_session_prompt"), s.title);
+                  if (next && next !== s.title) void renameSession(s.id, next);
                 }}
                 onDelete={() => {
-                  if (confirm(`删除对话「${s.title}」?所有消息会一并清除。`))
+                  if (
+                    confirm(
+                      t("chat.delete_session_confirm", { title: s.title }),
+                    )
+                  )
                     void deleteSession(s.id);
                 }}
               />
@@ -62,7 +69,7 @@ export function SessionList() {
           <>
             {pinned.length > 0 && (
               <div className="text-[10px] uppercase tracking-wider text-app-fg/50 px-2 py-1">
-                最近
+                {t("chat.recent_section")}
               </div>
             )}
             {recent.map((s) => (
@@ -73,11 +80,15 @@ export function SessionList() {
                 onSelect={() => void selectSession(s.id)}
                 onPin={() => void pinSession(s.id, true)}
                 onRename={() => {
-                  const t = prompt("重命名对话", s.title);
-                  if (t && t !== s.title) void renameSession(s.id, t);
+                  const next = prompt(t("chat.rename_session_prompt"), s.title);
+                  if (next && next !== s.title) void renameSession(s.id, next);
                 }}
                 onDelete={() => {
-                  if (confirm(`删除对话「${s.title}」?所有消息会一并清除。`))
+                  if (
+                    confirm(
+                      t("chat.delete_session_confirm", { title: s.title }),
+                    )
+                  )
                     void deleteSession(s.id);
                 }}
               />
@@ -111,6 +122,7 @@ function SessionItem({
   onRename: () => void;
   onDelete: () => void;
 }) {
+  const t = useT();
   return (
     <div
       onClick={onSelect}
@@ -140,7 +152,7 @@ function SessionItem({
           }}
           className="text-app-fg/60 hover:text-primary"
         >
-          {session.pinned ? "取消置顶" : "置顶"}
+          {session.pinned ? t("chat.unpin") : t("chat.pin")}
         </button>
         <button
           onClick={(e) => {
@@ -149,7 +161,7 @@ function SessionItem({
           }}
           className="text-app-fg/60 hover:text-primary"
         >
-          重命名
+          {t("chat.rename_session")}
         </button>
         <button
           onClick={(e) => {
@@ -158,7 +170,7 @@ function SessionItem({
           }}
           className="text-app-fg/60 hover:text-red-600"
         >
-          删除
+          {t("chat.delete_session")}
         </button>
       </div>
     </div>

@@ -41,6 +41,7 @@ bytes = "1"
 serde_yaml = "0.9"
 pdf-extract = "0.7"
 lopdf = { version = "0.32", default-features = false, features = ["pom_parser"] }
+sys-locale = "0.3"
 tokio-cron-scheduler = "0.13"
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"

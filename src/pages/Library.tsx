@@ -1,3 +1,4 @@
+// i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useMemo, useState } from "react";
 import {
   DndContext,
@@ -17,6 +18,7 @@ import {
 } from "../lib/tauri";
 import { PaperActions } from "../components/PaperActions";
 import { PaperMetadataEditor } from "../components/PaperMetadataEditor";
+import { useT } from "../hooks/useT";
 
 const READ_STATUS_BAR: Record<string, string> = {
   unread: "bg-gray-300",
@@ -25,11 +27,13 @@ const READ_STATUS_BAR: Record<string, string> = {
   parsed: "bg-indigo-500",
 };
 
-const READ_STATUS_LABEL: Record<string, string> = {
-  unread: "未读",
-  reading: "在读",
-  read: "已读",
-  parsed: "已解析",
+// Map status code → i18n key; resolved at render time so values stay
+// in sync with the active language.
+const READ_STATUS_KEY: Record<string, string> = {
+  unread: "library.read_status_unread",
+  reading: "library.read_status_reading",
+  read: "library.read_status_read",
+  parsed: "library.read_status_parsed",
 };
 
 const READ_STATUS_CYCLE: Record<string, string> = {
@@ -77,17 +81,18 @@ function FolderTreeItem({
   onSelect: (id: string) => void;
   onChange: () => void;
 }) {
+  const t = useT();
   const isSelected = node.id === selectedId;
   const { isOver, setNodeRef } = useDroppable({ id: `folder:${node.id}` });
 
   const rename = async () => {
-    const next = prompt("重命名文件夹", node.name);
+    const next = prompt(t("library.rename_folder_prompt"), node.name);
     if (next && next !== node.name) {
       try {
         await api.renameFolder(node.id, next);
         onChange();
       } catch (e) {
-        alert(`重命名失败: ${e}`);
+        alert(t("library.error_rename_failed", { detail: String(e) }));
       }
     }
   };
@@ -96,16 +101,16 @@ function FolderTreeItem({
     if (
       node.id === "00000000-0000-0000-0000-000000000001"
     ) {
-      alert("默认「未分类」不可删除");
+      alert(t("library.uncategorized_undeletable"));
       return;
     }
-    if (!confirm(`删除文件夹「${node.name}」?子文件夹和收藏关联会一并清除。`))
+    if (!confirm(t("library.confirm_delete_folder", { name: node.name })))
       return;
     try {
       await api.deleteFolder(node.id);
       onChange();
     } catch (e) {
-      alert(`删除失败: ${e}`);
+      alert(t("library.error_delete_failed", { detail: String(e) }));
     }
   };
 
@@ -132,7 +137,7 @@ function FolderTreeItem({
             rename();
           }}
           className="opacity-0 group-hover:opacity-100 text-[10px] text-app-fg/50 hover:text-primary px-1"
-          title="重命名"
+          title={t("library.rename_btn_title")}
         >
           ✏️
         </button>
@@ -142,7 +147,7 @@ function FolderTreeItem({
             remove();
           }}
           className="opacity-0 group-hover:opacity-100 text-[10px] text-app-fg/50 hover:text-red-600 px-1"
-          title="删除"
+          title={t("library.delete_btn_title")}
         >
           🗑
         </button>
@@ -166,55 +171,56 @@ function FolderTreeItem({
 // ============================================================
 
 function TagCloud({ tags, onChange }: { tags: Tag[]; onChange: () => void }) {
+  const t = useT();
   const newTag = async () => {
-    const name = prompt("新标签名");
+    const name = prompt(t("library.new_tag_prompt"));
     if (!name) return;
     const color = TAG_PALETTE[tags.length % TAG_PALETTE.length];
     try {
       await api.createTag(name, color);
       onChange();
     } catch (e) {
-      alert(`创建失败: ${e}`);
+      alert(t("library.error_create_failed", { detail: String(e) }));
     }
   };
 
-  const removeTag = async (t: Tag) => {
-    if (!confirm(`删除标签「${t.name}」?所有引用关系会清除。`)) return;
+  const removeTag = async (tag: Tag) => {
+    if (!confirm(t("library.confirm_delete_tag", { name: tag.name }))) return;
     try {
-      await api.deleteTag(t.id);
+      await api.deleteTag(tag.id);
       onChange();
     } catch (e) {
-      alert(`删除失败: ${e}`);
+      alert(t("library.error_delete_failed", { detail: String(e) }));
     }
   };
 
   return (
     <div className="px-2">
       <div className="text-[10px] uppercase tracking-wider text-app-fg/50 mb-2 flex items-center justify-between">
-        <span>标签</span>
+        <span>{t("library.tags_section")}</span>
         <button
           onClick={newTag}
           className="text-[10px] text-primary hover:underline"
         >
-          + 新建
+          {t("library.new_tag_btn")}
         </button>
       </div>
       <div className="flex flex-wrap gap-1">
         {tags.length === 0 && (
-          <div className="text-[10px] text-app-fg/40">暂无标签</div>
+          <div className="text-[10px] text-app-fg/40">{t("library.no_tags")}</div>
         )}
-        {tags.map((t) => (
+        {tags.map((tag) => (
           <span
-            key={t.id}
+            key={tag.id}
             className="group inline-flex items-center text-[11px] px-1.5 py-0.5 rounded text-white"
-            style={{ backgroundColor: t.color }}
+            style={{ backgroundColor: tag.color }}
           >
-            {t.name}
-            <span className="ml-1 opacity-60 text-[9px]">{t.paper_count}</span>
+            {tag.name}
+            <span className="ml-1 opacity-60 text-[9px]">{tag.paper_count}</span>
             <button
-              onClick={() => removeTag(t)}
+              onClick={() => removeTag(tag)}
               className="ml-1 opacity-0 group-hover:opacity-100 hover:bg-black/20 rounded px-0.5"
-              title="删除标签"
+              title={t("library.delete_tag_title")}
             >
               ×
             </button>
@@ -243,6 +249,7 @@ function PaperRow({
    *  and opens the editor with the fresh result. */
   onReExtract?: (paperId: string) => void;
 }) {
+  const t = useT();
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: `paper:${paper.id}`, data: { paper } });
 
@@ -260,7 +267,7 @@ function PaperRow({
       await api.setReadStatus(paper.id, next);
       onChange();
     } catch (err) {
-      alert(`更新失败: ${err}`);
+      alert(t("library.error_update_failed", { detail: String(err) }));
     }
   };
 
@@ -274,8 +281,12 @@ function PaperRow({
     >
       <button
         onClick={cycleStatus}
-        title={`阅读状态: ${READ_STATUS_LABEL[paper.read_status]} (点击切换)`}
-        aria-label="切换阅读状态"
+        title={t("library.status_tooltip", {
+          label: t(
+            READ_STATUS_KEY[paper.read_status] ?? "library.read_status_unread",
+          ),
+        })}
+        aria-label={t("library.aria_toggle_status")}
         className={`w-2.5 self-stretch shrink-0 cursor-pointer transition-opacity hover:opacity-70 ${
           READ_STATUS_BAR[paper.read_status] ?? "bg-gray-300"
         }`}
@@ -302,7 +313,7 @@ function PaperRow({
           </div>
           <div className="mt-1 text-xs text-app-fg/70">
             {paper.authors.slice(0, 4).join(", ")}
-            {paper.authors.length > 4 && ` 等`}
+            {paper.authors.length > 4 && t("library.et_al")}
             {paper.published_at && ` · ${paper.published_at.slice(0, 10)}`}
           </div>
           {paper.abstract && (
@@ -321,9 +332,9 @@ function PaperRow({
             <button
               onClick={() => onReExtract(paper.id)}
               className="px-2 py-1 rounded border border-black/10 hover:border-primary/30 hover:bg-primary/5 text-xs text-app-fg/70"
-              title="重新提取 PDF 元数据(用于修正旧记录)"
+              title={t("library.re_extract_btn_title")}
             >
-              ♻ 重新提取
+              {t("library.re_extract_btn")}
             </button>
           )}
         </div>
@@ -337,6 +348,7 @@ function PaperRow({
 // ============================================================
 
 export default function Library() {
+  const t = useT();
   const [tree, setTree] = useState<FolderNode[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -363,7 +375,7 @@ export default function Library() {
         pdfPath: paper?.pdf_path ?? null,
       });
     } catch (e) {
-      alert(`重新提取失败: ${e}`);
+      alert(t("library.error_re_extract_failed", { detail: String(e) }));
     }
   };
 
@@ -374,10 +386,10 @@ export default function Library() {
   const refreshTree = () => {
     api
       .getFolderTree()
-      .then((t) => {
-        setTree(t);
-        if (!selectedId && t.length > 0) {
-          setSelectedId(t[0].id);
+      .then((nodes) => {
+        setTree(nodes);
+        if (!selectedId && nodes.length > 0) {
+          setSelectedId(nodes[0].id);
         }
       })
       .catch((e) => setError(String(e)));
@@ -448,24 +460,24 @@ export default function Library() {
       await api.addToFolder(folderId, paperId);
       refreshAll();
     } catch (e) {
-      alert(`添加失败: ${e}`);
+      alert(t("library.error_add_failed", { detail: String(e) }));
     }
   };
 
   const newRootFolder = async () => {
-    const name = prompt("新建顶级文件夹的名称");
+    const name = prompt(t("library.new_top_folder_prompt"));
     if (!name) return;
     try {
       await api.createFolder(name, null);
       refreshTree();
     } catch (e) {
-      alert(`创建失败: ${e}`);
+      alert(t("library.error_create_failed", { detail: String(e) }));
     }
   };
 
   const exportBibtex = async () => {
     if (papers.length === 0) {
-      alert("当前文件夹无文献可导出");
+      alert(t("library.alert_no_papers_to_export"));
       return;
     }
     const entries = papers
@@ -486,9 +498,11 @@ export default function Library() {
     const filename = `${selectedFolder?.name ?? "library"}.bib`;
     try {
       const path = await api.exportTextFile(filename, entries);
-      alert(`✓ 已导出 ${papers.length} 条到:\n${path}`);
+      alert(
+        t("library.alert_export_success", { count: papers.length, path }),
+      );
     } catch (e) {
-      alert(`导出失败: ${e}`);
+      alert(t("library.error_export_failed", { detail: String(e) }));
     }
   };
 
@@ -499,12 +513,12 @@ export default function Library() {
         <aside className="w-72 border-r border-black/10 bg-white/40 flex flex-col">
           <div className="p-3 flex-1 overflow-y-auto">
             <div className="text-[10px] uppercase tracking-wider text-app-fg/50 px-2 mb-2 flex items-center justify-between">
-              <span>文件夹</span>
+              <span>{t("library.folders_section")}</span>
               <button
                 onClick={newRootFolder}
                 className="text-[10px] text-primary hover:underline"
               >
-                + 新建
+                {t("library.new_folder_btn")}
               </button>
             </div>
             {tree.map((n) => (
@@ -528,15 +542,17 @@ export default function Library() {
           <div className="border-b border-black/10 p-4 bg-white/30">
             <div className="flex items-baseline gap-3">
               <h1 className="text-xl font-semibold text-primary">
-                {selectedFolder?.name ?? "收藏夹"}
+                {selectedFolder?.name ?? t("library.default_title")}
               </h1>
-              <span className="text-xs text-app-fg/50">{total} 篇</span>
+              <span className="text-xs text-app-fg/50">
+                {t("library.count_papers", { count: total })}
+              </span>
             </div>
             <div className="flex gap-2 mt-3 items-center">
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="在当前文件夹内搜索…"
+                placeholder={t("library.search_in_folder")}
                 className="flex-1 px-2.5 py-1.5 text-sm bg-white border border-black/10 rounded focus:outline-none focus:border-primary"
               />
               <select
@@ -544,17 +560,17 @@ export default function Library() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-2.5 py-1.5 text-sm bg-white border border-black/10 rounded"
               >
-                <option value="all">全部状态</option>
-                <option value="unread">未读</option>
-                <option value="reading">在读</option>
-                <option value="read">已读</option>
-                <option value="parsed">已解析</option>
+                <option value="all">{t("library.status_filter_all")}</option>
+                <option value="unread">{t("library.read_status_unread")}</option>
+                <option value="reading">{t("library.read_status_reading")}</option>
+                <option value="read">{t("library.read_status_read")}</option>
+                <option value="parsed">{t("library.read_status_parsed")}</option>
               </select>
               <button
                 onClick={exportBibtex}
                 className="px-3 py-1.5 text-sm rounded border border-primary text-primary hover:bg-primary hover:text-white transition-colors"
               >
-                导出 BibTeX
+                {t("library.export_bibtex")}
               </button>
             </div>
           </div>
@@ -562,14 +578,14 @@ export default function Library() {
           <div className="flex-1 overflow-y-auto p-4">
             {error && (
               <div className="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded mb-3">
-                错误: {error}
+                {t("search.error_prefix", { detail: error })}
               </div>
             )}
             {visiblePapers.length === 0 ? (
               <div className="text-sm text-app-fg/60 text-center py-12">
                 {papers.length === 0
-                  ? "该文件夹暂无文献 — 在「文献检索」搜到论文后,把卡片拖到左侧文件夹"
-                  : "无匹配过滤条件的文献"}
+                  ? t("library.empty_folder_hint")
+                  : t("library.empty_filter_hint")}
               </div>
             ) : (
               <div className="flex flex-col gap-2">
@@ -592,10 +608,13 @@ export default function Library() {
                   disabled={page === 0}
                   className="px-2 py-1 rounded border border-black/10 disabled:opacity-50"
                 >
-                  上一页
+                  {t("library.prev_page")}
                 </button>
                 <span className="text-app-fg/60">
-                  第 {page + 1} / {Math.ceil(total / PAGE_SIZE)} 页
+                  {t("library.page_x_of_y", {
+                    cur: page + 1,
+                    total: Math.ceil(total / PAGE_SIZE),
+                  })}
                 </span>
                 <button
                   onClick={() =>
@@ -606,7 +625,7 @@ export default function Library() {
                   disabled={(page + 1) * PAGE_SIZE >= total}
                   className="px-2 py-1 rounded border border-black/10 disabled:opacity-50"
                 >
-                  下一页
+                  {t("library.next_page")}
                 </button>
               </div>
             )}

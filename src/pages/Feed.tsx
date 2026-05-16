@@ -1,3 +1,4 @@
+// i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useMemo, useState } from "react";
 import {
   api,
@@ -6,6 +7,7 @@ import {
   type SubscriptionResult,
 } from "../lib/tauri";
 import { PaperActions } from "../components/PaperActions";
+import { useT } from "../hooks/useT";
 
 // ============================================================
 // Constants
@@ -26,8 +28,8 @@ const ALL_SOURCES = [
 ];
 
 const FREQUENCIES = [
-  { value: "daily", label: "每天" },
-  { value: "weekly", label: "每周" },
+  { value: "daily", labelKey: "feed.form_freq_daily" },
+  { value: "weekly", labelKey: "feed.form_freq_weekly" },
 ];
 
 const EMPTY_INPUT: SubscriptionInput = {
@@ -52,6 +54,7 @@ function SubscriptionForm({
   onSave: (input: SubscriptionInput) => Promise<void>;
   onCancel: () => void;
 }) {
+  const t = useT();
   const [form, setForm] = useState<SubscriptionInput>(initial);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -67,11 +70,11 @@ function SubscriptionForm({
 
   const submit = async () => {
     if (!form.keyword_expr.trim()) {
-      setErr("请输入关键词");
+      setErr(t("feed.form_validation_keyword_required"));
       return;
     }
     if (form.sources.length === 0) {
-      setErr("至少选择一个数据源");
+      setErr(t("feed.form_validation_source_required"));
       return;
     }
     setErr(null);
@@ -88,23 +91,27 @@ function SubscriptionForm({
   return (
     <div className="bg-white border border-primary/30 rounded p-4 space-y-3">
       <div className="font-semibold text-primary">
-        {isEdit ? "编辑订阅" : "新建订阅"}
+        {isEdit ? t("feed.form_edit_title") : t("feed.form_create_title")}
       </div>
 
       <label className="block">
-        <div className="text-xs text-app-fg/60 mb-1">关键词表达式</div>
+        <div className="text-xs text-app-fg/60 mb-1">
+          {t("feed.form_keyword_label")}
+        </div>
         <input
           value={form.keyword_expr}
           onChange={(e) =>
             setForm((f) => ({ ...f, keyword_expr: e.target.value }))
           }
-          placeholder='如: "LLM alignment" OR "RLHF"'
+          placeholder={t("feed.form_keyword_placeholder")}
           className="w-full px-2.5 py-1.5 text-sm border border-black/10 rounded font-mono focus:outline-none focus:border-primary"
         />
       </label>
 
       <div>
-        <div className="text-xs text-app-fg/60 mb-1.5">数据源</div>
+        <div className="text-xs text-app-fg/60 mb-1.5">
+          {t("feed.form_sources_label")}
+        </div>
         <div className="flex flex-wrap gap-2">
           {ALL_SOURCES.map((s) => {
             const checked = form.sources.includes(s.value);
@@ -128,7 +135,9 @@ function SubscriptionForm({
 
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
-          <div className="text-xs text-app-fg/60 mb-1">频率</div>
+          <div className="text-xs text-app-fg/60 mb-1">
+            {t("feed.form_freq_label")}
+          </div>
           <select
             value={form.frequency}
             onChange={(e) =>
@@ -136,15 +145,17 @@ function SubscriptionForm({
             }
             className="w-full px-2.5 py-1.5 text-sm border border-black/10 rounded bg-white"
           >
-            {FREQUENCIES.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
+            {FREQUENCIES.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {t(opt.labelKey)}
               </option>
             ))}
           </select>
         </label>
         <label className="block">
-          <div className="text-xs text-app-fg/60 mb-1">每次最多</div>
+          <div className="text-xs text-app-fg/60 mb-1">
+            {t("feed.form_max_label")}
+          </div>
           <input
             type="number"
             value={form.max_results}
@@ -172,14 +183,18 @@ function SubscriptionForm({
           onClick={onCancel}
           className="px-3 py-1 text-xs rounded border border-black/10 text-app-fg/70 hover:bg-black/5"
         >
-          取消
+          {t("common.cancel")}
         </button>
         <button
           onClick={submit}
           disabled={saving}
           className="px-3 py-1 text-xs rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
         >
-          {saving ? "保存中…" : isEdit ? "保存修改" : "创建"}
+          {saving
+            ? t("common.saving")
+            : isEdit
+              ? t("feed.save_changes")
+              : t("feed.create")}
         </button>
       </div>
     </div>
@@ -207,6 +222,7 @@ function SubscriptionItem({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const t = useT();
   return (
     <div
       onClick={onSelect}
@@ -236,10 +252,10 @@ function SubscriptionItem({
         )}
       </div>
       <div className="mt-1 text-[10px] text-app-fg/50 ml-3.5">
-        {sub.sources.join(" · ")} · {sub.frequency} · 上次{" "}
+        {sub.sources.join(" · ")} · {sub.frequency} · {t("feed.last_run_prefix")}{" "}
         {sub.last_run_at
           ? new Date(sub.last_run_at).toLocaleDateString()
-          : "从未"}
+          : t("feed.last_run_never")}
       </div>
       <div className="mt-1.5 ml-3.5 opacity-0 group-hover:opacity-100 flex gap-2 text-[10px]">
         <button
@@ -249,7 +265,7 @@ function SubscriptionItem({
           }}
           className="text-app-fg/60 hover:text-primary"
         >
-          {sub.is_active ? "暂停" : "启用"}
+          {sub.is_active ? t("feed.toggle_pause") : t("feed.toggle_enable")}
         </button>
         <button
           onClick={(e) => {
@@ -258,7 +274,7 @@ function SubscriptionItem({
           }}
           className="text-app-fg/60 hover:text-primary"
         >
-          编辑
+          {t("feed.edit_button")}
         </button>
         <button
           onClick={(e) => {
@@ -267,7 +283,7 @@ function SubscriptionItem({
           }}
           className="text-app-fg/60 hover:text-red-600"
         >
-          删除
+          {t("feed.delete_button")}
         </button>
       </div>
     </div>
@@ -285,6 +301,7 @@ function ResultCard({
   result: SubscriptionResult;
   onMarkRead: () => void;
 }) {
+  const t = useT();
   const { paper } = result;
   const sourceCls = SOURCE_BADGE[paper.source] ?? "bg-app-fg/20 text-app-fg";
   return (
@@ -313,7 +330,7 @@ function ResultCard({
       </div>
       <div className="mt-1 text-xs text-app-fg/70">
         {paper.authors.slice(0, 4).join(", ")}
-        {paper.authors.length > 4 && ` 等`}
+        {paper.authors.length > 4 && t("feed.et_al")}
         {paper.published_at && ` · ${paper.published_at.slice(0, 10)}`}
       </div>
       {paper.abstract && (
@@ -328,7 +345,7 @@ function ResultCard({
             onClick={onMarkRead}
             className="px-2 py-1 rounded border border-black/10 text-app-fg/60 hover:border-primary/30 text-xs"
           >
-            标已读
+            {t("feed.mark_read_button")}
           </button>
         )}
       </div>
@@ -341,6 +358,7 @@ function ResultCard({
 // ============================================================
 
 export default function Feed() {
+  const t = useT();
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [results, setResults] = useState<SubscriptionResult[]>([]);
   const [selectedSub, setSelectedSub] = useState<string | null>(null);
@@ -396,7 +414,7 @@ export default function Feed() {
       await api.markSubscriptionPaperRead(subId, paperId);
       refresh();
     } catch (e) {
-      alert(`操作失败: ${e}`);
+      alert(t("feed.error_action_failed", { detail: String(e) }));
     }
   };
 
@@ -406,7 +424,7 @@ export default function Feed() {
       await api.runSubscriptionsNow();
       refresh();
     } catch (e) {
-      alert(`运行失败: ${e}`);
+      alert(t("feed.error_run_failed", { detail: String(e) }));
     } finally {
       setRunning(false);
     }
@@ -424,14 +442,14 @@ export default function Feed() {
   };
 
   const handleDelete = async (sub: Subscription) => {
-    if (!confirm(`删除订阅「${sub.keyword_expr}」?所有推送结果一并清除。`))
+    if (!confirm(t("feed.confirm_delete", { keyword: sub.keyword_expr })))
       return;
     try {
       await api.deleteSubscription(sub.id);
       if (selectedSub === sub.id) setSelectedSub(null);
       refresh();
     } catch (e) {
-      alert(`删除失败: ${e}`);
+      alert(t("feed.error_delete_failed", { detail: String(e) }));
     }
   };
 
@@ -440,7 +458,7 @@ export default function Feed() {
       await api.toggleSubscriptionActive(sub.id);
       refresh();
     } catch (e) {
-      alert(`操作失败: ${e}`);
+      alert(t("feed.error_action_failed", { detail: String(e) }));
     }
   };
 
@@ -450,7 +468,7 @@ export default function Feed() {
       <aside className="w-72 border-r border-black/10 bg-white/40 flex flex-col overflow-hidden">
         <div className="p-3 border-b border-black/5">
           <div className="text-[10px] uppercase tracking-wider text-app-fg/50 mb-2 flex items-center justify-between">
-            <span>订阅</span>
+            <span>{t("feed.subscriptions_header")}</span>
             <button
               onClick={() => {
                 setShowAddForm(true);
@@ -458,7 +476,7 @@ export default function Feed() {
               }}
               className="text-[10px] text-primary hover:underline"
             >
-              + 新建
+              {t("feed.new_button")}
             </button>
           </div>
           <button
@@ -469,14 +487,14 @@ export default function Feed() {
                 : "text-app-fg/70 hover:bg-black/5"
             }`}
           >
-            📰 全部推送
+            {t("feed.all_pushes")}
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
           {subs.length === 0 && (
             <div className="text-[11px] text-app-fg/40 text-center py-4">
-              还没有订阅
+              {t("feed.no_subscriptions")}
             </div>
           )}
           {subs.map((s) => (
@@ -500,15 +518,19 @@ export default function Feed() {
       {/* MAIN */}
       <main className="flex-1 flex flex-col overflow-hidden">
         <div className="border-b border-black/10 p-4 bg-white/30 flex items-baseline gap-3">
-          <h1 className="text-xl font-semibold text-primary">今日推送</h1>
-          <span className="text-xs text-app-fg/50">{results.length} 篇</span>
+          <h1 className="text-xl font-semibold text-primary">
+            {t("feed.title")}
+          </h1>
+          <span className="text-xs text-app-fg/50">
+            {t("feed.count_papers", { count: results.length })}
+          </span>
           <div className="ml-auto flex gap-2">
             <button
               onClick={runNow}
               disabled={running}
               className="px-3 py-1.5 text-xs rounded border border-primary text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50"
             >
-              {running ? "运行中…" : "🔄 立即刷新"}
+              {running ? t("feed.running") : t("feed.refresh_now")}
             </button>
           </div>
         </div>
@@ -516,7 +538,7 @@ export default function Feed() {
         <div className="flex-1 overflow-y-auto p-4 space-y-5">
           {error && (
             <div className="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded">
-              错误: {error}
+              {t("search.error_prefix", { detail: error })}
             </div>
           )}
 
@@ -545,15 +567,17 @@ export default function Feed() {
             <div className="text-sm text-app-fg/50 text-center py-12">
               {subs.length === 0 ? (
                 <>
-                  还没有订阅 — 点左侧
-                  <span className="text-primary mx-1">+ 新建</span>
-                  开始
+                  {t("feed.no_results_subs_empty_prefix")}
+                  <span className="text-primary mx-1">{t("feed.new_link")}</span>
+                  {t("feed.no_results_subs_empty_suffix")}
                 </>
               ) : (
                 <>
-                  暂无推送结果 — 点右上
-                  <span className="text-primary mx-1">立即刷新</span>
-                  立即跑一次活跃订阅
+                  {t("feed.no_results_run_now_prefix")}
+                  <span className="text-primary mx-1">
+                    {t("feed.refresh_now_link")}
+                  </span>
+                  {t("feed.no_results_run_now_suffix")}
                 </>
               )}
             </div>
@@ -566,7 +590,9 @@ export default function Feed() {
                 <section key={subId}>
                   <div className="text-xs font-semibold text-app-fg/70 mb-2 flex items-center gap-2">
                     <span className="font-mono text-primary">{group.keyword}</span>
-                    <span className="text-app-fg/40">· {group.items.length} 篇</span>
+                    <span className="text-app-fg/40">
+                      {t("feed.papers_count_short", { count: group.items.length })}
+                    </span>
                   </div>
                   <div className="flex flex-col gap-2">
                     {group.items.map((r) => (

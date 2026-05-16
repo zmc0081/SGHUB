@@ -53,6 +53,7 @@ pub fn run() {
             get_db_status,
             config::get_app_config,
             config::save_app_config,
+            config::get_system_locale,
             search::search_papers,
             library::get_folders,
             library::get_folder_tree,

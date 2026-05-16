@@ -1,3 +1,4 @@
+// i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useRef } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { ChatTokenPayload } from "../lib/tauri";
@@ -5,8 +6,10 @@ import { useChatStore } from "../stores/chatStore";
 import { Message } from "../components/chat/Message";
 import { InputArea } from "../components/chat/InputArea";
 import { SessionList } from "../components/chat/SessionList";
+import { useT } from "../hooks/useT";
 
 export default function Chat() {
+  const t = useT();
   const {
     currentSessionId,
     messages,
@@ -118,12 +121,12 @@ export default function Chat() {
                 ? useChatStore
                     .getState()
                     .sessions.find((s) => s.id === currentSessionId)?.title ||
-                  "对话"
-                : "新对话"}
+                  t("chat.title_fallback")
+                : t("chat.new_session_title")}
             </div>
             <div className="text-[10px] text-app-fg/50">
-              {currentMessages.length} 条消息
-              {streamingMessageId && " · 正在生成…"}
+              {t("chat.messages_count", { count: currentMessages.length })}
+              {streamingMessageId && ` · ${t("chat.generating_inline")}`}
             </div>
           </div>
         </header>
@@ -149,8 +152,8 @@ export default function Chat() {
           {currentMessages.length === 0 ? (
             <div className="h-full flex items-center justify-center text-sm text-app-fg/40">
               {currentSessionId
-                ? "(会话为空 — 在下方输入开始)"
-                : "选好模型 / Skill / 附件,在下方输入开始对话"}
+                ? t("chat.empty_session_hint")
+                : t("chat.empty_main_hint")}
             </div>
           ) : (
             currentMessages.map((m) => (

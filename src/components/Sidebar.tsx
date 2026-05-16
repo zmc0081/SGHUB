@@ -1,11 +1,14 @@
+// i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { api } from "../lib/tauri";
+import { useT } from "../hooks/useT";
 
 type NavItem = {
   to: string;
   icon: string;
-  label: string;
+  /** i18next key under the `sidebar` namespace. */
+  labelKey: string;
   isNew?: boolean;
 };
 
@@ -14,14 +17,14 @@ type NavItem = {
 // (search → feed → parse → library), then management (skills → models
 // → settings).
 const NAV_ITEMS: NavItem[] = [
-  { to: "/chat", icon: "💬", label: "Chat", isNew: true },
-  { to: "/search", icon: "🔍", label: "文献检索" },
-  { to: "/feed", icon: "📰", label: "今日推送" },
-  { to: "/parse", icon: "🧠", label: "AI 解析" },
-  { to: "/library", icon: "⭐", label: "收藏夹" },
-  { to: "/skills", icon: "✨", label: "Skill 管理" },
-  { to: "/models", icon: "🤖", label: "模型配置" },
-  { to: "/settings", icon: "⚙️", label: "设置" },
+  { to: "/chat", icon: "💬", labelKey: "sidebar.chat", isNew: true },
+  { to: "/search", icon: "🔍", labelKey: "sidebar.search" },
+  { to: "/feed", icon: "📰", labelKey: "sidebar.feed" },
+  { to: "/parse", icon: "🧠", labelKey: "sidebar.parse" },
+  { to: "/library", icon: "⭐", labelKey: "sidebar.library" },
+  { to: "/skills", icon: "✨", labelKey: "sidebar.skills" },
+  { to: "/models", icon: "🤖", labelKey: "sidebar.models" },
+  { to: "/settings", icon: "⚙️", labelKey: "sidebar.settings" },
 ];
 
 const UNREAD_POLL_MS = 30_000;
@@ -35,6 +38,7 @@ function SidebarItem({
   active: boolean;
   badge: number;
 }) {
+  const t = useT();
   const base =
     "flex items-center gap-3 pl-4 pr-3 py-2.5 text-sm border-l-4 transition-colors";
   const stateClass = active
@@ -44,14 +48,14 @@ function SidebarItem({
   return (
     <Link to={item.to} className={`${base} ${stateClass}`}>
       <span className="text-base leading-none w-5 text-center">{item.icon}</span>
-      <span className="flex-1">{item.label}</span>
+      <span className="flex-1">{t(item.labelKey)}</span>
       {badge > 0 ? (
         <span className="bg-accent text-[#1A1F2E] text-[10px] font-semibold px-1.5 py-0.5 rounded leading-none">
           {badge > 99 ? "99+" : badge}
         </span>
       ) : item.isNew ? (
         <span className="bg-emerald-500 text-white text-[9px] font-semibold px-1 py-0.5 rounded leading-none tracking-wider">
-          NEW
+          {t("sidebar.badge_new")}
         </span>
       ) : null}
     </Link>
