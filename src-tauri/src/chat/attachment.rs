@@ -192,18 +192,37 @@ pub async fn upload_chat_attachment(
     let file_size = content.len() as i64;
     std::fs::write(&dest, &content).map_err(|e| e.to_string())?;
 
-    // Extract text (best-effort — .docx and unsupported return None gracefully)
-    let extracted = match extract_text(&dest, kind) {
-        Ok(opt) => opt,
-        Err(msg) if kind == "docx" => {
+    // Extract text in a blocking worker so big PDFs (24MB+) don't
+    // starve the async runtime, AND so a panic inside `pdf-extract`
+    // becomes a JoinError instead of killing the worker / leaving the
+    // upload IPC dangling forever (which left the UI stuck on
+    // "uploading…").
+    let dest_for_extract = dest.clone();
+    let extracted_result = tokio::task::spawn_blocking(move || {
+        extract_text(&dest_for_extract, kind)
+    })
+    .await;
+    let extracted = match extracted_result {
+        Ok(Ok(opt)) => opt,
+        Ok(Err(msg)) if kind == "docx" => {
             // Hard error for docx — surface to user
             return Err(msg);
         }
-        Err(e) => {
+        Ok(Err(e)) => {
             log::warn!(
                 "extract_text({}) failed: {} — storing without text",
                 dest.display(),
                 e
+            );
+            None
+        }
+        Err(join_err) => {
+            // panic / cancel inside the blocking worker — treat as
+            // no-text rather than failing the whole upload.
+            log::warn!(
+                "extract_text({}) panicked: {} — storing without text",
+                dest.display(),
+                join_err
             );
             None
         }

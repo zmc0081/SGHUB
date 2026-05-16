@@ -1,13 +1,14 @@
 // i18n: 本组件文案已国际化 (V2.1.0)
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type AppConfig } from "../lib/tauri";
+import { api, type AppConfig, type UpdaterConfig } from "../lib/tauri";
 import {
   SUPPORTED_LANGUAGES,
   isSupportedLanguage,
   setAppLanguage,
   type SupportedLanguage,
 } from "../i18n";
+import { UpdaterCard } from "../components/UpdaterCard";
 
 const THEME_LABEL_KEY: Record<string, string> = {
   light: "settings.theme_light",
@@ -133,18 +134,9 @@ export default function Settings() {
               {config.data_dir}
             </code>
           </Row>
-          <Row label={t("settings.auto_update")}>
-            <span
-              className={
-                config.auto_update ? "text-green-700" : "text-app-fg/50"
-              }
-            >
-              ●{" "}
-              {config.auto_update
-                ? t("settings.status_on")
-                : t("settings.status_off")}
-            </span>
-          </Row>
+          {/* "自动更新" 已于 V2.1.0 升级为下方的 UpdaterCard,
+              支持频率/时间/动作精细化设置。`auto_update` 字段仍保留
+              在 AppConfig 里作为向后兼容。 */}
           {/* "自动备份" 设置项已于 V2.1.0 移除 —— 后端 auto_backup /
               backup_retention_days 字段保留供未来扩展,但 UI 不再展示。 */}
           <Row label={t("settings.default_model")}>
@@ -161,6 +153,34 @@ export default function Settings() {
           </Row>
         </div>
       )}
+
+      {/* V2.1.0 — fine-grained auto-updater scheduling. Self-contained,
+          saves on change, live-reschedules the backend cron job.
+          NOTE: handler MUST be stable (useCallback) — UpdaterCard
+          puts it in a useEffect dep list, so a new reference each
+          render would loop the save-on-change debouncer. */}
+      {config && <UpdaterCardSection updater={config.updater} setConfig={setConfig} />}
+    </div>
+  );
+}
+
+/** Thin wrapper that pins a stable `onChange` callback so UpdaterCard's
+ *  save-on-change useEffect doesn't fire on every parent re-render. */
+function UpdaterCardSection({
+  updater,
+  setConfig,
+}: {
+  updater: UpdaterConfig;
+  setConfig: React.Dispatch<React.SetStateAction<AppConfig | null>>;
+}) {
+  const handleChange = useCallback(
+    (next: UpdaterConfig) =>
+      setConfig((c) => (c ? { ...c, updater: next } : c)),
+    [setConfig],
+  );
+  return (
+    <div className="mt-4">
+      <UpdaterCard initial={updater} onChange={handleChange} />
     </div>
   );
 }
