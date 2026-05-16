@@ -12,6 +12,7 @@ pub mod scheduler;
 pub mod search;
 pub mod skill_engine;
 pub mod subscription;
+pub mod updater;
 
 pub struct AppState {
     pub db_pool: db::DbPool,
@@ -24,9 +25,19 @@ fn get_db_status(state: tauri::State<'_, AppState>) -> Result<db::DbStatus, Stri
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    // tauri-plugin-updater requires `plugins.updater.{endpoints,pubkey}`
+    // in `tauri.conf.json` to deserialize. We only register it in
+    // release builds — dev builds use the UpdaterCard UI without the
+    // real check (`app.updater()` returns Err and is logged + skipped).
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_dialog::init());
+    #[cfg(not(debug_assertions))]
+    {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+    builder
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -47,6 +58,16 @@ pub fn run() {
                 }
             });
 
+            // V2.1.0 — auto-updater scheduler. Lives independently of the
+            // subscription scheduler so the user can disable one without
+            // affecting the other.
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = updater::init(app_handle).await {
+                    log::warn!("updater scheduler init failed: {}", e);
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -54,6 +75,10 @@ pub fn run() {
             config::get_app_config,
             config::save_app_config,
             config::get_system_locale,
+            updater::commands::get_updater_status,
+            updater::commands::check_update_now,
+            updater::commands::install_pending_update,
+            updater::commands::set_updater_config,
             search::search_papers,
             library::get_folders,
             library::get_folder_tree,

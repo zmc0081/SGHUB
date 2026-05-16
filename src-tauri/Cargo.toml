@@ -45,6 +45,7 @@ sys-locale = "0.3"
 tokio-cron-scheduler = "0.13"
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-updater = "2"
 minijinja = "2"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 opener = { version = "0.7", default-features = false }

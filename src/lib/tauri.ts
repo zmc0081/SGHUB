@@ -214,11 +214,54 @@ export interface AppConfig {
   language?: string | null;
   theme: string;
   data_dir: string;
+  /** Legacy v2.0 toggle (kept for back-compat). Use `updater.enabled`
+   *  as the source of truth. */
   auto_update: boolean;
   auto_backup: boolean;
   backup_retention_days: number;
   default_model_id: string | null;
   log_level: string;
+  /** V2.1.0 — fine-grained auto-updater schedule. */
+  updater: UpdaterConfig;
+}
+
+// ============================================================
+// Auto-updater (V2.1.0)
+// ============================================================
+
+export interface UpdaterConfig {
+  enabled: boolean;
+  /** "daily" | "weekly" */
+  frequency_type: string;
+  /** daily: every N days (1-30); weekly: weekday bitmask Mon=1..Sun=64 */
+  frequency_value: number;
+  /** "HH:MM" 24-hour local time. */
+  check_time: string;
+  /** "notify" | "silent_download" | "check_only" */
+  action: string;
+  /** ISO 8601, null = never checked. */
+  last_check_at?: string | null;
+}
+
+export interface PendingUpdate {
+  version: string;
+  notes: string | null;
+  detected_at: string;
+}
+
+export interface UpdaterStatus {
+  current_version: string;
+  last_check_at: string | null;
+  /** Active cron expression; frontend uses it to estimate next-check time. */
+  cron_expression: string | null;
+  has_pending_update: boolean;
+  pending: PendingUpdate | null;
+}
+
+export interface CheckResult {
+  had_update: boolean;
+  pending: PendingUpdate | null;
+  last_check_at: string;
 }
 
 // ============================================================
@@ -570,6 +613,18 @@ export const api = {
 
   /** Returns one of the 5 supported app locale codes (V2.1.0). */
   getSystemLocale: () => invoke<string>("get_system_locale"),
+
+  // ============================================================
+  // Auto-updater (V2.1.0)
+  // ============================================================
+  getUpdaterStatus: () => invoke<UpdaterStatus>("get_updater_status"),
+  checkUpdateNow: () => invoke<CheckResult>("check_update_now"),
+  installPendingUpdate: () => invoke<void>("install_pending_update"),
+  /** Saves the updater config AND live-reschedules the cron job in one
+   *  IPC, so the Settings panel can save-on-change without an extra
+   *  round-trip. */
+  setUpdaterConfig: (config: UpdaterConfig) =>
+    invoke<void>("set_updater_config", { config }),
 
   // ============================================================
   // Chat (V2.0.1)

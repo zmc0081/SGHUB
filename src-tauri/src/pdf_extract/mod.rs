@@ -38,12 +38,26 @@ fn resolve(app: &tauri::AppHandle, pdf_path: &str) -> Result<PathBuf, PdfError> 
 }
 
 /// Extract plain text from a PDF given a path.
+///
+/// `pdf_extract` (and its `adobe-cmap-parser` dep) panics on a handful
+/// of malformed PDFs ("bad length of hexstring" etc.). A panic here
+/// would tear down the tokio worker driving the IPC, leaving the UI
+/// stuck on "uploading…". We catch it and surface a normal `Err`.
 pub fn extract_text(path: &Path) -> Result<String, PdfError> {
     if !path.exists() {
         return Err(PdfError::NotFound(path.display().to_string()));
     }
     let bytes = std::fs::read(path)?;
-    pdf_extract::extract_text_from_mem(&bytes).map_err(|e| PdfError::Parse(e.to_string()))
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        pdf_extract::extract_text_from_mem(&bytes)
+    }));
+    match result {
+        Ok(Ok(text)) => Ok(text),
+        Ok(Err(e)) => Err(PdfError::Parse(e.to_string())),
+        Err(_) => Err(PdfError::Parse(
+            "PDF 解析过程中发生 panic(可能是损坏或非标准格式)".into(),
+        )),
+    }
 }
 
 /// Resolve the paper's stored relative pdf_path and extract its text.
