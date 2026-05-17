@@ -14,6 +14,7 @@ import Models from "./pages/Models";
 import Settings from "./pages/Settings";
 import Skills from "./pages/Skills";
 import SkillEditor from "./components/SkillEditor";
+import SkillGenerator from "./pages/SkillGenerator";
 import Chat from "./pages/Chat";
 
 const rootRoute = createRootRoute({
@@ -102,6 +103,12 @@ const skillNewRoute = createRoute({
   component: () => <SkillEditor mode="new" name={null} />,
 });
 
+const skillGenerateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/skills/generate",
+  component: SkillGenerator,
+});
+
 const skillEditRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/skills/$name/edit",
@@ -136,6 +143,7 @@ const routeTree = rootRoute.addChildren([
   chatRoute,
   skillsRoute,
   skillNewRoute,
+  skillGenerateRoute,
   skillEditRoute,
   skillCopyRoute,
   settingsRoute,

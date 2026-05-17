@@ -133,6 +133,22 @@ export default function SkillEditor({ mode, name }: Props) {
   // ----- Load existing skill on mount (edit / copy modes) -----
   useEffect(() => {
     if (mode === "new") {
+      // V2.1.0 — if the AI generator forwarded its YAML for manual
+      // tweaking, that takes priority over both the draft restore
+      // dialog and the empty template.
+      let prefill: string | null = null;
+      try {
+        prefill = sessionStorage.getItem("skill-editor-prefill-yaml");
+        if (prefill) sessionStorage.removeItem("skill-editor-prefill-yaml");
+      } catch {
+        /* ignore */
+      }
+      if (prefill) {
+        setYaml(prefill);
+        setLoadedYaml(EMPTY_TEMPLATE);
+        setOriginalName(null);
+        return;
+      }
       // Try restore draft first
       const draft = localStorage.getItem(draftKey);
       if (draft && draft !== EMPTY_TEMPLATE) {

@@ -135,6 +135,8 @@ pub fn run() {
             skill_engine::uploader::get_skill_yaml,
             skill_engine::uploader::export_skill,
             skill_engine::uploader::test_skill_with_paper,
+            skill_engine::generator::generate_skill_from_description,
+            skill_engine::generator::refine_skill_from_chat,
             subscription::create_subscription,
             subscription::update_subscription,
             subscription::delete_subscription,
