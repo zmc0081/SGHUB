@@ -366,8 +366,18 @@ mod tests {
     #[test]
     fn meta_prompt_trims_user_input() {
         let p = render_meta_prompt("   foo   \n  ");
-        assert!(p.contains("> foo\n"));
-        assert!(!p.contains("> foo   "));
+        // The template file's line endings differ between hosts (LF
+        // on macOS/Linux, often CRLF on Windows after git autocrlf),
+        // so compare against a normalised copy.
+        let norm = p.replace("\r\n", "\n");
+        assert!(
+            norm.contains("> foo\n"),
+            "expected `> foo\\n` substring in prompt"
+        );
+        assert!(
+            !norm.contains("> foo   "),
+            "trailing whitespace should have been stripped"
+        );
     }
 
     #[test]
