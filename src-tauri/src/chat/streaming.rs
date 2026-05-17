@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::ai_client::{
-    estimate_tokens, get_one as get_model_config, provider_for, upsert_usage_stats, AiError,
+    estimate_tokens, get_one as get_model_config, provider_for, usage::record_usage, AiError,
 };
 use crate::keychain;
 use crate::AppState;
@@ -320,11 +320,11 @@ pub async fn send_chat_message(
     let sid_for_touch = session_id.clone();
     let _ = tokio::task::spawn_blocking(move || db_touch_session(&pool, &sid_for_touch)).await;
 
-    // 9. Usage stats (best-effort)
+    // 9. Usage stats (best-effort, V2.1.0 cost-aware).
     let pool = state.db_pool.clone();
-    let mcid = config.id.clone();
+    let cfg_for_usage = config.clone();
     let _ = tokio::task::spawn_blocking(move || {
-        upsert_usage_stats(&pool, &mcid, tokens_in, tokens_out)
+        record_usage(&pool, &cfg_for_usage, tokens_in, tokens_out)
     })
     .await;
 

@@ -9,7 +9,7 @@ use rusqlite::params;
 use serde::{Deserialize, Serialize};
 
 use crate::ai_client::{
-    estimate_tokens, get_one as get_model_config, provider_for, upsert_usage_stats, AiError,
+    estimate_tokens, get_one as get_model_config, provider_for, usage::record_usage, AiError,
     Message, TokenPayload,
 };
 use crate::keychain;
@@ -373,9 +373,9 @@ pub async fn start_parse(
     .map(|r| r.map_err(|e| log::warn!("save parse failed: {}", e)));
 
     let pool = state.db_pool.clone();
-    let mcid = config.id.clone();
+    let cfg_for_usage = config.clone();
     let _ = tokio::task::spawn_blocking(move || {
-        upsert_usage_stats(&pool, &mcid, tokens_in, tokens_out)
+        record_usage(&pool, &cfg_for_usage, tokens_in, tokens_out)
     })
     .await;
 

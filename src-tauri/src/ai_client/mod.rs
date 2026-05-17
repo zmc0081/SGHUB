@@ -13,6 +13,7 @@ use crate::AppState;
 pub mod anthropic;
 pub mod ollama;
 pub mod openai;
+pub mod usage;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelConfig {
@@ -26,6 +27,13 @@ pub struct ModelConfig {
     pub keychain_ref: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    /// USD per 1,000,000 input tokens. `0.0` = unknown / not priced;
+    /// the usage_stats writer still records call_count + tokens.
+    #[serde(default)]
+    pub input_price_per_1m_tokens: f64,
+    /// USD per 1,000,000 output tokens.
+    #[serde(default)]
+    pub output_price_per_1m_tokens: f64,
 }
 
 /// Form-style payload from the frontend. `api_key` is optional: present means
@@ -39,6 +47,11 @@ pub struct ModelConfigInput {
     pub model_id: String,
     pub max_tokens: i32,
     pub api_key: Option<String>,
+    /// Optional — if omitted on add we default to 0.0 (no cost tracking).
+    #[serde(default)]
+    pub input_price_per_1m_tokens: Option<f64>,
+    #[serde(default)]
+    pub output_price_per_1m_tokens: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -144,29 +157,10 @@ pub(crate) fn estimate_tokens(s: &str) -> i64 {
     s.chars().count().div_ceil(4) as i64
 }
 
-pub(crate) fn upsert_usage_stats(
-    pool: &crate::db::DbPool,
-    model_id: &str,
-    tokens_in: i64,
-    tokens_out: i64,
-) -> rusqlite::Result<()> {
-    let conn = pool
-        .get()
-        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-    let date = chrono::Utc::now().format("%Y-%m-%d").to_string();
-    let id = uuid::Uuid::now_v7().to_string();
-    conn.execute(
-        "INSERT INTO usage_stats \
-         (id, model_config_id, date, tokens_in_total, tokens_out_total, call_count, cost_est_total) \
-         VALUES (?1, ?2, ?3, ?4, ?5, 1, 0.0) \
-         ON CONFLICT(model_config_id, date) DO UPDATE SET \
-            tokens_in_total = tokens_in_total + excluded.tokens_in_total, \
-            tokens_out_total = tokens_out_total + excluded.tokens_out_total, \
-            call_count = call_count + 1",
-        params![id, model_id, date, tokens_in, tokens_out],
-    )?;
-    Ok(())
-}
+// `upsert_usage_stats` (V2.0.x) replaced by `usage::record_usage`
+// (V2.1.0) which also writes the cost estimate. The function below is
+// kept (private) only for the legacy chat/skill callers during the
+// in-flight refactor — remove once those paths are confirmed migrated.
 
 /// Built-in templates the user can pick from when adding a new model.
 /// These are NOT inserted automatically; the frontend uses them to prefill
@@ -181,6 +175,8 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: "claude-opus-4-7".into(),
             max_tokens: 200000,
             api_key: None,
+            input_price_per_1m_tokens: Some(15.0),
+            output_price_per_1m_tokens: Some(75.0),
         },
         ModelConfigInput {
             name: "GPT-5".into(),
@@ -189,6 +185,8 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: "gpt-5".into(),
             max_tokens: 128000,
             api_key: None,
+            input_price_per_1m_tokens: Some(5.0),
+            output_price_per_1m_tokens: Some(15.0),
         },
         ModelConfigInput {
             name: "DeepSeek V3".into(),
@@ -197,6 +195,8 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: "deepseek-chat".into(),
             max_tokens: 64000,
             api_key: None,
+            input_price_per_1m_tokens: Some(0.27),
+            output_price_per_1m_tokens: Some(1.10),
         },
         ModelConfigInput {
             name: "Ollama Llama 3 (8B,本地)".into(),
@@ -205,6 +205,8 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: "llama3:8b".into(),
             max_tokens: 8192,
             api_key: None,
+            input_price_per_1m_tokens: Some(0.0),
+            output_price_per_1m_tokens: Some(0.0),
         },
     ]
 }
@@ -229,11 +231,15 @@ fn row_to_config(row: &rusqlite::Row) -> rusqlite::Result<ModelConfig> {
         keychain_ref: row.get(7)?,
         created_at: row.get(8)?,
         updated_at: row.get(9)?,
+        // V004 — pricing fields (NOT NULL DEFAULT 0.0, so always present).
+        input_price_per_1m_tokens: row.get(10)?,
+        output_price_per_1m_tokens: row.get(11)?,
     })
 }
 
 const SELECT_COLS: &str = "id, name, provider, endpoint, model_id, max_tokens, \
-                           is_default, keychain_ref, created_at, updated_at";
+                           is_default, keychain_ref, created_at, updated_at, \
+                           input_price_per_1m_tokens, output_price_per_1m_tokens";
 
 pub(crate) fn list_all(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<ModelConfig>> {
     let conn = pool
@@ -268,8 +274,9 @@ fn insert(pool: &crate::db::DbPool, cfg: &ModelConfig) -> rusqlite::Result<()> {
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
     conn.execute(
         "INSERT INTO model_configs \
-         (id, name, provider, endpoint, model_id, max_tokens, is_default, keychain_ref, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+         (id, name, provider, endpoint, model_id, max_tokens, is_default, keychain_ref, \
+          created_at, updated_at, input_price_per_1m_tokens, output_price_per_1m_tokens) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
         params![
             cfg.id,
             cfg.name,
@@ -281,6 +288,8 @@ fn insert(pool: &crate::db::DbPool, cfg: &ModelConfig) -> rusqlite::Result<()> {
             cfg.keychain_ref,
             cfg.created_at,
             cfg.updated_at,
+            cfg.input_price_per_1m_tokens,
+            cfg.output_price_per_1m_tokens,
         ],
     )?;
     Ok(())
@@ -290,21 +299,51 @@ fn update(pool: &crate::db::DbPool, id: &str, input: &ModelConfigInput) -> rusql
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-    conn.execute(
+    // Build a single UPDATE that always touches name/provider/endpoint
+    // /model_id/max_tokens/updated_at and only sets the price fields
+    // when the form sent them (None = "leave whatever was there").
+    let (in_price_sql, out_price_sql) = (
+        if input.input_price_per_1m_tokens.is_some() {
+            ", input_price_per_1m_tokens = ?7"
+        } else {
+            ""
+        },
+        if input.output_price_per_1m_tokens.is_some() {
+            if input.input_price_per_1m_tokens.is_some() {
+                ", output_price_per_1m_tokens = ?8"
+            } else {
+                ", output_price_per_1m_tokens = ?7"
+            }
+        } else {
+            ""
+        },
+    );
+    let sql = format!(
         "UPDATE model_configs \
          SET name = ?1, provider = ?2, endpoint = ?3, model_id = ?4, \
-             max_tokens = ?5, updated_at = ?6 \
-         WHERE id = ?7",
-        params![
-            input.name,
-            input.provider,
-            input.endpoint,
-            input.model_id,
-            input.max_tokens,
-            now_iso(),
-            id,
-        ],
-    )
+             max_tokens = ?5, updated_at = ?6{in_price_sql}{out_price_sql} \
+         WHERE id = ?{where_idx}",
+        where_idx = 7
+            + (input.input_price_per_1m_tokens.is_some() as usize)
+            + (input.output_price_per_1m_tokens.is_some() as usize)
+    );
+    let now = now_iso();
+    let mut p: Vec<&dyn rusqlite::ToSql> = vec![
+        &input.name,
+        &input.provider,
+        &input.endpoint,
+        &input.model_id,
+        &input.max_tokens,
+        &now,
+    ];
+    if let Some(v) = &input.input_price_per_1m_tokens {
+        p.push(v);
+    }
+    if let Some(v) = &input.output_price_per_1m_tokens {
+        p.push(v);
+    }
+    p.push(&id);
+    conn.execute(&sql, rusqlite::params_from_iter(p))
 }
 
 fn delete(pool: &crate::db::DbPool, id: &str) -> rusqlite::Result<usize> {
@@ -368,6 +407,8 @@ pub async fn add_model_config(
         keychain_ref: if has_key { Some(id.clone()) } else { None },
         created_at: now.clone(),
         updated_at: now,
+        input_price_per_1m_tokens: input.input_price_per_1m_tokens.unwrap_or(0.0),
+        output_price_per_1m_tokens: input.output_price_per_1m_tokens.unwrap_or(0.0),
     };
 
     let pool = state.db_pool.clone();
@@ -625,11 +666,12 @@ pub async fn ai_chat_stream(
         },
     );
 
-    // 8. Best-effort usage stats (don't fail the request if write fails)
+    // 8. Best-effort usage stats (don't fail the request if write fails).
+    //    V2.1.0 — record_usage is cost-aware (writes cost_est_total).
     let pool = state.db_pool.clone();
-    let mid = config.id.clone();
+    let cfg_for_usage = config.clone();
     let _ = tokio::task::spawn_blocking(move || {
-        upsert_usage_stats(&pool, &mid, tokens_in, tokens_out)
+        usage::record_usage(&pool, &cfg_for_usage, tokens_in, tokens_out)
     })
     .await
     .map(|r| r.map_err(|e| log::warn!("usage_stats write failed: {}", e)));
@@ -658,6 +700,8 @@ mod tests {
             model_id: "test-model".into(),
             max_tokens: 1024,
             api_key: None,
+            input_price_per_1m_tokens: None,
+            output_price_per_1m_tokens: None,
         }
     }
 
@@ -679,6 +723,8 @@ mod tests {
             keychain_ref: None,
             created_at: now_iso(),
             updated_at: now_iso(),
+            input_price_per_1m_tokens: input.input_price_per_1m_tokens.unwrap_or(0.0),
+            output_price_per_1m_tokens: input.output_price_per_1m_tokens.unwrap_or(0.0),
         }
     }
 

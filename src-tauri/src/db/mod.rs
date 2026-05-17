@@ -46,7 +46,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<DbPool, DbError> {
 }
 
 /// Highest known migration version. Bump when adding a new V###__*.sql.
-const LATEST_MIGRATION_VERSION: i64 = 3;
+const LATEST_MIGRATION_VERSION: i64 = 4;
 
 pub fn init_at(data_dir: &Path) -> Result<DbPool, DbError> {
     std::fs::create_dir_all(data_dir)?;
