@@ -84,16 +84,21 @@ pub struct ProgressPayload {
 
 /// System paths we hard-refuse — they're either OS roots or directories
 /// the user almost certainly didn't mean to clobber.
+///
+/// NOTE: `/var` is intentionally excluded — macOS keeps tmpfiles under
+/// `/var/folders/...`, and blanket-blocking `/var` would refuse the
+/// system tempdir (breaks our own integration tests too). The OS will
+/// reject writes elsewhere under `/var` via the write-probe check.
 const FORBIDDEN_PREFIXES: &[&str] = &[
     // Windows
     r"C:\Windows",
     r"C:\Program Files",
     r"C:\Program Files (x86)",
     r"C:\ProgramData",
-    // POSIX
+    // POSIX — kept tight; rely on the write-probe + free-space checks
+    // for everything outside these.
     "/usr",
     "/etc",
-    "/var",
     "/bin",
     "/sbin",
     "/boot",
