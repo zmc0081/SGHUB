@@ -195,6 +195,25 @@ export interface SkillUploadResult {
   errors: string[];
 }
 
+// ============================================================
+// AI Skill generator (V2.1.0)
+// ============================================================
+
+export interface SkillGenResult {
+  yaml: string;
+  spec: SkillSpec;
+  /** True when the first model attempt failed validation and the
+   *  auto-retry produced the final yaml. UI may show a subtle hint. */
+  retried: boolean;
+}
+
+export interface SkillGenTokenPayload {
+  text: string;
+  done: boolean;
+  /** 1 = initial pass, 2 = the validation-fix retry. */
+  attempt: number;
+}
+
 export interface ParseResult {
   id: string;
   paper_id: string;
@@ -576,6 +595,29 @@ export const api = {
    */
   saveSkill: (yamlContent: string, originalName: string | null) =>
     invoke<SkillSpec>("save_skill", { yamlContent, originalName }),
+
+  // ============================================================
+  // AI-assisted Skill generator (V2.1.0).
+  // Streams tokens via the `skill_gen:token` event.
+  // ============================================================
+  generateSkillFromDescription: (
+    description: string,
+    modelConfigId: string | null,
+  ) =>
+    invoke<SkillGenResult>("generate_skill_from_description", {
+      description,
+      modelConfigId,
+    }),
+  refineSkillFromChat: (
+    currentYaml: string,
+    refineInstruction: string,
+    modelConfigId: string | null,
+  ) =>
+    invoke<SkillGenResult>("refine_skill_from_chat", {
+      currentYaml,
+      refineInstruction,
+      modelConfigId,
+    }),
 
   /** Raw YAML for editor load. Builtin → embedded const, user → disk file. */
   getSkillYaml: (name: string) =>

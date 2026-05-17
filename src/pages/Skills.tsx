@@ -155,6 +155,9 @@ export default function Skills() {
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // V2.1.0 — "+ 新建 Skill" is now a dropdown with two entry points
+  // (AI generator vs manual editor). Anchored to the trigger button.
+  const [newMenuOpen, setNewMenuOpen] = useState(false);
 
   const refresh = () => {
     api.getSkills().then(setSkills).catch((e) => pushToast("error", [String(e)]));
@@ -310,12 +313,32 @@ export default function Skills() {
           <p className="text-sm text-app-fg/60">{t("skills.subtitle")}</p>
         </div>
         <div className="flex gap-2 shrink-0">
-          <button
-            onClick={() => navigate({ to: "/skills/new" })}
-            className="px-3 py-1.5 text-sm rounded border border-primary text-primary hover:bg-primary/5"
-          >
-            {t("skills.new")}
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setNewMenuOpen((v) => !v)}
+              onBlur={() => setTimeout(() => setNewMenuOpen(false), 150)}
+              className="px-3 py-1.5 text-sm rounded border border-primary text-primary hover:bg-primary/5 inline-flex items-center gap-1"
+            >
+              {t("skills.new")}
+              <span className="text-[10px] opacity-60">▾</span>
+            </button>
+            {newMenuOpen && (
+              <div className="absolute right-0 mt-1 w-64 bg-white border border-black/10 rounded shadow-md z-20 overflow-hidden">
+                <button
+                  onMouseDown={() => navigate({ to: "/skills/generate" })}
+                  className="block w-full text-left px-3 py-2 text-sm hover:bg-primary/5"
+                >
+                  {t("skill_gen.menu_ai")}
+                </button>
+                <button
+                  onMouseDown={() => navigate({ to: "/skills/new" })}
+                  className="block w-full text-left px-3 py-2 text-sm hover:bg-primary/5 border-t border-black/5"
+                >
+                  {t("skill_gen.menu_manual")}
+                </button>
+              </div>
+            )}
+          </div>
           <button
             onClick={onUploadClick}
             className="px-3 py-1.5 text-sm rounded bg-primary text-white hover:bg-primary/90"

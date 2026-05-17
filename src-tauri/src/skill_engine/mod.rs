@@ -16,6 +16,7 @@ use crate::keychain;
 use crate::search::Paper;
 use crate::AppState;
 
+pub mod generator;
 pub mod uploader;
 
 // ============================================================
