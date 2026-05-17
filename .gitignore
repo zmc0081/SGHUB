@@ -79,3 +79,9 @@ logs/
 # Local SGHUB data (if user runs dev with the project root as data dir)
 # ============================================================
 .sghub/
+
+# ============================================================
+# UI screenshots (see docs/ui-screenshots-checklist.md) — designers
+# fill these in locally; do not commit binary PNGs to keep repo lean.
+# ============================================================
+docs/screenshots/
