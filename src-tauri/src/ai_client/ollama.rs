@@ -177,6 +177,8 @@ mod tests {
             keychain_ref: None,
             created_at: String::new(),
             updated_at: String::new(),
+            input_price_per_1m_tokens: 0.0,
+            output_price_per_1m_tokens: 0.0,
         }
     }
 

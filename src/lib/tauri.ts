@@ -73,6 +73,9 @@ export interface ModelConfig {
   keychain_ref: string | null;
   created_at: string;
   updated_at: string;
+  /** USD per 1,000,000 input tokens. 0 = not priced (no cost tracking). */
+  input_price_per_1m_tokens: number;
+  output_price_per_1m_tokens: number;
 }
 
 export interface ModelConfigInput {
@@ -82,6 +85,39 @@ export interface ModelConfigInput {
   model_id: string;
   max_tokens: number;
   api_key: string | null;
+  /** Omit to keep existing value on update; default 0 on add. */
+  input_price_per_1m_tokens?: number | null;
+  output_price_per_1m_tokens?: number | null;
+}
+
+// ============================================================
+// Usage statistics (V2.1.0)
+// ============================================================
+
+export interface DailyUsage {
+  date: string; // YYYY-MM-DD
+  tokens_in: number;
+  tokens_out: number;
+  call_count: number;
+  cost_est: number;
+}
+
+export interface ModelUsage {
+  model_config_id: string;
+  model_name: string;
+  tokens_in: number;
+  tokens_out: number;
+  call_count: number;
+  cost_est: number;
+}
+
+export interface UsageStats7Days {
+  total_tokens_in: number;
+  total_tokens_out: number;
+  total_call_count: number;
+  total_cost_est: number;
+  daily_breakdown: DailyUsage[];
+  by_model: ModelUsage[];
 }
 
 export interface TestResult {
@@ -627,6 +663,13 @@ export const api = {
 
   getModelPresets: () =>
     invoke<ModelConfigInput[]>("get_model_presets"),
+
+  // ============================================================
+  // Usage stats (V2.1.0)
+  // ============================================================
+  getUsageStats7Days: () =>
+    invoke<UsageStats7Days>("get_usage_stats_7days"),
+  rebuildUsageStats: () => invoke<number>("rebuild_usage_stats"),
 
   testModelConnection: (modelId: string) =>
     invoke<TestResult>("test_model_connection", { modelId }),
