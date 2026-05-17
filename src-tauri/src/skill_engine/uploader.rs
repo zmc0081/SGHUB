@@ -553,13 +553,7 @@ pub fn delete_skill_from_dir(user_dir: &Path, name: &str) -> Result<(), String> 
 // ============================================================
 
 fn user_skills_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    use tauri::Manager;
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("app_data_dir: {}", e))?
-        .join("skills");
-    Ok(dir)
+    Ok(crate::config::paths::skills_dir(app))
 }
 
 fn current_existing_names(app: &tauri::AppHandle) -> HashSet<String> {

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use serde::Serialize;
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Runtime};
 use thiserror::Error;
 
 pub type DbPool = Pool<SqliteConnectionManager>;
@@ -39,8 +39,9 @@ pub struct DbStatus {
 }
 
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> Result<DbPool, DbError> {
-    let app_data_dir: PathBuf = app.path().app_data_dir()?;
-    let data_dir = app_data_dir.join("data");
+    // V2.1.0 — go through `config::paths` so the bootstrap-controlled
+    // custom data dir is honoured. `data_root` already appends "data/".
+    let data_dir = crate::config::paths::data_root(app);
     init_at(&data_dir)
 }
 

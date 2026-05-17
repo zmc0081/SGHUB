@@ -11,6 +11,8 @@
     "core:window:allow-start-dragging",
     "core:window:allow-is-maximized",
     "notification:default",
-    "dialog:default"
+    "dialog:default",
+    "process:default",
+    "process:allow-restart"
   ]
 }

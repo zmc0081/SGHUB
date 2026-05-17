@@ -148,8 +148,6 @@ pub async fn upload_chat_attachment(
     state: tauri::State<'_, AppState>,
     input: UploadAttachmentInput,
 ) -> Result<ChatAttachment, String> {
-    use tauri::Manager;
-
     let UploadAttachmentInput {
         session_id,
         file_path,
@@ -172,16 +170,11 @@ pub async fn upload_chat_attachment(
     let content = std::fs::read(src_path)
         .map_err(|e| format!("读取文件失败 {}: {}", src_path.display(), e))?;
 
-    // Copy to our managed location:
-    // {app_data_dir}/data/chat_attachments/{session_id}/{uuid}.{ext}
+    // Copy to our managed location (V2.1.0 paths via `config::paths`).
+    // {effective_data_dir}/data/chat_attachments/{session_id}/{uuid}.{ext}
     let id = uuid::Uuid::now_v7().to_string();
-    let dir: PathBuf = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("data")
-        .join("chat_attachments")
-        .join(&session_id);
+    let dir: PathBuf =
+        crate::config::paths::chat_attachments_dir(&app, &session_id);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let safe_ext = if ext.is_empty() {
         "bin".into()

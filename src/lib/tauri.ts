@@ -265,6 +265,39 @@ export interface CheckResult {
 }
 
 // ============================================================
+// Data-directory management (V2.1.0)
+// ============================================================
+
+export interface CurrentDataDir {
+  path: string;
+  is_custom: boolean;
+  size_mb: number;
+}
+
+export interface DataDirValidation {
+  valid: boolean;
+  has_existing_sghub_data: boolean;
+  free_space_mb: number;
+  error: string | null;
+}
+
+export type MigrationMode = "migrate" | "fresh" | "use_existing";
+
+export interface MigrationResult {
+  success: boolean;
+  migrated_files: number;
+  total_size_mb: number;
+  errors: string[];
+}
+
+export interface DataMigrationProgress {
+  current_file: string;
+  percent: number;
+  bytes_copied: number;
+  total_bytes: number;
+}
+
+// ============================================================
 // Chat module types (V2.0.1)
 // ============================================================
 
@@ -625,6 +658,21 @@ export const api = {
    *  round-trip. */
   setUpdaterConfig: (config: UpdaterConfig) =>
     invoke<void>("set_updater_config", { config }),
+
+  // ============================================================
+  // Data directory management (V2.1.0)
+  // ============================================================
+  getCurrentDataDir: () => invoke<CurrentDataDir>("get_current_data_dir"),
+  selectNewDataDir: () =>
+    invoke<string | null>("select_new_data_dir"),
+  validateDataDir: (path: string) =>
+    invoke<DataDirValidation>("validate_data_dir", { path }),
+  migrateDataDir: (newPath: string, mode: MigrationMode) =>
+    invoke<MigrationResult>("migrate_data_dir", { newPath, mode }),
+  resetDataDirToDefault: () =>
+    invoke<void>("reset_data_dir_to_default"),
+  deleteOldDataDir: (path: string) =>
+    invoke<void>("delete_old_data_dir", { path }),
 
   // ============================================================
   // Chat (V2.0.1)

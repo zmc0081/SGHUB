@@ -1020,7 +1020,7 @@ pub async fn get_papers_by_tag(
         .map_err(|e| e.to_string())
 }
 
-/// Generic file export — writes `content` into `<app_data_dir>/exports/<sanitized_name>`.
+/// Generic file export — writes `content` into `<effective_data_dir>/data/exports/<sanitized_name>`.
 /// Returns the absolute path so the UI can show it / open Explorer.
 #[tauri::command]
 pub async fn export_text_file(
@@ -1028,9 +1028,6 @@ pub async fn export_text_file(
     suggested_name: String,
     content: String,
 ) -> Result<String, String> {
-    use std::path::PathBuf;
-    use tauri::Manager;
-
     // Strip any directory traversal — only keep the filename.
     let safe_name: String = suggested_name
         .rsplit(['/', '\\'])
@@ -1045,11 +1042,7 @@ pub async fn export_text_file(
         safe_name
     };
 
-    let dir: PathBuf = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("exports");
+    let dir = crate::config::paths::exports_dir(&app);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join(safe_name);
     std::fs::write(&path, content).map_err(|e| e.to_string())?;

@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
 
 use crate::library::metadata_extractor::{extract_pdf_metadata, PartialMetadata};
 use crate::AppState;
@@ -98,13 +98,7 @@ fn validate_pdf(path: &Path) -> Result<u64, String> {
 }
 
 fn uploaded_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("data")
-        .join("pdfs")
-        .join("uploaded");
+    let dir = crate::config::paths::uploaded_pdfs_dir(app);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
 }
@@ -438,12 +432,7 @@ pub async fn re_extract_paper_metadata(
     let abs = if Path::new(&rel).is_absolute() {
         PathBuf::from(rel)
     } else {
-        app.path()
-            .app_data_dir()
-            .map_err(|e| e.to_string())?
-            .join("data")
-            .join("pdfs")
-            .join(rel)
+        crate::config::paths::pdfs_dir(&app).join(rel)
     };
     tokio::task::spawn_blocking(move || extract_pdf_metadata(&abs))
         .await
