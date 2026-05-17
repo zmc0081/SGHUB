@@ -11,6 +11,10 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod bootstrap;
+pub mod migration;
+pub mod paths;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     /// `None` = follow system locale. Serde keeps the field absent on
@@ -100,6 +104,166 @@ pub async fn save_app_config(
     if let Err(e) = app.emit("config:updater_changed", &config.updater) {
         log::warn!("config:updater_changed emit failed: {}", e);
     }
+    Ok(())
+}
+
+// ============================================================
+// Data-directory commands (V2.1.0)
+// ============================================================
+
+use std::path::PathBuf;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CurrentDataDir {
+    pub path: String,
+    pub is_custom: bool,
+    pub size_mb: f64,
+}
+
+#[tauri::command]
+pub fn get_current_data_dir(app: tauri::AppHandle) -> Result<CurrentDataDir, String> {
+    let dir = paths::effective_data_dir(&app);
+    let bs = bootstrap::load();
+    let is_custom = bs
+        .data_dir
+        .as_ref()
+        .map(|p| p == &dir)
+        .unwrap_or(false);
+    let size_mb = if dir.is_dir() {
+        migration::dir_size_mb(&dir)
+    } else {
+        0.0
+    };
+    Ok(CurrentDataDir {
+        path: dir.to_string_lossy().into_owned(),
+        is_custom,
+        size_mb,
+    })
+}
+
+/// Pop the OS folder picker. Returns the chosen path or `None` when
+/// the user cancels. Frontend can also drive this through the dialog
+/// plugin directly — we offer this command so future migrations can
+/// add validation hooks in one place.
+#[tauri::command]
+pub async fn select_new_data_dir(
+    app: tauri::AppHandle,
+) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let (tx, rx) = tokio::sync::oneshot::channel::<Option<PathBuf>>();
+    app.dialog()
+        .file()
+        .set_title("选择数据目录 / Pick data directory")
+        .pick_folder(move |p| {
+            let _ = tx.send(p.and_then(|fp| fp.into_path().ok()));
+        });
+    let res = rx
+        .await
+        .map_err(|e| format!("dialog channel: {}", e))?;
+    Ok(res.map(|p| p.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+pub fn validate_data_dir(
+    app: tauri::AppHandle,
+    path: String,
+) -> Result<migration::ValidationResult, String> {
+    let candidate = PathBuf::from(path);
+    let current = paths::effective_data_dir(&app);
+    Ok(migration::validate(&candidate, &current))
+}
+
+#[tauri::command]
+pub async fn migrate_data_dir(
+    app: tauri::AppHandle,
+    new_path: String,
+    mode: String,
+) -> Result<migration::MigrationResult, String> {
+    use tauri::Emitter;
+    let mode_enum = migration::MigrationMode::parse(&mode)?;
+    let dest = PathBuf::from(&new_path);
+    let current = paths::effective_data_dir(&app);
+
+    // Re-validate before doing real work — `validate` is cheap.
+    let v = migration::validate(&dest, &current);
+    if !v.valid {
+        return Err(v.error.unwrap_or_else(|| "invalid path".into()));
+    }
+
+    let result = match mode_enum {
+        migration::MigrationMode::Migrate => {
+            let src = current.clone();
+            let dest_for_copy = dest.clone();
+            let app_for_emit = app.clone();
+            tokio::task::spawn_blocking(move || {
+                migration::copy_with_verify(&src, &dest_for_copy, move |p| {
+                    if let Err(e) = app_for_emit.emit("data_migration:progress", &p) {
+                        log::warn!("data_migration:progress emit failed: {}", e);
+                    }
+                })
+            })
+            .await
+            .map_err(|e| format!("migration task join: {}", e))?
+        }
+        migration::MigrationMode::Fresh => {
+            // Ensure the dest dir at least exists; we don't touch contents.
+            if let Err(e) = std::fs::create_dir_all(&dest) {
+                return Err(format!("create new dir: {}", e));
+            }
+            migration::MigrationResult {
+                success: true,
+                migrated_files: 0,
+                total_size_mb: 0.0,
+                errors: Vec::new(),
+            }
+        }
+        migration::MigrationMode::UseExisting => {
+            // We trust the user — they confirmed in the wizard that the
+            // existing SGHUB data at `dest` is what they want to use.
+            migration::MigrationResult {
+                success: true,
+                migrated_files: 0,
+                total_size_mb: migration::dir_size_mb(&dest),
+                errors: Vec::new(),
+            }
+        }
+    };
+
+    if !result.success {
+        return Ok(result);
+    }
+
+    // Only after a successful copy do we flip `bootstrap.toml`. Crash
+    // anywhere before this point and the user keeps booting the OLD
+    // directory — their data is untouched.
+    let new_bootstrap = bootstrap::BootstrapConfig {
+        data_dir: Some(dest),
+    };
+    bootstrap::save(&new_bootstrap)
+        .map_err(|e| format!("write bootstrap.toml: {}", e))?;
+    Ok(result)
+}
+
+/// Remove the bootstrap override — next launch will use the OS default.
+/// Does NOT touch any data on disk.
+#[tauri::command]
+pub fn reset_data_dir_to_default() -> Result<(), String> {
+    bootstrap::save(&bootstrap::BootstrapConfig::default())?;
+    Ok(())
+}
+
+/// Best-effort recursive delete used by the post-migration "delete old
+/// directory?" prompt. Refuses any path that isn't structurally
+/// SGHUB-shaped (contains `data/` subdir) to prevent foot-shooting.
+#[tauri::command]
+pub fn delete_old_data_dir(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if !p.join("data").exists() {
+        return Err(
+            "拒绝删除:目标目录看起来不是 SGHUB 数据目录(缺少 data/ 子目录)".into(),
+        );
+    }
+    std::fs::remove_dir_all(&p).map_err(|e| format!("remove failed: {}", e))?;
     Ok(())
 }
 

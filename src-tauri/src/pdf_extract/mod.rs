@@ -22,19 +22,12 @@ pub enum PdfError {
 
 /// Resolve a stored relative pdf_path to an absolute file system path.
 fn resolve(app: &tauri::AppHandle, pdf_path: &str) -> Result<PathBuf, PdfError> {
-    use tauri::Manager;
     // Absolute paths bypass the data-dir convention (allow user-imported PDFs)
     let candidate = Path::new(pdf_path);
     if candidate.is_absolute() {
         return Ok(candidate.to_path_buf());
     }
-    let base = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| PdfError::Path(e.to_string()))?
-        .join("data")
-        .join("pdfs");
-    Ok(base.join(pdf_path))
+    Ok(crate::config::paths::pdfs_dir(app).join(pdf_path))
 }
 
 /// Extract plain text from a PDF given a path.

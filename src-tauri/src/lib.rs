@@ -32,7 +32,10 @@ pub fn run() {
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
-        .plugin(tauri_plugin_dialog::init());
+        .plugin(tauri_plugin_dialog::init())
+        // V2.1.0 — needed so the frontend can call `relaunch()` after
+        // a successful data-directory migration.
+        .plugin(tauri_plugin_process::init());
     #[cfg(not(debug_assertions))]
     {
         builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
@@ -75,6 +78,12 @@ pub fn run() {
             config::get_app_config,
             config::save_app_config,
             config::get_system_locale,
+            config::get_current_data_dir,
+            config::select_new_data_dir,
+            config::validate_data_dir,
+            config::migrate_data_dir,
+            config::reset_data_dir_to_default,
+            config::delete_old_data_dir,
             updater::commands::get_updater_status,
             updater::commands::check_update_now,
             updater::commands::install_pending_update,

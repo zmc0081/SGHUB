@@ -16,7 +16,7 @@ use std::sync::OnceLock;
 
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
 use tokio::sync::Mutex;
 
 use crate::AppState;
@@ -153,12 +153,7 @@ pub async fn open_external_url(url: String) -> Result<(), String> {
 // ============================================================
 
 fn pdfs_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?
-        .join("data")
-        .join("pdfs");
+    let dir = crate::config::paths::pdfs_dir(app);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     Ok(dir)
 }

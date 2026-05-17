@@ -9,6 +9,7 @@ import {
   type SupportedLanguage,
 } from "../i18n";
 import { UpdaterCard } from "../components/UpdaterCard";
+import { DataDirCard } from "../components/DataDirCard";
 
 const THEME_LABEL_KEY: Record<string, string> = {
   light: "settings.theme_light",
@@ -129,11 +130,8 @@ export default function Settings() {
           <Row label={t("settings.theme")}>
             {t(THEME_LABEL_KEY[config.theme] ?? config.theme)}
           </Row>
-          <Row label={t("settings.data_dir")}>
-            <code className="text-xs bg-black/5 px-1.5 py-0.5 rounded">
-              {config.data_dir}
-            </code>
-          </Row>
+          {/* "数据目录" 行已升级为下方独立的 DataDirCard(V2.1.0)
+              支持完整的修改/迁移/恢复默认流程。 */}
           {/* "自动更新" 已于 V2.1.0 升级为下方的 UpdaterCard,
               支持频率/时间/动作精细化设置。`auto_update` 字段仍保留
               在 AppConfig 里作为向后兼容。 */}
@@ -160,6 +158,13 @@ export default function Settings() {
           puts it in a useEffect dep list, so a new reference each
           render would loop the save-on-change debouncer. */}
       {config && <UpdaterCardSection updater={config.updater} setConfig={setConfig} />}
+
+      {/* V2.1.0 — data directory management (bootstrap-backed,
+          supports migrate/fresh/use-existing flows). Self-loads
+          and self-refreshes; no parent config dep. */}
+      <div className="mt-4">
+        <DataDirCard />
+      </div>
     </div>
   );
 }

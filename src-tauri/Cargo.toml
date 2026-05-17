@@ -42,10 +42,14 @@ serde_yaml = "0.9"
 pdf-extract = "0.7"
 lopdf = { version = "0.32", default-features = false, features = ["pom_parser"] }
 sys-locale = "0.3"
+dirs = "5"
+sha2 = "0.10"
+toml = "0.8"
 tokio-cron-scheduler = "0.13"
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 minijinja = "2"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 opener = { version = "0.7", default-features = false }

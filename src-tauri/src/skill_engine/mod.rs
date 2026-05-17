@@ -117,11 +117,7 @@ pub fn load_builtin_skills() -> Vec<Skill> {
 }
 
 pub fn load_user_skills(app: &tauri::AppHandle) -> Vec<Skill> {
-    use tauri::Manager;
-    let dir: PathBuf = match app.path().app_data_dir() {
-        Ok(d) => d.join("skills"),
-        Err(_) => return Vec::new(),
-    };
+    let dir: PathBuf = crate::config::paths::skills_dir(app);
     if !dir.exists() {
         return Vec::new();
     }
