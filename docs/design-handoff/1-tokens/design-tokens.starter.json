@@ -1,162 +1,201 @@
 {
   "$schema": "https://schemas.sghub.app/design-tokens.json",
   "$comment": [
-    "STARTER seed for Claude design.",
-    "This is V2.1.0 current values + placeholder slots for V2.2 'Editorial Calm'.",
-    "Modify values to match design-style-spec.md, keep keys stable so Claude Code can",
-    "mechanically apply via src/styles/index.css + tailwind.config.js.",
-    "When done, save final file as design-tokens.json (drop the .starter suffix)."
+    "SGHUB Capsule — V2.2 design tokens.",
+    "All light-mode values are pulled verbatim from ./khx-reference/tokens.css.",
+    "Dark-mode values are SGHUB-derived per design-style-spec.md §6.1.",
+    "Designer should validate every dark value renders ≥ WCAG AA contrast.",
+    "When applying to the codebase, Claude Code reads this file plus the",
+    "five khx-reference/ files; this JSON is the canonical SGHUB-shaped",
+    "intermediate."
   ],
   "meta": {
-    "name": "SGHUB Editorial Calm",
-    "version": "2.2.0-draft",
-    "basedOn": "V2.1.0 commit 93bae92",
-    "lastUpdated": "TODO: yyyy-mm-dd by Claude design"
+    "name": "SGHUB Capsule",
+    "version": "2.2.0",
+    "basedOn": "KnowledgeHub X (knowledgehubtemplate.webflow.io)",
+    "khxReferenceDir": "./khx-reference/",
+    "lastUpdated": "2026-05-18"
   },
+
   "color": {
     "brand": {
-      "primary": {
-        "light": { "current": "#1F3864", "v22": "TODO" },
-        "dark":  { "current": "#4A78C8", "v22": "TODO" },
-        "_role": "main actions, H1, active states"
+      "navy":        { "light": "#1F2E4D", "dark": "#3D5688", "_role": "main CTA, H1, selected" },
+      "navy-hover":  { "light": "#2A3A5F", "dark": "#4A6BA8", "_role": "primary hover" },
+      "navy-active": { "light": "#15203A", "dark": "#5A7BC8", "_role": "primary active" },
+
+      "indigo":       { "light": "#4F46E5", "dark": "#7B73F0", "_role": "links, icons, emphasis" },
+      "indigo-hover": { "light": "#3730A3", "dark": "#9890F5", "_role": "link hover" },
+      "indigo-soft":  { "light": "#EEF0FF", "dark": "#1F1F33", "_role": "icon-box bg" },
+      "indigo-light": { "light": "#E0E5FF", "dark": "#2A2A4D", "_role": "lighter emphasis bg" }
+    },
+
+    "text": {
+      "1":       { "light": "#1F2E4D", "dark": "#E8E8EC", "_role": "primary text, titles" },
+      "2":       { "light": "#5C6B88", "dark": "#9CA3B8", "_role": "body, description" },
+      "3":       { "light": "#939EB3", "dark": "#5C6478", "_role": "placeholder, helper" },
+      "inverse": { "light": "#FFFFFF", "dark": "#FFFFFF", "_role": "text on dark bg (primary button)" },
+      "link":    { "light": "#4F46E5", "dark": "#7B73F0", "_role": "link color" }
+    },
+
+    "border": {
+      "default": { "light": "#ECEEF5", "dark": "#252A38", "_role": "default border, divider" },
+      "strong":  { "light": "#D9DEEA", "dark": "#363B4D", "_role": "strong border, timeline node" },
+      "focus":   { "light": "#1F2E4D", "dark": "#7B73F0", "_role": "input focus border" }
+    },
+
+    "bg": {
+      "page": { "light": "#FFFFFF", "dark": "#0F1115", "_role": "page background" },
+      "soft": { "light": "#F8FAFF", "dark": "#161922", "_role": "secondary bg, disabled" },
+      "card": { "light": "#FFFFFF", "dark": "#1A1E2A", "_role": "card background" }
+    },
+
+    "gradient": {
+      "_comment": "Hero / Contact / empty-state ambient backgrounds (KHX <Stage>)",
+      "page": {
+        "light": "linear-gradient(135deg, #F8FAFF 0%, #F0F2FB 100%)",
+        "dark":  "linear-gradient(135deg, #161922 0%, #1F2335 100%)"
       },
-      "primary-hover": {
-        "light": { "current": null, "v22": "TODO" },
-        "dark":  { "current": null, "v22": "TODO" }
+      "glowPurple": {
+        "light": "radial-gradient(circle, rgba(125,66,251,0.18) 0%, transparent 70%)",
+        "dark":  "radial-gradient(circle, rgba(125,66,251,0.25) 0%, transparent 70%)"
       },
-      "primary-fg": {
-        "light": { "current": "#FFFFFF", "v22": "TODO" },
-        "dark":  { "current": "#FFFFFF", "v22": "TODO" }
-      },
-      "accent": {
-        "light": { "current": "#D4A017", "v22": "TODO" },
-        "dark":  { "current": "#E6B536", "v22": "TODO" },
-        "_role": "NEW badge, drag-over ring, accents"
-      },
-      "accent-fg": {
-        "light": { "current": "#1A1F2E", "v22": "TODO" },
-        "dark":  { "current": "#0F1115", "v22": "TODO" }
+      "glowBlue": {
+        "light": "radial-gradient(circle, rgba(141,173,253,0.22) 0%, transparent 70%)",
+        "dark":  "radial-gradient(circle, rgba(141,173,253,0.30) 0%, transparent 70%)"
       }
     },
-    "neutral": {
-      "_comment": "9-step gray scale (V2.2 new). Replaces text-app-fg/50/60/70 opacity hacks.",
-      "0":   { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "card bg" },
-      "50":  { "light": { "current": "#F8F6F1", "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "page bg" },
-      "100": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "nested bg" },
-      "200": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "default border" },
-      "300": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "hover border" },
-      "400": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "placeholder/disabled" },
-      "500": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "meta text" },
-      "600": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "secondary body" },
-      "700": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "subtitle" },
-      "800": { "light": { "current": "#1A1F2E", "v22": "TODO" }, "dark": { "current": "#E8E8EC", "v22": "TODO" }, "_role": "body" },
-      "900": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "H1, emphasis" }
+
+    "badge": {
+      "_comment": "4 semantic changelog badges (KHX). SGHUB maps them per design-style-spec.md §2.5.",
+      "update":  { "light": { "bg": "#EEF0FF", "fg": "#4F46E5" }, "dark": { "bg": "#1F1F33", "fg": "#7B73F0" }, "_use": "NEW Skill / NEW Chat" },
+      "improve": { "light": { "bg": "#DEF5E2", "fg": "#1A8A3A" }, "dark": { "bg": "#0F2A1F", "fg": "#4ADE80" }, "_use": "auto-update available / paper parsed" },
+      "bug":     { "light": { "bg": "#FFE0E0", "fg": "#C8323C" }, "dark": { "bg": "#2A0F0F", "fg": "#F87171" }, "_use": "error / delete confirm" },
+      "new":     { "light": { "bg": "#FFF3C2", "fg": "#8A6D00" }, "dark": { "bg": "#2A2208", "fg": "#FCD34D" }, "_use": "needs-review metadata / config missing" }
     },
-    "sidebar": {
-      "bg":        { "light": { "current": "#1A1F2E" }, "dark": { "current": "#0A0C12" } },
-      "fg":        { "light": { "current": "#C8C8D0" }, "dark": { "current": "#B0B0BC" } },
-      "fg-active": { "light": { "current": "#FFFFFF" }, "dark": { "current": "#FFFFFF" } }
-    },
-    "titlebar": {
-      "bg": { "light": { "current": "#1A1F2E" }, "dark": { "current": "#0A0C12" } },
-      "fg": { "light": { "current": "#C8C8D0" }, "dark": { "current": "#B0B0BC" } }
-    },
-    "border": {
-      "default": { "light": { "current": "rgba(0,0,0,0.08)", "v22": "TODO" }, "dark": { "current": "rgba(255,255,255,0.1)", "v22": "TODO" } }
-    },
+
     "feedback": {
-      "success": { "bg": "TODO", "border": "TODO", "fg": "TODO" },
-      "warning": { "bg": "TODO", "border": "TODO", "fg": "TODO" },
-      "danger":  { "bg": "TODO", "border": "TODO", "fg": "TODO" },
-      "info":    { "bg": "TODO", "border": "TODO", "fg": "TODO" }
+      "success": { "light": { "soft": "#DEF5E2", "fg": "#1A8A3A" }, "dark": { "soft": "#0F2A1F", "fg": "#4ADE80" } },
+      "danger":  { "light": { "soft": "#FFE0E0", "fg": "#C8323C" }, "dark": { "soft": "#2A0F0F", "fg": "#F87171" } },
+      "warning": { "light": { "soft": "#FFF3C2", "fg": "#D4AE00" }, "dark": { "soft": "#2A2208", "fg": "#FCD34D" } },
+      "info":    { "light": { "soft": "#EEF0FF", "fg": "#4F46E5" }, "dark": { "soft": "#1F1F33", "fg": "#7B73F0" } }
     },
+
+    "sidebar": {
+      "_comment": "SGHUB-specific, KHX has no left sidebar.",
+      "bg":        { "light": "#1F2E4D", "dark": "#0F1115", "_role": "sidebar background (= navy)" },
+      "fg":        { "light": "#C8C8D0", "dark": "#B0B0BC", "_role": "inactive nav text" },
+      "fg-active": { "light": "#FFFFFF", "dark": "#FFFFFF", "_role": "active nav text" }
+    },
+
+    "titlebar": {
+      "bg": { "light": "#1F2E4D", "dark": "#0F1115", "_role": "titlebar (= navy)" },
+      "fg": { "light": "#C8C8D0", "dark": "#B0B0BC" }
+    },
+
     "source": {
-      "_comment": "Paper source badges. Currently hardcoded — promote to tokens.",
-      "arxiv":            { "bg": "#B31B1B", "fg": "#FFFFFF", "darkBg": "TODO" },
-      "semantic_scholar": { "bg": "#1857B6", "fg": "#FFFFFF", "darkBg": "TODO" },
-      "pubmed":           { "bg": "#00897B", "fg": "#FFFFFF", "darkBg": "TODO" },
-      "openalex":         { "bg": "#7B3FBF", "fg": "#FFFFFF", "darkBg": "TODO" },
-      "local":            { "bg": "#6B7280", "fg": "#FFFFFF", "darkBg": "TODO" }
+      "_comment": "Paper source badges. External brand colors, kept stable across themes (slight bump in dark).",
+      "arxiv":            { "light": { "bg": "#B31B1B", "fg": "#FFFFFF" }, "dark": { "bg": "#D62828", "fg": "#FFFFFF" } },
+      "semantic_scholar": { "light": { "bg": "#1857B6", "fg": "#FFFFFF" }, "dark": { "bg": "#3A7BD5", "fg": "#FFFFFF" } },
+      "pubmed":           { "light": { "bg": "#00897B", "fg": "#FFFFFF" }, "dark": { "bg": "#1FAE9F", "fg": "#FFFFFF" } },
+      "openalex":         { "light": { "bg": "#7B3FBF", "fg": "#FFFFFF" }, "dark": { "bg": "#9F5FE0", "fg": "#FFFFFF" } },
+      "local":            { "light": { "bg": "#6B7280", "fg": "#FFFFFF" }, "dark": { "bg": "#9CA3AF", "fg": "#FFFFFF" } }
     },
+
     "readStatus": {
-      "_comment": "Library card left-edge color bar (10px wide).",
-      "unread":  { "current": "#D1D5DB", "v22": "TODO" },
-      "reading": { "current": "#FBBF24", "v22": "TODO" },
-      "read":    { "current": "#10B981", "v22": "TODO" },
-      "parsed":  { "current": "#6366F1", "v22": "TODO" }
+      "_comment": "Library card left-edge 10px color bar. Reuses feedback tokens for theme-awareness.",
+      "unread":  { "tokenRef": "border.strong" },
+      "reading": { "tokenRef": "feedback.warning.fg" },
+      "read":    { "tokenRef": "feedback.success.fg" },
+      "parsed":  { "tokenRef": "brand.indigo" }
     },
+
     "tagPalette": {
-      "_comment": "8-color cycle for Library tag chips.",
-      "current": ["#1F3864", "#D4A017", "#10B981", "#EF4444", "#8B5CF6", "#06B6D4", "#F97316", "#EC4899"],
-      "v22": ["TODO", "TODO", "TODO", "TODO", "TODO", "TODO", "TODO", "TODO"]
+      "_comment": "8-color cycle for Library tag chips. Pulled from KHX-coordinated palette.",
+      "light": ["#1F2E4D", "#4F46E5", "#1A8A3A", "#C8323C", "#7D42FB", "#06B6D4", "#D4AE00", "#EC4899"],
+      "dark":  ["#3D5688", "#7B73F0", "#4ADE80", "#F87171", "#9F65FF", "#22D3EE", "#FCD34D", "#F472B6"]
     }
   },
+
   "typography": {
     "fontFamily": {
-      "sans":  "-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Inter\", \"Microsoft YaHei\", \"PingFang SC\", sans-serif",
-      "mono":  "\"JetBrains Mono\", \"Fira Code\", \"SF Mono\", Consolas, monospace",
-      "serif": "\"Source Serif Pro\", \"Noto Serif SC\", Georgia, serif"
+      "sans":  "'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif",
+      "mono":  "'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace"
     },
     "fontSize": {
-      "_comment": "label / size / lineHeight",
-      "xs":   { "size": "12px", "lineHeight": "16px" },
-      "sm":   { "size": "14px", "lineHeight": "20px" },
-      "base": { "size": "15px", "lineHeight": "22px" },
-      "lg":   { "size": "17px", "lineHeight": "24px" },
-      "xl":   { "size": "20px", "lineHeight": "28px" },
-      "2xl":  { "size": "24px", "lineHeight": "32px" },
-      "3xl":  { "size": "32px", "lineHeight": "40px" }
+      "_comment": "KHX 9-step scale. SGHUB does not use display sizes.",
+      "display":    { "size": "60px", "lineHeight": "1.2",  "fontWeight": 700, "_use": "reserved (not used yet)" },
+      "display-sm": { "size": "48px", "lineHeight": "1.2",  "fontWeight": 700, "_use": "reserved" },
+      "h1":         { "size": "36px", "lineHeight": "1.25", "fontWeight": 700, "_use": "reserved" },
+      "h2":         { "size": "24px", "lineHeight": "1.3",  "fontWeight": 600, "_use": "**page H1** (unified)" },
+      "h3":         { "size": "18px", "lineHeight": "1.4",  "fontWeight": 600, "_use": "section/card title" },
+      "body-lg":    { "size": "18px", "lineHeight": "1.65", "fontWeight": 400, "_use": "main chat bubble" },
+      "body":       { "size": "16px", "lineHeight": "1.65", "fontWeight": 400, "_use": "default body" },
+      "caption":    { "size": "14px", "lineHeight": "1.5",  "fontWeight": 400, "_use": "labels, controls, chips" },
+      "meta":       { "size": "12px", "lineHeight": "1.5",  "fontWeight": 500, "_use": "timestamps, counts" }
     },
     "fontWeight": { "regular": 400, "medium": 500, "semibold": 600, "bold": 700 },
-    "letterSpacing": { "tight": "-0.01em", "normal": "0", "wide": "0.025em" },
     "numerals": "tabular-nums"
   },
+
   "spacing": {
-    "_comment": "8px baseline + 4px exception only. Strictly 4/8/12/16/24/32/48/64.",
-    "1":  "4px",
-    "2":  "8px",
-    "3":  "12px",
-    "4":  "16px",
-    "6":  "24px",
-    "8":  "32px",
-    "12": "48px",
-    "16": "64px",
+    "_comment": "4px baseline. KHX 9-step. Strict — no 6/10/14/18/20/28 outside hard-coded paddings (12/18, 12/22).",
+    "1": "4px", "2": "8px", "3": "12px", "4": "16px",
+    "5": "24px", "6": "32px", "7": "48px", "8": "64px", "9": "96px",
+
     "sidebar":  "220px",
     "titlebar": "36px"
   },
+
   "radius": {
-    "sm":   "4px",
-    "base": "6px",
-    "md":   "8px",
-    "lg":   "12px",
-    "full": "9999px"
+    "_comment": "KHX 5-step. pill rules everything single-line.",
+    "pill":    "999px",
+    "card":    "16px",
+    "card-sm": "14px",
+    "icon":    "10px",
+    "sm":      "8px"
   },
+
   "shadow": {
-    "_comment": "Elevation system. Cards default to sm (replaces border).",
-    "none": "none",
-    "sm":   "0 1px 2px rgba(0,0,0,0.04)",
-    "md":   "0 4px 8px rgba(0,0,0,0.06)",
-    "lg":   "0 8px 16px rgba(0,0,0,0.08)",
-    "xl":   "0 20px 40px rgba(0,0,0,0.12)",
-    "_dark": {
-      "sm": "inset 0 1px 0 rgba(255,255,255,0.04)",
-      "md": "inset 0 1px 0 rgba(255,255,255,0.06)",
-      "lg": "inset 0 1px 0 rgba(255,255,255,0.08)"
+    "_comment": "KHX 6-step. Color = navy-tinted rgba(31,46,77,xx). Dark mode swaps to rgba(0,0,0,xx).",
+    "card":    {
+      "light": "0 1px 2px rgba(31,46,77,.04), 0 8px 24px rgba(31,46,77,.06)",
+      "dark":  "0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4)"
+    },
+    "card-sm": {
+      "light": "0 1px 2px rgba(31,46,77,.04), 0 4px 14px rgba(31,46,77,.05)",
+      "dark":  "0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.35)"
+    },
+    "nav": {
+      "light": "0 4px 24px rgba(31,46,77,.08)",
+      "dark":  "0 4px 24px rgba(0,0,0,.5)"
+    },
+    "btn": {
+      "light": "0 4px 12px rgba(31,46,77,.18)",
+      "dark":  "0 4px 12px rgba(0,0,0,.5)"
+    },
+    "modal": {
+      "light": "0 20px 40px rgba(31,46,77,.18)",
+      "dark":  "0 20px 40px rgba(0,0,0,.6)"
+    },
+    "focus": {
+      "light": "0 0 0 3px rgba(31,46,77,.08)",
+      "dark":  "0 0 0 3px rgba(123,115,240,.2)"
     }
   },
+
   "motion": {
+    "_comment": "KHX minimal 3-step.",
     "duration": {
-      "instant": "100ms",
-      "fast":    "150ms",
-      "base":    "200ms",
-      "slow":    "300ms"
+      "fast": "120ms",
+      "base": "180ms",
+      "slow": "240ms"
     },
     "easing": {
-      "standard":   "cubic-bezier(0.2, 0, 0, 1)",
-      "decelerate": "cubic-bezier(0, 0, 0.2, 1)",
-      "accelerate": "cubic-bezier(0.4, 0, 1, 1)"
-    }
+      "default": "cubic-bezier(0.4, 0, 0.2, 1)"
+    },
+    "_buttonHover": "translateY(-1px)  // KHX primary signature lift"
   },
+
   "zIndex": {
     "base":     0,
     "elevated": 10,
@@ -166,9 +205,16 @@
     "toast":    50,
     "tooltip":  60
   },
+
   "icon": {
-    "size":    { "xs": 12, "sm": 14, "base": 16, "md": 18, "lg": 20, "xl": 24 },
+    "library": "lucide",
     "stroke":  "1.5px",
-    "library": "lucide"
+    "size":    { "sm": 16, "base": 20, "lg": 24 },
+    "box":     { "size": 44, "radius": 10, "bgToken": "color.brand.indigo-soft", "fgToken": "color.brand.indigo" }
+  },
+
+  "layout": {
+    "containerMax": "1200px",
+    "navTopOffset": "24px"
   }
 }

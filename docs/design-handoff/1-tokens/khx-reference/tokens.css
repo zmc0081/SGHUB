@@ -1,0 +1,302 @@
+/* =========================================================================
+   KnowledgeHub X · Design Tokens
+   提取自 knowledgehubtemplate.webflow.io 实际页面截图
+   核心特征：深海军蓝主按钮 + 靛紫强调 + 胶囊主义 + 大圆角柔阴影
+   ========================================================================= */
+
+:root {
+  /* ---------- 1. 品牌色 ---------- */
+  --khx-navy:              #1F2E4D;   /* 主按钮、主标题、深色背景 */
+  --khx-navy-hover:        #2A3A5F;   /* 主按钮 hover */
+  --khx-navy-active:       #15203A;   /* 主按钮 active */
+
+  --khx-indigo:            #4F46E5;   /* 链接、图标、强调元素 */
+  --khx-indigo-hover:      #3730A3;   /* 链接 hover */
+  --khx-indigo-soft:       #EEF0FF;   /* 图标盒底色、徽章底 */
+  --khx-indigo-light:      #E0E5FF;   /* 更浅的强调底 */
+
+  /* ---------- 2. 文字色 ---------- */
+  --khx-text-1:            #1F2E4D;   /* 主文字 / 标题 */
+  --khx-text-2:            #5C6B88;   /* 正文 / 描述 */
+  --khx-text-3:            #939EB3;   /* 占位符 / 辅助 */
+  --khx-text-inverse:      #FFFFFF;   /* 深底反白 */
+  --khx-text-link:         #4F46E5;   /* 链接色 */
+
+  /* ---------- 3. 边框 & 分割 ---------- */
+  --khx-border:            #ECEEF5;   /* 默认边框、输入框、分割线 */
+  --khx-border-strong:     #D9DEEA;   /* 时间轴节点、强调边 */
+  --khx-border-focus:      #1F2E4D;   /* 输入框聚焦边 */
+
+  /* ---------- 4. 背景 ---------- */
+  --khx-bg-page:           #FFFFFF;   /* 页面底 */
+  --khx-bg-soft:           #F8FAFF;   /* 次级背景、Disabled */
+  --khx-bg-card:           #FFFFFF;   /* 卡片底 */
+
+  /* 页面氛围渐变（Hero / Contact 区） */
+  --khx-bg-gradient:       linear-gradient(135deg, #F8FAFF 0%, #F0F2FB 100%);
+  --khx-glow-purple:       radial-gradient(circle, rgba(125, 66, 251, 0.18) 0%, transparent 70%);
+  --khx-glow-blue:         radial-gradient(circle, rgba(141, 173, 253, 0.22) 0%, transparent 70%);
+
+  /* ---------- 5. Changelog 徽章语义色 ---------- */
+  --khx-badge-update-bg:      #EEF0FF;
+  --khx-badge-update-fg:      #4F46E5;
+  --khx-badge-improve-bg:     #DEF5E2;
+  --khx-badge-improve-fg:     #1A8A3A;
+  --khx-badge-bug-bg:         #FFE0E0;
+  --khx-badge-bug-fg:         #C8323C;
+  --khx-badge-new-bg:         #FFF3C2;
+  --khx-badge-new-fg:         #8A6D00;
+
+  /* ---------- 6. 系统语义色（用于 Toast / Form 校验） ---------- */
+  --khx-success:           #1A8A3A;
+  --khx-success-soft:      #DEF5E2;
+  --khx-danger:            #C8323C;
+  --khx-danger-soft:       #FFE0E0;
+  --khx-warning:           #D4AE00;
+  --khx-warning-soft:      #FFF3C2;
+  --khx-info:              #4F46E5;
+  --khx-info-soft:         #EEF0FF;
+
+  /* ---------- 7. 圆角 ---------- */
+  --khx-radius-pill:       999px;     /* 按钮 / 导航 / 单行输入 / 徽章 */
+  --khx-radius-card:       16px;      /* 分类卡 / 套餐卡 */
+  --khx-radius-card-sm:    14px;      /* 侧栏卡 / Changelog 卡 / textarea */
+  --khx-radius-icon-box:   10px;      /* 图标盒 */
+  --khx-radius-sm:         8px;       /* 极小元素（标签 chip 等） */
+
+  /* ---------- 8. 阴影 ---------- */
+  --khx-shadow-card:       0 1px 2px rgba(31, 46, 77, 0.04),
+                           0 8px 24px rgba(31, 46, 77, 0.06);
+  --khx-shadow-card-sm:    0 1px 2px rgba(31, 46, 77, 0.04),
+                           0 4px 14px rgba(31, 46, 77, 0.05);
+  --khx-shadow-nav:        0 4px 24px rgba(31, 46, 77, 0.08);
+  --khx-shadow-btn:        0 4px 12px rgba(31, 46, 77, 0.18);
+  --khx-shadow-modal:      0 20px 40px rgba(31, 46, 77, 0.18);
+  --khx-shadow-focus:      0 0 0 3px rgba(31, 46, 77, 0.08);
+
+  /* ---------- 9. 间距（基于 4px 栅格） ---------- */
+  --khx-space-1:           4px;
+  --khx-space-2:           8px;
+  --khx-space-3:           12px;
+  --khx-space-4:           16px;
+  --khx-space-5:           24px;
+  --khx-space-6:           32px;
+  --khx-space-7:           48px;
+  --khx-space-8:           64px;
+  --khx-space-9:           96px;
+
+  /* ---------- 10. 字体 ---------- */
+  --khx-font-family:       'Inter', -apple-system, BlinkMacSystemFont,
+                           'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+  /* 字号 */
+  --khx-fs-display:        60px;      /* Hero 标题 */
+  --khx-fs-display-sm:     48px;      /* Hero 标题（移动端 / 次级） */
+  --khx-fs-h1:             36px;
+  --khx-fs-h2:             24px;
+  --khx-fs-h3:             18px;
+  --khx-fs-body-lg:        18px;
+  --khx-fs-body:           16px;
+  --khx-fs-caption:        14px;
+  --khx-fs-meta:           12px;
+  --khx-fs-label:          14px;
+
+  /* 字重 */
+  --khx-fw-regular:        400;
+  --khx-fw-medium:         500;
+  --khx-fw-semibold:       600;
+  --khx-fw-bold:           700;
+
+  /* 行高 */
+  --khx-lh-tight:          1.2;       /* Display / H1 */
+  --khx-lh-snug:           1.3;       /* H2 */
+  --khx-lh-normal:         1.5;       /* UI 文字 */
+  --khx-lh-relaxed:        1.65;      /* 正文 */
+
+  /* ---------- 11. 动效 ---------- */
+  --khx-ease:              cubic-bezier(0.4, 0, 0.2, 1);
+  --khx-duration-fast:     120ms;
+  --khx-duration-base:     180ms;
+  --khx-duration-slow:     240ms;
+
+  /* ---------- 12. 布局 ---------- */
+  --khx-container-max:     1200px;
+  --khx-nav-top-offset:    24px;      /* 悬浮导航距页顶 */
+  --khx-content-gutter:    24px;
+}
+
+
+/* =========================================================================
+   组件级 utility class（可选，建议作为示范，业务项目里按需挑选）
+   ========================================================================= */
+
+/* ---- 按钮 ---- */
+.khx-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--khx-space-2);
+  font-family: var(--khx-font-family);
+  font-weight: var(--khx-fw-medium);
+  border-radius: var(--khx-radius-pill);
+  border: 1px solid transparent;
+  cursor: pointer;
+  line-height: 1;
+  transition: all var(--khx-duration-base) var(--khx-ease);
+}
+.khx-btn--primary {
+  background: var(--khx-navy);
+  color: var(--khx-text-inverse);
+  box-shadow: var(--khx-shadow-btn);
+}
+.khx-btn--primary:hover {
+  background: var(--khx-navy-hover);
+  transform: translateY(-1px);
+}
+.khx-btn--primary:active { background: var(--khx-navy-active); transform: translateY(0); }
+
+.khx-btn--secondary {
+  background: var(--khx-bg-card);
+  color: var(--khx-text-1);
+  border-color: var(--khx-border);
+}
+.khx-btn--secondary:hover { border-color: var(--khx-navy); }
+
+.khx-btn--link {
+  background: transparent;
+  color: var(--khx-indigo);
+  font-weight: var(--khx-fw-semibold);
+  padding: 0;
+  border-radius: 0;
+}
+.khx-btn--link:hover { color: var(--khx-indigo-hover); }
+
+.khx-btn--sm { padding: 8px 14px; font-size: 12px; }
+.khx-btn--md { padding: 12px 22px; font-size: 13px; }
+.khx-btn--lg { padding: 14px 26px; font-size: 14px; }
+
+/* ---- 输入框 ---- */
+.khx-input {
+  width: 100%;
+  padding: 12px 18px;
+  font-family: var(--khx-font-family);
+  font-size: 13px;
+  color: var(--khx-text-1);
+  background: var(--khx-bg-card);
+  border: 1px solid var(--khx-border);
+  border-radius: var(--khx-radius-pill);
+  outline: none;
+  transition: all var(--khx-duration-base) var(--khx-ease);
+  box-sizing: border-box;
+}
+.khx-input:focus {
+  border-color: var(--khx-border-focus);
+  box-shadow: var(--khx-shadow-focus);
+}
+.khx-input::placeholder { color: var(--khx-text-3); }
+
+.khx-textarea {
+  width: 100%;
+  min-height: 90px;
+  padding: 14px 18px;
+  font-family: var(--khx-font-family);
+  font-size: 13px;
+  color: var(--khx-text-1);
+  background: var(--khx-bg-card);
+  border: 1px solid var(--khx-border);
+  border-radius: var(--khx-radius-card-sm);
+  outline: none;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.khx-textarea:focus {
+  border-color: var(--khx-border-focus);
+  box-shadow: var(--khx-shadow-focus);
+}
+
+/* ---- 卡片 ---- */
+.khx-card {
+  background: var(--khx-bg-card);
+  border-radius: var(--khx-radius-card);
+  box-shadow: var(--khx-shadow-card);
+  padding: var(--khx-space-5);
+}
+.khx-card--sm {
+  border-radius: var(--khx-radius-card-sm);
+  box-shadow: var(--khx-shadow-card-sm);
+}
+
+/* ---- 图标盒 ---- */
+.khx-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--khx-radius-icon-box);
+  background: var(--khx-indigo-soft);
+  color: var(--khx-indigo);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+/* ---- 徽章 ---- */
+.khx-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--khx-radius-pill);
+  font-size: var(--khx-fs-meta);
+  font-weight: var(--khx-fw-medium);
+  line-height: 1.5;
+}
+.khx-badge--update  { background: var(--khx-badge-update-bg);  color: var(--khx-badge-update-fg);  }
+.khx-badge--improve { background: var(--khx-badge-improve-bg); color: var(--khx-badge-improve-fg); }
+.khx-badge--bug     { background: var(--khx-badge-bug-bg);     color: var(--khx-badge-bug-fg);     }
+.khx-badge--new     { background: var(--khx-badge-new-bg);     color: var(--khx-badge-new-fg);     }
+
+/* ---- 悬浮胶囊导航 ---- */
+.khx-nav {
+  background: var(--khx-bg-card);
+  border-radius: var(--khx-radius-pill);
+  box-shadow: var(--khx-shadow-nav);
+  padding: 10px 12px 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--khx-space-4);
+}
+
+/* ---- 文字工具类 ---- */
+.khx-link {
+  color: var(--khx-text-link);
+  font-weight: var(--khx-fw-semibold);
+  text-decoration: none;
+  transition: color var(--khx-duration-base) var(--khx-ease);
+}
+.khx-link:hover { color: var(--khx-indigo-hover); }
+
+/* ---- 页面氛围背景（Hero / Contact 区域使用） ---- */
+.khx-stage {
+  background: var(--khx-bg-gradient);
+  position: relative;
+  overflow: hidden;
+}
+.khx-stage::before,
+.khx-stage::after {
+  content: '';
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.khx-stage::before {
+  background: var(--khx-glow-purple);
+  top: -80px;
+  right: -80px;
+}
+.khx-stage::after {
+  background: var(--khx-glow-blue);
+  bottom: -80px;
+  left: -60px;
+}
+.khx-stage > * { position: relative; z-index: 1; }

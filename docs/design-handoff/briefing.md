@@ -1,7 +1,12 @@
 # 给 Claude design 的项目简报
 
 > 直接复制全文,粘到 claude.ai 新建 Project 的「Project Instructions」框。
-> 然后把 3 个文件上传到「Project Knowledge」:`ui-design-requirements.md` / `ui-screenshots-checklist.md` / `design-style-spec.md`。
+> 然后把以下文件上传到「Project Knowledge」:
+> - `ui-design-requirements.md`(V2.1.0 现状基线)
+> - `ui-screenshots-checklist.md`(产出目标清单)
+> - `design-style-spec.md`(新风格规范「SGHUB Capsule」)
+> - `1-tokens/khx-reference/tokens.css`(KHX 实景 token 权威源)
+> - `1-tokens/khx-reference/README.md`(KHX 用法说明)
 
 ---
 
@@ -27,9 +32,16 @@
    这是你的产出目标列表。每一个占位对应一个状态/弹窗/主题/语言
    组合,你的设计必须能在这些场景下成立。
 
-3. design-style-spec.md — 新设计风格规范「Editorial Calm」
-   5 条设计支柱、新旧对照、7 条质量自检。
+3. design-style-spec.md — 新设计风格规范「SGHUB Capsule」
+   基于 KnowledgeHub X (KHX) 实景模板改造。5 大视觉支柱
+   (胶囊主义 / 深色重音 / 靛紫次级 / 大圆角柔阴影 / 紫蓝氛围)、
+   完整 token 表(亮+暗双套)、KHX → SGHUB 映射表、7 条质量自检。
    这是你的设计风格 ground truth,所有产出必须遵循。
+
+4. 1-tokens/khx-reference/ — KHX 原始 token(权威源)
+   tokens.css / tokens.scss / tailwind.config.js / tailwind-v4.css / README.md
+   光色全部数值的真实出处,你的所有 token 输出必须能在这里溯源。
+   暗色由 SGHUB 推导(见 design-style-spec.md §6),不在 KHX 里。
 
 ## 硬约束(违反任何一条都需要返工)
 
@@ -49,8 +61,11 @@
 Step 1 - Tokens
   产出 design-tokens.json(亮+暗双套) + tailwind.config.diff.js
   必须覆盖:colors / fonts / spacing / radius / shadow / motion / z-index
-  必须与 ui-design-requirements.md §1 的现有 CSS 变量名一一对应,
-  不新增变量名(只调值);如需新增,先列出来跟我确认。
+  亮色值必须能在 1-tokens/khx-reference/tokens.css 里找到出处
+  (直接抄,不要再创新);暗色值按 design-style-spec.md §6 规则推导。
+  SGHUB 专属 token(sidebar / titlebar / source / readStatus / tagPalette)
+  按 design-style-spec.md §2.7-§2.10 自加,要在交付时明确标出哪些是
+  「KHX 原值」哪些是「SGHUB 扩展」。
 
 Step 2 - 共享组件规格
   产出 component-specs.md
@@ -88,15 +103,29 @@ Step 6 - 最终预览图(可选,推荐)
   对照 ui-screenshots-checklist.md 的占位,至少补齐:
   9 个页面每页 1 张亮色 + 5 个代表页面的暗色 + 5 张英文版
 
+## 风格底线(违反任何一条都需要返工)
+
+来自 KHX README + SGHUB 加强,在所有交付物中都不允许:
+
+1. 主按钮不是 navy `#1F2E4D` — indigo 是次级强调,不能上主按钮
+2. 单行元素不用 999px pill — 胶囊主义是关键识别,改 8px/12px 会立刻不像 KHX
+3. 卡片用 border 代替 shadow — 大圆角双层柔阴影是 KHX 灵魂
+4. 图标盒色搭混乱 — bg=indigo-soft + fg=indigo 是固定 pair
+5. Changelog 徽章 4 色之外加新色 — 4 色固定 4 含义
+6. 任何位置硬编码 `#XXXXXX` — 全部走 token
+7. emoji 当图标 — 全部 Lucide SVG
+8. `window.confirm/prompt/alert` — 全部走 ConfirmDialog/InputDialog
+9. `transition-all duration-500` 等随手过渡 — 必须用 motion token
+
 ## 每步交付的质量自检(7 条,必须自查)
 
-1. 所有色值来自 design-tokens,禁止硬编码 #XXXXXX
+1. 所有色值来自 design-tokens(KHX 原值能在 khx-reference/ 溯源,SGHUB 扩展明确标注)
 2. 亮 / 暗两套都呈现,对比度 ≥ WCAG AA(正文 4.5:1,大字 3:1)
-3. 中英文双语已模拟,英文最长态不溢出
-4. 9 个页面在 1280×800 与 960×600 两个尺寸下都不破版
-5. 全部 emoji 已替换为 SVG,描边粗细 1.5px 一致
-6. 每个组件 hover / disabled / loading / error 四态齐全
-7. 动效全部用 motion tokens,无随手写的 transition-all duration-500
+3. 胶囊主义贯穿:单行输入 / 按钮 / 导航 / 徽章一律 999px,textarea 14px
+4. 主按钮唯一 `--navy`,所有 indigo 仅出现在链接 / 图标 / 次级强调
+5. 9 个页面在 1280×800 与 960×600 两个尺寸下都不破版
+6. 全部 emoji 已替换为 Lucide SVG(描边 1.5px,继承 currentColor)
+7. 动效全部用 motion tokens(120/180/240ms + ease-khx),无随手 transition-all
 
 ## 工作方式
 
@@ -117,10 +146,14 @@ Step 6 - 最终预览图(可选,推荐)
 
 请上传到 claude.ai 项目的 Knowledge:
 
-| 文件 | 路径 | 用途 |
-|---|---|---|
-| `ui-design-requirements.md` | `docs/ui-design-requirements.md` | V2.1.0 基线 |
-| `ui-screenshots-checklist.md` | `docs/ui-screenshots-checklist.md` | 产出目标 |
-| `design-style-spec.md` | `docs/design-handoff/design-style-spec.md` | 新风格规范 |
+| # | 文件 | 路径 | 用途 |
+|---|---|---|---|
+| 1 | `ui-design-requirements.md` | `docs/ui-design-requirements.md` | V2.1.0 基线 |
+| 2 | `ui-screenshots-checklist.md` | `docs/ui-screenshots-checklist.md` | 产出目标 |
+| 3 | `design-style-spec.md` | `docs/design-handoff/design-style-spec.md` | 新风格规范「SGHUB Capsule」 |
+| 4 | `khx-reference/tokens.css` | `docs/design-handoff/1-tokens/khx-reference/tokens.css` | KHX 权威 token |
+| 5 | `khx-reference/README.md` | `docs/design-handoff/1-tokens/khx-reference/README.md` | KHX 用法说明 |
+| 6 | `design-tokens.starter.json` | `docs/design-handoff/1-tokens/design-tokens.starter.json` | SGHUB-shaped tokens 中间件(可选)|
 
-> 若 claude.ai 限制附件数量,只上传上面 3 个即可,其余靠 Project Instructions 里的引用。
+> 若 claude.ai 限制附件数量,优先级:1 > 3 > 4 > 2 > 5 > 6。
+> 至少要有 1 / 3 / 4,这是 ground truth 三件套。
