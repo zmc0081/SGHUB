@@ -1,0 +1,22 @@
+# Step 3 output goes here (shared components)
+
+Expected files (one per shared component):
+
+- Sidebar.draft.tsx
+- Titlebar.draft.tsx
+- PaperPicker.draft.tsx
+- PaperActions.draft.tsx
+- FavoriteButton.draft.tsx
+- PaperMetadataEditor.draft.tsx
+- SkillEditor.draft.tsx
+- DataDirCard.draft.tsx
+- UpdaterCard.draft.tsx
+
+Plus new shared infrastructure (V2.2 additions):
+
+- ToastProvider.draft.tsx       (replaces 3 scattered toast systems)
+- BaseModal.draft.tsx           (replaces window.confirm / prompt / alert)
+- ConfirmDialog.draft.tsx
+- InputDialog.draft.tsx
+- Skeleton.draft.tsx            (replaces "加载中…" text)
+- Icon.draft.tsx                (wrapper around lucide-react)

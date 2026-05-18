@@ -1,0 +1,174 @@
+{
+  "$schema": "https://schemas.sghub.app/design-tokens.json",
+  "$comment": [
+    "STARTER seed for Claude design.",
+    "This is V2.1.0 current values + placeholder slots for V2.2 'Editorial Calm'.",
+    "Modify values to match design-style-spec.md, keep keys stable so Claude Code can",
+    "mechanically apply via src/styles/index.css + tailwind.config.js.",
+    "When done, save final file as design-tokens.json (drop the .starter suffix)."
+  ],
+  "meta": {
+    "name": "SGHUB Editorial Calm",
+    "version": "2.2.0-draft",
+    "basedOn": "V2.1.0 commit 93bae92",
+    "lastUpdated": "TODO: yyyy-mm-dd by Claude design"
+  },
+  "color": {
+    "brand": {
+      "primary": {
+        "light": { "current": "#1F3864", "v22": "TODO" },
+        "dark":  { "current": "#4A78C8", "v22": "TODO" },
+        "_role": "main actions, H1, active states"
+      },
+      "primary-hover": {
+        "light": { "current": null, "v22": "TODO" },
+        "dark":  { "current": null, "v22": "TODO" }
+      },
+      "primary-fg": {
+        "light": { "current": "#FFFFFF", "v22": "TODO" },
+        "dark":  { "current": "#FFFFFF", "v22": "TODO" }
+      },
+      "accent": {
+        "light": { "current": "#D4A017", "v22": "TODO" },
+        "dark":  { "current": "#E6B536", "v22": "TODO" },
+        "_role": "NEW badge, drag-over ring, accents"
+      },
+      "accent-fg": {
+        "light": { "current": "#1A1F2E", "v22": "TODO" },
+        "dark":  { "current": "#0F1115", "v22": "TODO" }
+      }
+    },
+    "neutral": {
+      "_comment": "9-step gray scale (V2.2 new). Replaces text-app-fg/50/60/70 opacity hacks.",
+      "0":   { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "card bg" },
+      "50":  { "light": { "current": "#F8F6F1", "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "page bg" },
+      "100": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "nested bg" },
+      "200": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "default border" },
+      "300": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "hover border" },
+      "400": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "placeholder/disabled" },
+      "500": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "meta text" },
+      "600": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "secondary body" },
+      "700": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "subtitle" },
+      "800": { "light": { "current": "#1A1F2E", "v22": "TODO" }, "dark": { "current": "#E8E8EC", "v22": "TODO" }, "_role": "body" },
+      "900": { "light": { "v22": "TODO" }, "dark": { "v22": "TODO" }, "_role": "H1, emphasis" }
+    },
+    "sidebar": {
+      "bg":        { "light": { "current": "#1A1F2E" }, "dark": { "current": "#0A0C12" } },
+      "fg":        { "light": { "current": "#C8C8D0" }, "dark": { "current": "#B0B0BC" } },
+      "fg-active": { "light": { "current": "#FFFFFF" }, "dark": { "current": "#FFFFFF" } }
+    },
+    "titlebar": {
+      "bg": { "light": { "current": "#1A1F2E" }, "dark": { "current": "#0A0C12" } },
+      "fg": { "light": { "current": "#C8C8D0" }, "dark": { "current": "#B0B0BC" } }
+    },
+    "border": {
+      "default": { "light": { "current": "rgba(0,0,0,0.08)", "v22": "TODO" }, "dark": { "current": "rgba(255,255,255,0.1)", "v22": "TODO" } }
+    },
+    "feedback": {
+      "success": { "bg": "TODO", "border": "TODO", "fg": "TODO" },
+      "warning": { "bg": "TODO", "border": "TODO", "fg": "TODO" },
+      "danger":  { "bg": "TODO", "border": "TODO", "fg": "TODO" },
+      "info":    { "bg": "TODO", "border": "TODO", "fg": "TODO" }
+    },
+    "source": {
+      "_comment": "Paper source badges. Currently hardcoded — promote to tokens.",
+      "arxiv":            { "bg": "#B31B1B", "fg": "#FFFFFF", "darkBg": "TODO" },
+      "semantic_scholar": { "bg": "#1857B6", "fg": "#FFFFFF", "darkBg": "TODO" },
+      "pubmed":           { "bg": "#00897B", "fg": "#FFFFFF", "darkBg": "TODO" },
+      "openalex":         { "bg": "#7B3FBF", "fg": "#FFFFFF", "darkBg": "TODO" },
+      "local":            { "bg": "#6B7280", "fg": "#FFFFFF", "darkBg": "TODO" }
+    },
+    "readStatus": {
+      "_comment": "Library card left-edge color bar (10px wide).",
+      "unread":  { "current": "#D1D5DB", "v22": "TODO" },
+      "reading": { "current": "#FBBF24", "v22": "TODO" },
+      "read":    { "current": "#10B981", "v22": "TODO" },
+      "parsed":  { "current": "#6366F1", "v22": "TODO" }
+    },
+    "tagPalette": {
+      "_comment": "8-color cycle for Library tag chips.",
+      "current": ["#1F3864", "#D4A017", "#10B981", "#EF4444", "#8B5CF6", "#06B6D4", "#F97316", "#EC4899"],
+      "v22": ["TODO", "TODO", "TODO", "TODO", "TODO", "TODO", "TODO", "TODO"]
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "sans":  "-apple-system, BlinkMacSystemFont, \"Segoe UI\", \"Inter\", \"Microsoft YaHei\", \"PingFang SC\", sans-serif",
+      "mono":  "\"JetBrains Mono\", \"Fira Code\", \"SF Mono\", Consolas, monospace",
+      "serif": "\"Source Serif Pro\", \"Noto Serif SC\", Georgia, serif"
+    },
+    "fontSize": {
+      "_comment": "label / size / lineHeight",
+      "xs":   { "size": "12px", "lineHeight": "16px" },
+      "sm":   { "size": "14px", "lineHeight": "20px" },
+      "base": { "size": "15px", "lineHeight": "22px" },
+      "lg":   { "size": "17px", "lineHeight": "24px" },
+      "xl":   { "size": "20px", "lineHeight": "28px" },
+      "2xl":  { "size": "24px", "lineHeight": "32px" },
+      "3xl":  { "size": "32px", "lineHeight": "40px" }
+    },
+    "fontWeight": { "regular": 400, "medium": 500, "semibold": 600, "bold": 700 },
+    "letterSpacing": { "tight": "-0.01em", "normal": "0", "wide": "0.025em" },
+    "numerals": "tabular-nums"
+  },
+  "spacing": {
+    "_comment": "8px baseline + 4px exception only. Strictly 4/8/12/16/24/32/48/64.",
+    "1":  "4px",
+    "2":  "8px",
+    "3":  "12px",
+    "4":  "16px",
+    "6":  "24px",
+    "8":  "32px",
+    "12": "48px",
+    "16": "64px",
+    "sidebar":  "220px",
+    "titlebar": "36px"
+  },
+  "radius": {
+    "sm":   "4px",
+    "base": "6px",
+    "md":   "8px",
+    "lg":   "12px",
+    "full": "9999px"
+  },
+  "shadow": {
+    "_comment": "Elevation system. Cards default to sm (replaces border).",
+    "none": "none",
+    "sm":   "0 1px 2px rgba(0,0,0,0.04)",
+    "md":   "0 4px 8px rgba(0,0,0,0.06)",
+    "lg":   "0 8px 16px rgba(0,0,0,0.08)",
+    "xl":   "0 20px 40px rgba(0,0,0,0.12)",
+    "_dark": {
+      "sm": "inset 0 1px 0 rgba(255,255,255,0.04)",
+      "md": "inset 0 1px 0 rgba(255,255,255,0.06)",
+      "lg": "inset 0 1px 0 rgba(255,255,255,0.08)"
+    }
+  },
+  "motion": {
+    "duration": {
+      "instant": "100ms",
+      "fast":    "150ms",
+      "base":    "200ms",
+      "slow":    "300ms"
+    },
+    "easing": {
+      "standard":   "cubic-bezier(0.2, 0, 0, 1)",
+      "decelerate": "cubic-bezier(0, 0, 0.2, 1)",
+      "accelerate": "cubic-bezier(0.4, 0, 1, 1)"
+    }
+  },
+  "zIndex": {
+    "base":     0,
+    "elevated": 10,
+    "dropdown": 20,
+    "popover":  30,
+    "modal":    40,
+    "toast":    50,
+    "tooltip":  60
+  },
+  "icon": {
+    "size":    { "xs": 12, "sm": 14, "base": 16, "md": 18, "lg": 20, "xl": 24 },
+    "stroke":  "1.5px",
+    "library": "lucide"
+  }
+}

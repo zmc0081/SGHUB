@@ -1,0 +1,12 @@
+# Logo files
+
+Required:
+
+- sghub-logo.svg          (full logo, used in titlebar/marketing)
+- sghub-mark.svg          (square mark, used as app icon, 1024×1024 source)
+- sghub-mark-mono.svg     (monochrome variant for dark backgrounds)
+
+If creating an app-icon set, also produce:
+- sghub-mark.png at 32 / 128 / 128@2x / 256 / 512 / 1024 px
+- sghub-mark.ico (Windows)
+- sghub-mark.icns (macOS)

@@ -1,0 +1,14 @@
+# Step 6 output goes here (optional but recommended)
+
+Refer to ../../ui-screenshots-checklist.md for the full 207-slot inventory.
+
+Minimum for Step 6 acceptance:
+- 9 main flows  ({page}-mainflow-light.png × 9)
+- 5 dark variants  (search/library/parse/chat/settings)
+- 5 English variants  (search/sidebar/settings/skillgen/library)
+
+Total ~19 PNGs minimum. Full coverage = 207 PNGs (handle in separate Tier-2 pass).
+
+These PNGs are visual reference for human review and Claude Code's
+side-by-side diff during refactor. They are NOT the primary input —
+the .draft.tsx files in 2-mockups/ are.

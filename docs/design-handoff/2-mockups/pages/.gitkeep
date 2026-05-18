@@ -1,0 +1,19 @@
+# Step 3 output goes here
+
+Expected files (one per page, 9 total):
+
+- Search.draft.tsx
+- Feed.draft.tsx
+- Library.draft.tsx
+- Parse.draft.tsx
+- Chat.draft.tsx
+- Models.draft.tsx
+- Skills.draft.tsx
+- SkillGenerator.draft.tsx
+- Settings.draft.tsx
+
+Each file exports multiple state variants:
+  export function {Page}Draft_MainFlow() { ... }
+  export function {Page}Draft_Empty() { ... }
+  export function {Page}Draft_Loading() { ... }
+  export function {Page}Draft_Error() { ... }
