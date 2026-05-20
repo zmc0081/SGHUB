@@ -19,9 +19,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 
-use crate::ai_client::{
-    get_one as get_model_config, list_all, provider_for, AiError, Message,
-};
+use crate::ai_client::{get_one as get_model_config, list_all, provider_for, AiError, Message};
 use crate::AppState;
 
 use super::uploader::{normalize_skill_content, validate_skill, SkillSpec};
@@ -297,9 +295,8 @@ async fn validate_or_retry(
 }
 
 fn parse_and_validate(yaml: &str) -> Result<SkillSpec, Vec<String>> {
-    let spec: SkillSpec = serde_yaml::from_str(yaml).map_err(|e| {
-        vec![format!("YAML 解析失败: {}", e)]
-    })?;
+    let spec: SkillSpec =
+        serde_yaml::from_str(yaml).map_err(|e| vec![format!("YAML 解析失败: {}", e)])?;
     validate_skill(&spec)?;
     Ok(spec)
 }
@@ -360,7 +357,10 @@ mod tests {
         assert!(p.contains("Skill for clinical trial papers"));
         assert!(p.contains("name: general_read"), "few-shot must be present");
         // The hard contract sentence
-        assert!(p.contains("ONE fenced"), "hard-output contract must be there");
+        assert!(
+            p.contains("ONE fenced"),
+            "hard-output contract must be there"
+        );
     }
 
     #[test]
@@ -445,7 +445,8 @@ mod tests {
         assert!(r.is_err());
         let errs = r.unwrap_err();
         assert!(
-            errs.iter().any(|e| e.contains("模板") || e.contains("变量")),
+            errs.iter()
+                .any(|e| e.contains("模板") || e.contains("变量")),
             "errors: {:?}",
             errs
         );

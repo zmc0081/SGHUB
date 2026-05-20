@@ -7,8 +7,8 @@ use tauri::Emitter;
 use crate::search::Paper;
 use crate::AppState;
 
-pub mod pdf_download;
 pub mod metadata_extractor;
+pub mod pdf_download;
 pub mod uploader;
 
 // ============================================================
@@ -178,11 +178,7 @@ fn db_create_folder(
     })
 }
 
-fn db_rename_folder(
-    pool: &crate::db::DbPool,
-    id: &str,
-    name: &str,
-) -> rusqlite::Result<usize> {
+fn db_rename_folder(pool: &crate::db::DbPool, id: &str, name: &str) -> rusqlite::Result<usize> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
@@ -216,11 +212,9 @@ fn db_move_folder(
                 ));
             }
             cur = conn
-                .query_row(
-                    "SELECT parent_id FROM folders WHERE id = ?1",
-                    [&c],
-                    |r| r.get::<_, Option<String>>(0),
-                )
+                .query_row("SELECT parent_id FROM folders WHERE id = ?1", [&c], |r| {
+                    r.get::<_, Option<String>>(0)
+                })
                 .optional()?
                 .flatten();
         }
@@ -295,8 +289,7 @@ fn db_folder_tree(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<FolderNode>>
     let mut counts: HashMap<String, i64> = HashMap::new();
     let mut count_stmt =
         conn.prepare("SELECT folder_id, COUNT(*) FROM folder_papers GROUP BY folder_id")?;
-    let rows = count_stmt
-        .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
+    let rows = count_stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
     for r in rows {
         let (k, v) = r?;
         counts.insert(k, v);
@@ -385,16 +378,12 @@ fn db_move_paper_to_folder(
 /// List the folder IDs a paper currently belongs to. Empty when the paper
 /// has not been collected yet — that's the signal the frontend uses to
 /// render the ☆/⭐ state of the FavoriteButton.
-fn db_get_paper_folders(
-    pool: &crate::db::DbPool,
-    paper_id: &str,
-) -> rusqlite::Result<Vec<String>> {
+fn db_get_paper_folders(pool: &crate::db::DbPool, paper_id: &str) -> rusqlite::Result<Vec<String>> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-    let mut stmt = conn.prepare(
-        "SELECT folder_id FROM folder_papers WHERE paper_id = ?1 ORDER BY folder_id",
-    )?;
+    let mut stmt =
+        conn.prepare("SELECT folder_id FROM folder_papers WHERE paper_id = ?1 ORDER BY folder_id")?;
     let rows: Vec<String> = stmt
         .query_map([paper_id], |r| r.get(0))?
         .collect::<rusqlite::Result<_>>()?;
@@ -412,9 +401,8 @@ fn db_batch_add_to_folder(
     let tx = conn.transaction()?;
     let mut count = 0usize;
     {
-        let mut stmt = tx.prepare(
-            "INSERT OR IGNORE INTO folder_papers (folder_id, paper_id) VALUES (?1, ?2)",
-        )?;
+        let mut stmt = tx
+            .prepare("INSERT OR IGNORE INTO folder_papers (folder_id, paper_id) VALUES (?1, ?2)")?;
         for pid in paper_ids {
             count += stmt.execute(params![folder_id, pid])?;
         }
@@ -427,11 +415,7 @@ fn db_batch_add_to_folder(
 // Tags
 // ============================================================
 
-fn db_create_tag(
-    pool: &crate::db::DbPool,
-    name: &str,
-    color: &str,
-) -> rusqlite::Result<Tag> {
+fn db_create_tag(pool: &crate::db::DbPool, name: &str, color: &str) -> rusqlite::Result<Tag> {
     let id = new_id();
     let now = now_iso();
     let conn = pool
@@ -511,9 +495,8 @@ fn db_batch_tag(
     let tx = conn.transaction()?;
     let mut count = 0usize;
     {
-        let mut stmt = tx.prepare(
-            "INSERT OR IGNORE INTO tag_papers (tag_id, paper_id) VALUES (?1, ?2)",
-        )?;
+        let mut stmt =
+            tx.prepare("INSERT OR IGNORE INTO tag_papers (tag_id, paper_id) VALUES (?1, ?2)")?;
         for pid in paper_ids {
             count += stmt.execute(params![tag_id, pid])?;
         }
@@ -566,10 +549,7 @@ fn db_papers_by_folder(
 }
 
 /// Lookup a single paper by id. Used by parse / AI features.
-pub fn db_get_paper_by_id(
-    pool: &crate::db::DbPool,
-    id: &str,
-) -> rusqlite::Result<Option<Paper>> {
+pub fn db_get_paper_by_id(pool: &crate::db::DbPool, id: &str) -> rusqlite::Result<Option<Paper>> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
@@ -581,10 +561,7 @@ pub fn db_get_paper_by_id(
     .optional()
 }
 
-fn db_recent_papers(
-    pool: &crate::db::DbPool,
-    limit: u32,
-) -> rusqlite::Result<Vec<Paper>> {
+fn db_recent_papers(pool: &crate::db::DbPool, limit: u32) -> rusqlite::Result<Vec<Paper>> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
@@ -601,10 +578,7 @@ fn db_recent_papers(
     Ok(rows)
 }
 
-fn db_papers_by_tag(
-    pool: &crate::db::DbPool,
-    tag_id: &str,
-) -> rusqlite::Result<Vec<Paper>> {
+fn db_papers_by_tag(pool: &crate::db::DbPool, tag_id: &str) -> rusqlite::Result<Vec<Paper>> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
@@ -656,16 +630,12 @@ macro_rules! spawn_db {
 }
 
 #[tauri::command]
-pub async fn get_folders(
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<Folder>, String> {
+pub async fn get_folders(state: tauri::State<'_, AppState>) -> Result<Vec<Folder>, String> {
     spawn_db!(state, db_list_folders)
 }
 
 #[tauri::command]
-pub async fn get_folder_tree(
-    state: tauri::State<'_, AppState>,
-) -> Result<Vec<FolderNode>, String> {
+pub async fn get_folder_tree(state: tauri::State<'_, AppState>) -> Result<Vec<FolderNode>, String> {
     spawn_db!(state, db_folder_tree)
 }
 
@@ -706,12 +676,11 @@ pub async fn move_folder(
     new_parent_id: Option<String>,
 ) -> Result<(), String> {
     let pool = state.db_pool.clone();
-    let n = tokio::task::spawn_blocking(move || {
-        db_move_folder(&pool, &id, new_parent_id.as_deref())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())?;
+    let n =
+        tokio::task::spawn_blocking(move || db_move_folder(&pool, &id, new_parent_id.as_deref()))
+            .await
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
     if n == 0 {
         return Err("folder not found".into());
     }
@@ -719,10 +688,7 @@ pub async fn move_folder(
 }
 
 #[tauri::command]
-pub async fn delete_folder(
-    state: tauri::State<'_, AppState>,
-    id: String,
-) -> Result<(), String> {
+pub async fn delete_folder(state: tauri::State<'_, AppState>, id: String) -> Result<(), String> {
     let pool = state.db_pool.clone();
     let n = tokio::task::spawn_blocking(move || db_delete_folder(&pool, &id))
         .await
@@ -909,10 +875,7 @@ pub async fn create_tag(
 }
 
 #[tauri::command]
-pub async fn delete_tag(
-    state: tauri::State<'_, AppState>,
-    id: String,
-) -> Result<(), String> {
+pub async fn delete_tag(state: tauri::State<'_, AppState>, id: String) -> Result<(), String> {
     let pool = state.db_pool.clone();
     let n = tokio::task::spawn_blocking(move || db_delete_tag(&pool, &id))
         .await
@@ -1273,12 +1236,7 @@ mod tests {
             insert_paper(&pool, &format!("p{}", i), &format!("P{}", i));
         }
         let t = db_create_tag(&pool, "x", "#000000").unwrap();
-        let n = db_batch_tag(
-            &pool,
-            &t.id,
-            &["p0".into(), "p1".into(), "p2".into()],
-        )
-        .unwrap();
+        let n = db_batch_tag(&pool, &t.id, &["p0".into(), "p1".into(), "p2".into()]).unwrap();
         assert_eq!(n, 3);
     }
 

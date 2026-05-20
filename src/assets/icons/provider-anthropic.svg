@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SGHUB stylized Anthropic provider mark. Not an exact logo reproduction.
+     viewBox 24×24, stroke 1.5px, inherits currentColor. -->
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.5"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <!-- Outer "A" triangle: tall isoceles shape -->
+  <path d="M5 20 L12 4 L19 20" />
+  <!-- Inner crossbar -->
+  <path d="M8.3 14 L15.7 14" />
+  <!-- Inner triangular cutout (the negative space that makes it look Anthropic-ish) -->
+  <path d="M10.5 17 L12 13 L13.5 17 Z" />
+</svg>

@@ -199,9 +199,7 @@ fn db_list(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<Subscription>> {
     Ok(rows)
 }
 
-pub(crate) fn db_list_active(
-    pool: &crate::db::DbPool,
-) -> rusqlite::Result<Vec<Subscription>> {
+pub(crate) fn db_list_active(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<Subscription>> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
@@ -290,17 +288,11 @@ fn db_list_notifications(
     Ok(rows)
 }
 
-fn db_mark_notification_read(
-    pool: &crate::db::DbPool,
-    id: &str,
-) -> rusqlite::Result<usize> {
+fn db_mark_notification_read(pool: &crate::db::DbPool, id: &str) -> rusqlite::Result<usize> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-    conn.execute(
-        "UPDATE notifications SET is_read = 1 WHERE id = ?1",
-        [id],
-    )
+    conn.execute("UPDATE notifications SET is_read = 1 WHERE id = ?1", [id])
 }
 
 fn db_subscription_results(
@@ -396,17 +388,16 @@ fn db_unread_count(pool: &crate::db::DbPool) -> rusqlite::Result<i64> {
 // Run one subscription — fan-out search, dedup, link, notify
 // ============================================================
 
-pub(crate) async fn run_one(
-    app: &tauri::AppHandle,
-    sub: &Subscription,
-) -> Result<usize, String> {
+pub(crate) async fn run_one(app: &tauri::AppHandle, sub: &Subscription) -> Result<usize, String> {
     let mut all_papers: Vec<Paper> = Vec::new();
 
     for source in &sub.sources {
         let q = sub.keyword_expr.as_str();
         let limit = sub.max_results as u32;
         let result = match source.as_str() {
-            "arxiv" => tokio::time::timeout(SOURCE_TIMEOUT, crate::search::arxiv::search(q, limit)).await,
+            "arxiv" => {
+                tokio::time::timeout(SOURCE_TIMEOUT, crate::search::arxiv::search(q, limit)).await
+            }
             "semantic_scholar" => {
                 tokio::time::timeout(
                     SOURCE_TIMEOUT,
@@ -597,12 +588,10 @@ pub async fn get_subscription_results(
     subscription_id: Option<String>,
 ) -> Result<Vec<SubscriptionResult>, String> {
     let pool = state.db_pool.clone();
-    tokio::task::spawn_blocking(move || {
-        db_subscription_results(&pool, subscription_id.as_deref())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
+    tokio::task::spawn_blocking(move || db_subscription_results(&pool, subscription_id.as_deref()))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -752,20 +741,10 @@ mod tests {
         for i in 0..3 {
             insert_paper(&pool, &format!("p{}", i));
         }
-        let n1 = db_link_papers(
-            &pool,
-            &s.id,
-            &["p0".into(), "p1".into(), "p2".into()],
-        )
-        .unwrap();
+        let n1 = db_link_papers(&pool, &s.id, &["p0".into(), "p1".into(), "p2".into()]).unwrap();
         assert_eq!(n1, 3);
         // Re-run with same set — INSERT OR IGNORE means 0 new
-        let n2 = db_link_papers(
-            &pool,
-            &s.id,
-            &["p0".into(), "p1".into(), "p2".into()],
-        )
-        .unwrap();
+        let n2 = db_link_papers(&pool, &s.id, &["p0".into(), "p1".into(), "p2".into()]).unwrap();
         assert_eq!(n2, 0);
     }
 

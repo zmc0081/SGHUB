@@ -3,11 +3,7 @@
 
 use tauri_plugin_notification::NotificationExt;
 
-pub fn send_subscription_notification(
-    app: &tauri::AppHandle,
-    keyword: &str,
-    new_count: usize,
-) {
+pub fn send_subscription_notification(app: &tauri::AppHandle, keyword: &str, new_count: usize) {
     let title = format!("SGHUB: 发现 {} 篇新文献", new_count);
     let body = format!("订阅: {}", keyword);
     if let Err(e) = app

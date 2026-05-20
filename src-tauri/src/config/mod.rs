@@ -93,10 +93,7 @@ pub async fn get_app_config() -> Result<AppConfig, String> {
 }
 
 #[tauri::command]
-pub async fn save_app_config(
-    app: tauri::AppHandle,
-    config: AppConfig,
-) -> Result<(), String> {
+pub async fn save_app_config(app: tauri::AppHandle, config: AppConfig) -> Result<(), String> {
     // Persistence is still a no-op stub (config file writer TBD), but we
     // fire the change event so live listeners (e.g. the updater scheduler)
     // can react to the new settings without a restart.
@@ -124,11 +121,7 @@ pub struct CurrentDataDir {
 pub fn get_current_data_dir(app: tauri::AppHandle) -> Result<CurrentDataDir, String> {
     let dir = paths::effective_data_dir(&app);
     let bs = bootstrap::load();
-    let is_custom = bs
-        .data_dir
-        .as_ref()
-        .map(|p| p == &dir)
-        .unwrap_or(false);
+    let is_custom = bs.data_dir.as_ref().map(|p| p == &dir).unwrap_or(false);
     let size_mb = if dir.is_dir() {
         migration::dir_size_mb(&dir)
     } else {
@@ -146,9 +139,7 @@ pub fn get_current_data_dir(app: tauri::AppHandle) -> Result<CurrentDataDir, Str
 /// plugin directly — we offer this command so future migrations can
 /// add validation hooks in one place.
 #[tauri::command]
-pub async fn select_new_data_dir(
-    app: tauri::AppHandle,
-) -> Result<Option<String>, String> {
+pub async fn select_new_data_dir(app: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
     let (tx, rx) = tokio::sync::oneshot::channel::<Option<PathBuf>>();
     app.dialog()
@@ -157,9 +148,7 @@ pub async fn select_new_data_dir(
         .pick_folder(move |p| {
             let _ = tx.send(p.and_then(|fp| fp.into_path().ok()));
         });
-    let res = rx
-        .await
-        .map_err(|e| format!("dialog channel: {}", e))?;
+    let res = rx.await.map_err(|e| format!("dialog channel: {}", e))?;
     Ok(res.map(|p| p.to_string_lossy().into_owned()))
 }
 
@@ -239,8 +228,7 @@ pub async fn migrate_data_dir(
     let new_bootstrap = bootstrap::BootstrapConfig {
         data_dir: Some(dest),
     };
-    bootstrap::save(&new_bootstrap)
-        .map_err(|e| format!("write bootstrap.toml: {}", e))?;
+    bootstrap::save(&new_bootstrap).map_err(|e| format!("write bootstrap.toml: {}", e))?;
     Ok(result)
 }
 
@@ -259,9 +247,7 @@ pub fn reset_data_dir_to_default() -> Result<(), String> {
 pub fn delete_old_data_dir(path: String) -> Result<(), String> {
     let p = PathBuf::from(&path);
     if !p.join("data").exists() {
-        return Err(
-            "拒绝删除:目标目录看起来不是 SGHUB 数据目录(缺少 data/ 子目录)".into(),
-        );
+        return Err("拒绝删除:目标目录看起来不是 SGHUB 数据目录(缺少 data/ 子目录)".into());
     }
     std::fs::remove_dir_all(&p).map_err(|e| format!("remove failed: {}", e))?;
     Ok(())
@@ -306,9 +292,17 @@ mod tests {
     #[test]
     fn any_chinese_resolves_to_zh_cn() {
         for input in [
-            "zh", "zh-CN", "zh_CN", "zh-Hans", "zh-Hans-CN", "ZH-CN",
+            "zh",
+            "zh-CN",
+            "zh_CN",
+            "zh-Hans",
+            "zh-Hans-CN",
+            "ZH-CN",
             // V2.1.0-rc2 collapses zh-TW / zh-HK into zh-CN too.
-            "zh-TW", "zh-Hant", "zh-HK", "zh_MO",
+            "zh-TW",
+            "zh-Hant",
+            "zh-HK",
+            "zh_MO",
         ] {
             assert_eq!(resolve_locale(Some(input)), "zh-CN", "input: {input}");
         }
@@ -317,8 +311,15 @@ mod tests {
     #[test]
     fn everything_else_resolves_to_en_us() {
         for input in [
-            "en-US", "en_GB", "ja-JP", "ja", "fr-FR", "fr_CA.UTF-8",
-            "ko-KR", "de-DE", "",
+            "en-US",
+            "en_GB",
+            "ja-JP",
+            "ja",
+            "fr-FR",
+            "fr_CA.UTF-8",
+            "ko-KR",
+            "de-DE",
+            "",
         ] {
             assert_eq!(resolve_locale(Some(input)), "en-US", "input: {input}");
         }
@@ -344,10 +345,13 @@ mod tests {
 
         // Deserialize a JSON missing the field (also missing `updater` —
         // serde's `default = "UpdaterConfig::default"` fills it in).
-        let parsed: AppConfig = serde_json::from_str(r#"{
+        let parsed: AppConfig = serde_json::from_str(
+            r#"{
             "theme":"light","data_dir":"","auto_update":true,"auto_backup":false,
             "backup_retention_days":7,"default_model_id":null,"log_level":"info"
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
         assert!(parsed.language.is_none());
         assert_eq!(parsed.updater, UpdaterConfig::default());
         assert!(parsed.updater.enabled);

@@ -210,9 +210,18 @@ fn child_text(node: roxmltree::Node, name: &str) -> Option<String> {
 /// PubMed PubDate.Month is sometimes "Sep" instead of "09".
 fn normalize_month(m: &str) -> String {
     match m {
-        "Jan" => "01", "Feb" => "02", "Mar" => "03", "Apr" => "04",
-        "May" => "05", "Jun" => "06", "Jul" => "07", "Aug" => "08",
-        "Sep" => "09", "Oct" => "10", "Nov" => "11", "Dec" => "12",
+        "Jan" => "01",
+        "Feb" => "02",
+        "Mar" => "03",
+        "Apr" => "04",
+        "May" => "05",
+        "Jun" => "06",
+        "Jul" => "07",
+        "Aug" => "08",
+        "Sep" => "09",
+        "Oct" => "10",
+        "Nov" => "11",
+        "Dec" => "12",
         other => other,
     }
     .to_string()
@@ -308,7 +317,10 @@ mod tests {
 
         let p = &papers[0];
         assert_eq!(p.id, "p-pubmed-36100450");
-        assert_eq!(p.title, "Highly accurate protein structure prediction with AlphaFold.");
+        assert_eq!(
+            p.title,
+            "Highly accurate protein structure prediction with AlphaFold."
+        );
         assert_eq!(p.authors, vec!["John Jumper", "Demis Hassabis"]);
         assert_eq!(p.source, "pubmed");
         assert_eq!(p.source_id.as_deref(), Some("36100450"));

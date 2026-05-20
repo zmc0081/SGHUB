@@ -189,7 +189,10 @@ fn extract_title(lines: &[&str]) -> Option<(String, usize)> {
             .next()
             .is_some_and(|c| c.is_ascii_digit() || c == '#' || c == '§');
         let all_caps_short = line.len() < 40
-            && line.chars().filter(|c| c.is_alphabetic()).all(|c| c.is_uppercase());
+            && line
+                .chars()
+                .filter(|c| c.is_alphabetic())
+                .all(|c| c.is_uppercase());
         if words < 3 || starts_bad || all_caps_short {
             continue;
         }
@@ -225,9 +228,7 @@ fn split_authors(raw: &str) -> Vec<String> {
         .filter(|s| {
             // Author-ish: 2..5 words, no email, no @
             let words = s.split_whitespace().count();
-            (2..=5).contains(&words)
-                && !s.contains('@')
-                && !s.to_lowercase().contains("abstract")
+            (2..=5).contains(&words) && !s.contains('@') && !s.to_lowercase().contains("abstract")
         })
         .collect();
     out.dedup();
@@ -329,10 +330,7 @@ mod tests {
     #[test]
     fn extract_doi_finds_common_pattern() {
         let t = "Cite this: doi:10.1145/3340531.3411904  Conference 2024";
-        assert_eq!(
-            extract_doi(t).as_deref(),
-            Some("10.1145/3340531.3411904")
-        );
+        assert_eq!(extract_doi(t).as_deref(), Some("10.1145/3340531.3411904"));
     }
 
     #[test]
@@ -399,7 +397,10 @@ mod tests {
             source: "first_page".into(),
         };
         assert!(m.needs_review());
-        let m2 = PartialMetadata { confidence: 0.5, ..m };
+        let m2 = PartialMetadata {
+            confidence: 0.5,
+            ..m
+        };
         assert!(!m2.needs_review());
     }
 }

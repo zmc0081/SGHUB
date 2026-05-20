@@ -3,10 +3,10 @@
  * Search, Feed, Library, and (eventually) detail pages.
  *
  * Provides:
- *  - ⭐ FavoriteButton          (folder picker)
- *  - 🧠 AI 精读                (navigate to /parse?paper_id=…)
- *  - 📄 原文 / 📂 打开 PDF      (resolve_paper_url or open local PDF)
- *  - 📥 下载 PDF / progress bar (OA only; subscribes to download:progress)
+ *  - FavoriteButton             (folder picker)
+ *  - AI 精读                    (navigate to /parse?paper_id=…)
+ *  - 原文 / 打开 PDF            (resolve_paper_url or open local PDF)
+ *  - 下载 PDF / progress bar    (OA only; subscribes to download:progress)
  *
  * The component owns its own download progress state so multiple cards
  * can be downloading simultaneously and each one shows its own bar.
@@ -16,25 +16,30 @@
 import { useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import {
+  AlertTriangle,
+  Brain,
+  Download,
+  FileText,
+  FolderOpen,
+  X,
+} from "lucide-react";
+import {
   type DownloadProgressPayload,
   type Paper,
 } from "../lib/tauri";
 import { useAppNavigation } from "../hooks/useAppNavigation";
 import { FavoriteButton } from "./FavoriteButton";
 import { useT } from "../hooks/useT";
+import { Icon } from "./Icon";
 
 interface Props {
   paper: Paper;
-  /** Defaults true. Drop the ⭐ button when the host already renders one
-   *  (e.g. Library page where the chip is part of the card header). */
+  /** Defaults true. Drop the favorite button when the host already renders
+   *  one (e.g. Library page where the chip is part of the card header). */
   showFavorite?: boolean;
   /** Compact = icon-only chips; full = labelled chips with more padding. */
   size?: "sm" | "md";
 }
-
-// ============================================================
-// Helpers
-// ============================================================
 
 /** Open-access heuristic — same gate the backend uses for `pdf_url_for`. */
 function isLikelyOA(paper: Paper): boolean {
@@ -42,10 +47,6 @@ function isLikelyOA(paper: Paper): boolean {
   if (paper.source_url?.toLowerCase().endsWith(".pdf")) return true;
   return false;
 }
-
-// ============================================================
-// Component
-// ============================================================
 
 export function PaperActions({
   paper,
@@ -59,7 +60,6 @@ export function PaperActions({
   const [localPath, setLocalPath] = useState<string | null>(paper.pdf_path);
   const [error, setError] = useState<string | null>(null);
 
-  // Wire to global download:progress events filtered by paper_id.
   useEffect(() => {
     let unlisten: UnlistenFn | undefined;
     listen<DownloadProgressPayload>("download:progress", (event) => {
@@ -91,10 +91,6 @@ export function PaperActions({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paper.id]);
 
-  // ============================================================
-  // Action handlers
-  // ============================================================
-
   const onOpenParse = () => {
     void nav.openParseWithPaper(paper.id);
   };
@@ -118,12 +114,13 @@ export function PaperActions({
       const path = await nav.downloadPaperPdf(paper.id);
       setLocalPath(path);
     } catch (e) {
-      // The error event already triggered the UI message; swallow here so
-      // it doesn't surface twice. Detect the cancellation marker in either
-      // language so we don't double-display.
       const msg = String(e);
       const cancelled = t("paper_actions.download_cancelled");
-      if (!msg.includes(cancelled) && !msg.includes("Cancelled") && !msg.includes("已取消")) {
+      if (
+        !msg.includes(cancelled) &&
+        !msg.includes("Cancelled") &&
+        !msg.includes("已取消")
+      ) {
         setError(msg);
         setTimeout(() => setError(null), 4200);
       }
@@ -146,72 +143,98 @@ export function PaperActions({
     }
   };
 
-  // ============================================================
-  // Render
-  // ============================================================
+  // Sizing tokens (sm = Library dense rows, md = Search/Feed cards).
+  const isSm = size === "sm";
+  const iconSize = isSm ? "xs" : "sm";
+  const btnHeight = isSm ? "h-7" : "h-8";
+  const btnPadX = isSm ? "px-2.5" : "px-3";
+  const btnTextSize = isSm ? "text-meta" : "text-caption";
+  const progressBarW = isSm ? "w-20" : "w-24";
 
-  const btnBase =
-    size === "sm"
-      ? "px-2 py-1 rounded border text-xs transition-colors"
-      : "px-2.5 py-1.5 rounded border text-sm transition-colors";
+  const btnBase = `inline-flex items-center gap-1.5 ${btnHeight} ${btnPadX} rounded-pill border ${btnTextSize} transition-colors duration-fast ease-khx`;
   const btnNormal =
-    "border-black/10 hover:border-primary/30 hover:bg-primary/5 text-app-fg/80";
-  const btnDisabled = "border-black/10 opacity-40 cursor-not-allowed";
+    "border-border-default text-fg-2 hover:text-indigo hover:bg-indigo-soft hover:border-indigo-muted";
+  const btnDisabled =
+    "border-border-default text-fg-3 bg-soft cursor-not-allowed opacity-60";
 
   const oa = isLikelyOA(paper);
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap">
+    <div className="flex items-center gap-2 flex-wrap">
       {showFavorite && (
-        <FavoriteButton paperId={paper.id} variant="compact" />
+        <FavoriteButton paperId={paper.id} variant="compact" size={size} />
       )}
 
-      <button onClick={onOpenParse} className={`${btnBase} ${btnNormal}`}>
-        {t("paper_actions.ai_read")}
+      <button
+        type="button"
+        aria-label={t("paper_actions.ai_read")}
+        onClick={onOpenParse}
+        className={`${btnBase} ${btnNormal}`}
+      >
+        <Icon icon={Brain} size={iconSize} />
+        <span>{t("paper_actions.ai_read")}</span>
       </button>
 
       <button
+        type="button"
+        aria-label={t("paper_actions.view_source_title")}
         onClick={onOpenExternal}
         className={`${btnBase} ${btnNormal}`}
         title={t("paper_actions.view_source_title")}
       >
-        {t("paper_actions.view_source")}
+        <Icon icon={FileText} size={iconSize} />
+        <span>{t("paper_actions.view_source")}</span>
       </button>
 
-      {/* Download / local-open / progress */}
       {localPath ? (
         <button
+          type="button"
           onClick={onOpenLocal}
           className={`${btnBase} ${btnNormal}`}
           title={localPath}
         >
-          {t("paper_actions.open_pdf")}
+          <Icon icon={FolderOpen} size={iconSize} />
+          <span>{t("paper_actions.open_pdf")}</span>
         </button>
       ) : downloading ? (
-        <div className="inline-flex items-center gap-1.5 text-xs">
-          <div className="w-24 h-2 bg-black/10 rounded overflow-hidden">
+        <div
+          className={`inline-flex items-center gap-2 ${btnHeight} ${btnPadX} rounded-pill border border-border-default ${btnTextSize}`}
+        >
+          <div
+            className={`${progressBarW} h-1 rounded-pill bg-navy-soft overflow-hidden`}
+          >
             <div
-              className="h-full bg-primary transition-all"
-              style={{
-                width: progress >= 0 ? `${progress}%` : "30%",
-              }}
+              role="progressbar"
+              aria-valuenow={Math.max(0, progress)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              className="h-full bg-indigo transition-[width] duration-base ease-khx"
+              style={{ width: progress >= 0 ? `${progress}%` : "30%" }}
             />
           </div>
-          <span className="text-app-fg/60 tabular-nums">
+          <span className="text-meta text-fg-2 tabular-nums">
             {progress >= 0 ? `${progress}%` : "…"}
           </span>
           <button
+            type="button"
             onClick={onCancel}
-            className="text-red-600 hover:underline"
+            aria-label={t("paper_actions.cancel_title")}
             title={t("paper_actions.cancel_title")}
+            className="text-danger-fg hover:bg-danger-bg rounded-pill p-0.5 transition-colors duration-fast ease-khx"
           >
-            ✕
+            <Icon icon={X} size="xs" />
           </button>
         </div>
       ) : (
         <button
+          type="button"
           onClick={onDownload}
           disabled={!oa}
+          aria-label={
+            oa
+              ? t("paper_actions.download_title")
+              : t("paper_actions.not_oa_title")
+          }
           className={`${btnBase} ${oa ? btnNormal : btnDisabled}`}
           title={
             oa
@@ -219,13 +242,20 @@ export function PaperActions({
               : t("paper_actions.not_oa_title")
           }
         >
-          {t("paper_actions.download_pdf")}
+          <Icon icon={Download} size={iconSize} />
+          <span>{t("paper_actions.download_pdf")}</span>
         </button>
       )}
 
       {error && (
-        <span className="text-[11px] text-red-600 ml-1" title={error}>
-          ⚠ {error.length > 30 ? error.slice(0, 30) + "…" : error}
+        <span
+          role="alert"
+          aria-live="polite"
+          title={error}
+          className="inline-flex items-center gap-1 rounded-pill px-2 py-0.5 bg-danger-bg text-danger-fg text-meta transition-opacity duration-base ease-khx"
+        >
+          <Icon icon={AlertTriangle} size="xs" />
+          <span>{error.length > 30 ? error.slice(0, 30) + "…" : error}</span>
         </span>
       )}
     </div>

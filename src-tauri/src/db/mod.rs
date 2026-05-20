@@ -88,10 +88,7 @@ pub fn init_at(data_dir: &Path) -> Result<DbPool, DbError> {
 /// - `refinery_schema_history` exists (i.e. DB is initialized), AND
 /// - At least one migration has been applied (it's not a fresh init), AND
 /// - The applied version is less than `LATEST_MIGRATION_VERSION` (we're upgrading).
-fn maybe_backup(
-    db_path: &Path,
-    conn: &rusqlite::Connection,
-) -> Result<Option<PathBuf>, DbError> {
+fn maybe_backup(db_path: &Path, conn: &rusqlite::Connection) -> Result<Option<PathBuf>, DbError> {
     let history_exists: bool = conn.query_row(
         "SELECT COUNT(*) FROM sqlite_master \
          WHERE type='table' AND name='refinery_schema_history'",
@@ -429,11 +426,7 @@ mod tests {
         let entries: Vec<_> = std::fs::read_dir(data_dir)
             .unwrap()
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .starts_with("sghub.db.bak.")
-            })
+            .filter(|e| e.file_name().to_string_lossy().starts_with("sghub.db.bak."))
             .collect();
         assert_eq!(
             entries.len(),
@@ -449,11 +442,7 @@ mod tests {
         let backups: Vec<_> = std::fs::read_dir(tmp.path())
             .unwrap()
             .filter_map(|e| e.ok())
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .starts_with("sghub.db.bak.")
-            })
+            .filter(|e| e.file_name().to_string_lossy().starts_with("sghub.db.bak."))
             .collect();
         assert!(
             backups.is_empty(),

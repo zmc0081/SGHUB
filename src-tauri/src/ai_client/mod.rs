@@ -253,10 +253,7 @@ pub(crate) fn list_all(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<ModelCo
     rows.collect()
 }
 
-pub(crate) fn get_one(
-    pool: &crate::db::DbPool,
-    id: &str,
-) -> rusqlite::Result<Option<ModelConfig>> {
+pub(crate) fn get_one(pool: &crate::db::DbPool, id: &str) -> rusqlite::Result<Option<ModelConfig>> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
@@ -636,13 +633,7 @@ pub async fn ai_chat_stream(
             Ok(text) => {
                 tokens_out += estimate_tokens(&text);
                 full_text.push_str(&text);
-                let _ = app.emit(
-                    "ai:token",
-                    TokenPayload {
-                        text,
-                        done: false,
-                    },
-                );
+                let _ = app.emit("ai:token", TokenPayload { text, done: false });
             }
             Err(e) => {
                 let _ = app.emit(
@@ -788,10 +779,7 @@ mod tests {
     fn set_default_missing_id_errors() {
         let (_tmp, pool) = fresh();
         let result = set_default(&pool, "missing");
-        assert!(matches!(
-            result,
-            Err(rusqlite::Error::QueryReturnedNoRows)
-        ));
+        assert!(matches!(result, Err(rusqlite::Error::QueryReturnedNoRows)));
     }
 
     #[test]

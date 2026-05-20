@@ -3,111 +3,79 @@ import { useEffect, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  ChevronDown,
+  Copy,
+  Lock,
+  Pencil,
+  Plus,
+  Sparkles,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import {
   api,
   type SkillSummary,
   type SkillUploadResult,
 } from "../lib/tauri";
 import { useT } from "../hooks/useT";
-
-// ============================================================
-// Toast (light, in-component — avoids adding a UI dep)
-// ============================================================
-
-type ToastKind = "success" | "error";
-type Toast = { id: number; kind: ToastKind; lines: string[] };
-
-let toastSeq = 0;
-
-function ToastList({
-  toasts,
-  onDismiss,
-}: {
-  toasts: Toast[];
-  onDismiss: (id: number) => void;
-}) {
-  return (
-    <div className="fixed top-12 right-4 z-50 flex flex-col gap-2 max-w-md">
-      {toasts.map((t) => (
-        <div
-          key={t.id}
-          className={`px-3 py-2 rounded shadow-lg border text-sm ${
-            t.kind === "success"
-              ? "bg-emerald-50 border-emerald-300 text-emerald-900"
-              : "bg-red-50 border-red-300 text-red-900"
-          }`}
-        >
-          <div className="flex items-start gap-2">
-            <span className="shrink-0">
-              {t.kind === "success" ? "✓" : "✕"}
-            </span>
-            <div className="flex-1 min-w-0">
-              {t.lines.map((l, i) => (
-                <div key={i} className="break-words">
-                  {t.lines.length > 1 ? (
-                    <span className="text-app-fg/50 mr-1.5">{i + 1}.</span>
-                  ) : null}
-                  {l}
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={() => onDismiss(t.id)}
-              className="shrink-0 text-app-fg/40 hover:text-app-fg"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ============================================================
-// Skill card
-// ============================================================
+import { useToast } from "../hooks/useToast";
+import { confirmAsync } from "../components/DialogProvider";
+import { Icon } from "../components/Icon";
 
 function SkillRow({
   skill,
   onDelete,
   onEdit,
   onCopy,
+  builtin,
 }: {
   skill: SkillSummary;
   onDelete?: () => void;
   onEdit?: () => void;
   onCopy?: () => void;
+  builtin?: boolean;
 }) {
   const t = useT();
   return (
-    <div className="bg-white border border-black/10 rounded p-3 flex items-start gap-3">
-      <div className="text-2xl shrink-0 leading-none mt-0.5">
-        {skill.icon || "🤖"}
+    <div className="bg-card rounded-card shadow-card p-5 flex items-start gap-4 transition-shadow duration-base ease-khx hover:shadow-card-hover">
+      <div className="shrink-0 w-11 h-11 rounded-icon bg-indigo-soft text-indigo flex items-center justify-center text-h3 leading-none">
+        {/* User-data icon (allowed to be emoji per design-style-spec §A.7) */}
+        {skill.icon || (
+          <Icon icon={Sparkles} size="base" />
+        )}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <div className="font-semibold text-primary truncate">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="text-h3 font-semibold text-fg-1 truncate">
             {skill.display_name}
           </div>
-          <code className="text-[10px] text-app-fg/40">{skill.name}</code>
+          <code className="text-meta font-mono text-fg-3">{skill.name}</code>
           {skill.version && (
-            <span className="text-[10px] text-app-fg/40">v{skill.version}</span>
+            <span className="text-meta text-fg-3 tabular-nums">
+              v{skill.version}
+            </span>
           )}
           {skill.author && (
-            <span className="text-[10px] text-app-fg/50">@ {skill.author}</span>
+            <span className="text-meta text-fg-3">@ {skill.author}</span>
+          )}
+          {builtin && (
+            <span className="inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-micro font-medium bg-badge-default-bg text-badge-default-fg">
+              <Icon icon={Lock} size={10} />
+              <span>{t("skills.builtin_badge")}</span>
+            </span>
           )}
         </div>
         {skill.description && (
-          <p className="mt-0.5 text-xs text-app-fg/70 line-clamp-2">
+          <p className="mt-1 text-caption text-fg-2 line-clamp-2 leading-relaxed">
             {skill.description}
           </p>
         )}
         {skill.recommended_models.length > 0 && (
-          <div className="mt-1.5 flex flex-wrap gap-1">
+          <div className="mt-2 flex flex-wrap gap-1">
             {skill.recommended_models.map((m) => (
               <span
                 key={m}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary"
+                className="text-micro px-2 py-0.5 rounded-pill bg-indigo-soft text-indigo"
               >
                 {m}
               </span>
@@ -115,29 +83,35 @@ function SkillRow({
           </div>
         )}
       </div>
-      <div className="shrink-0 flex flex-col gap-1">
+      <div className="shrink-0 flex flex-col gap-1.5">
         {onEdit && (
           <button
+            type="button"
             onClick={onEdit}
-            className="px-2 py-1 text-[11px] rounded border border-black/10 hover:border-primary hover:text-primary"
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-pill border border-border-default text-meta text-fg-1 hover:border-indigo hover:text-indigo transition-colors duration-fast ease-khx"
           >
-            {t("skills.edit")}
+            <Icon icon={Pencil} size="xs" />
+            <span>{t("skills.edit")}</span>
           </button>
         )}
         {onCopy && (
           <button
+            type="button"
             onClick={onCopy}
-            className="px-2 py-1 text-[11px] rounded border border-black/10 hover:border-primary hover:text-primary whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-pill border border-border-default text-meta text-fg-1 hover:border-indigo hover:text-indigo whitespace-nowrap transition-colors duration-fast ease-khx"
           >
-            {t("skills.duplicate")}
+            <Icon icon={Copy} size="xs" />
+            <span>{t("skills.duplicate")}</span>
           </button>
         )}
         {onDelete && (
           <button
+            type="button"
             onClick={onDelete}
-            className="px-2 py-1 text-[11px] rounded border border-black/10 text-red-600 hover:border-red-600 hover:bg-red-50"
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-pill border border-border-default text-meta text-danger-fg hover:bg-danger-bg hover:border-danger-border transition-colors duration-fast ease-khx"
           >
-            {t("skills.delete")}
+            <Icon icon={Trash2} size="xs" />
+            <span>{t("skills.delete")}</span>
           </button>
         )}
       </div>
@@ -145,27 +119,21 @@ function SkillRow({
   );
 }
 
-// ============================================================
-// Main page
-// ============================================================
-
 export default function Skills() {
   const t = useT();
+  const toast = useToast();
   const navigate = useNavigate();
   const [skills, setSkills] = useState<SkillSummary[]>([]);
-  const [toasts, setToasts] = useState<Toast[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // V2.1.0 — "+ 新建 Skill" is now a dropdown with two entry points
-  // (AI generator vs manual editor). Anchored to the trigger button.
   const [newMenuOpen, setNewMenuOpen] = useState(false);
 
   const refresh = () => {
-    api.getSkills().then(setSkills).catch((e) => pushToast("error", [String(e)]));
+    api
+      .getSkills()
+      .then(setSkills)
+      .catch((e) => toast.danger(String(e)));
   };
 
-  // Initial load + listen for "skills:updated" so other windows / batch
-  // uploads refresh the list automatically. Self-contained so we don't
-  // depend on the outer `refresh` closure.
   useEffect(() => {
     const reload = () => {
       api.getSkills().then(setSkills).catch((e) => console.warn(e));
@@ -180,29 +148,15 @@ export default function Skills() {
     };
   }, []);
 
-  const pushToast = (kind: ToastKind, lines: string[]) => {
-    const id = ++toastSeq;
-    setToasts((prev) => [...prev, { id, kind, lines }]);
-    window.setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 6000);
-  };
-
-  const dismissToast = (id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
-
   const handleFileSelected = async (file: File) => {
     const lower = file.name.toLowerCase();
 
-    // Always read as bytes — many .skill files are binary zip archives
-    // (Anthropic Skills convention) so we sniff the magic.
     const buf = await file.arrayBuffer();
     const bytes = new Uint8Array(buf);
     const isZipMagic =
       bytes.length >= 4 &&
-      bytes[0] === 0x50 && // P
-      bytes[1] === 0x4b && // K
+      bytes[0] === 0x50 &&
+      bytes[1] === 0x4b &&
       bytes[2] === 0x03 &&
       bytes[3] === 0x04;
 
@@ -213,7 +167,6 @@ export default function Skills() {
     const isZipLike = lower.endsWith(".zip") || isZipMagic;
 
     if (isZipLike) {
-      // ZIP path — covers .zip AND binary .skill (Anthropic packaged format)
       try {
         const results: SkillUploadResult[] = await api.uploadSkillZip(
           Array.from(bytes),
@@ -221,74 +174,68 @@ export default function Skills() {
         const ok = results.filter((r) => r.success).length;
         const fails = results.filter((r) => !r.success);
         if (results.length === 0) {
-          pushToast("error", [
-            t("skills.zip_no_skill", { name: file.name }),
-          ]);
+          toast.danger(t("skills.zip_no_skill", { name: file.name }));
         } else if (fails.length === 0) {
-          pushToast("success", [
-            t("skills.zip_ok_count", { name: file.name, ok }),
-          ]);
+          toast.success(t("skills.zip_ok_count", { name: file.name, ok }));
         } else {
-          const lines = [
-            t("skills.zip_mixed", {
+          const description = fails
+            .flatMap((f) => f.errors.map((e) => `${f.filename}: ${e}`))
+            .join("\n");
+          toast.show({
+            variant: ok > 0 ? "success" : "danger",
+            title: t("skills.zip_mixed", {
               name: file.name,
               ok,
               fail: fails.length,
             }),
-            ...fails.flatMap((f) =>
-              f.errors.map((e) => `  ${f.filename}: ${e}`),
-            ),
-          ];
-          pushToast(ok > 0 ? "success" : "error", lines);
+            description,
+            duration: 6000,
+          });
         }
       } catch (e) {
-        pushToast("error", [
+        toast.danger(
           t("skills.zip_parse_failed", {
             name: file.name,
             detail: String(e),
           }),
-        ]);
+        );
       }
     } else if (isYamlLike) {
-      // Text path — decode UTF-8 and dispatch
       const text = new TextDecoder("utf-8").decode(bytes);
       try {
         const spec = await api.uploadSkillFile(text, file.name);
-        pushToast("success", [
+        toast.success(
           t("skills.uploaded_toast", { name: spec.display_name }),
-        ]);
+        );
       } catch (e) {
         const errors = Array.isArray(e) ? (e as string[]) : [String(e)];
-        pushToast("error", errors);
+        toast.danger(t("skills.upload_failed_title"), errors.join("\n"));
       }
     } else {
-      pushToast("error", [
-        t("skills.unsupported_format", { name: file.name }),
-      ]);
+      toast.danger(t("skills.unsupported_format", { name: file.name }));
     }
-    // Reset input so the same file can be picked again
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const onUploadClick = () => fileInputRef.current?.click();
 
   const handleDelete = async (skill: SkillSummary) => {
-    if (
-      !confirm(
-        t("skills.confirm_delete_custom", { name: skill.display_name }),
-      )
-    )
-      return;
+    const ok = await confirmAsync({
+      title: t("skills.confirm_delete_title"),
+      description: t("skills.confirm_delete_custom", {
+        name: skill.display_name,
+      }),
+      variant: "danger",
+      confirmLabel: t("common.delete"),
+      cancelLabel: t("common.cancel"),
+    });
+    if (!ok) return;
     try {
       await api.deleteCustomSkill(skill.name);
-      pushToast("success", [
-        t("skills.deleted_toast", { name: skill.display_name }),
-      ]);
+      toast.success(t("skills.deleted_toast", { name: skill.display_name }));
       refresh();
     } catch (e) {
-      pushToast("error", [
-        t("skills.delete_failed_toast", { detail: String(e) }),
-      ]);
+      toast.danger(t("skills.delete_failed_toast", { detail: String(e) }));
     }
   };
 
@@ -296,54 +243,60 @@ export default function Skills() {
   const custom = skills.filter((s) => !s.is_builtin);
 
   return (
-    <div className="p-8 max-w-5xl">
-      <ToastList toasts={toasts} onDismiss={dismissToast} />
-
-      <div className="text-xs text-app-fg/50 mb-2">
+    <main role="main" className="p-8 max-w-5xl mx-auto">
+      <div className="text-meta text-fg-3 mb-2">
         <span>{t("skills.breadcrumb_settings")}</span>
         <span className="mx-1">/</span>
-        <span className="text-app-fg/80">{t("skills.title")}</span>
+        <span className="text-fg-2">{t("skills.title")}</span>
       </div>
 
       <div className="flex items-baseline justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-primary mb-1">
+          <h1 className="text-h2 font-semibold text-fg-1">
             {t("skills.title")}
           </h1>
-          <p className="text-sm text-app-fg/60">{t("skills.subtitle")}</p>
+          <p className="text-meta text-fg-2 mt-1">{t("skills.subtitle")}</p>
         </div>
         <div className="flex gap-2 shrink-0">
           <div className="relative">
             <button
+              type="button"
               onClick={() => setNewMenuOpen((v) => !v)}
               onBlur={() => setTimeout(() => setNewMenuOpen(false), 150)}
-              className="px-3 py-1.5 text-sm rounded border border-primary text-primary hover:bg-primary/5 inline-flex items-center gap-1"
+              className="inline-flex items-center gap-1.5 px-btn-x py-btn-y rounded-pill border border-border-default text-caption text-fg-1 hover:border-indigo hover:text-indigo transition-colors duration-fast ease-khx"
             >
-              {t("skills.new")}
-              <span className="text-[10px] opacity-60">▾</span>
+              <Icon icon={Plus} size="sm" />
+              <span>{t("skills.new")}</span>
+              <Icon icon={ChevronDown} size={12} className="text-fg-3" />
             </button>
             {newMenuOpen && (
-              <div className="absolute right-0 mt-1 w-64 bg-white border border-black/10 rounded shadow-md z-20 overflow-hidden">
+              <div className="absolute right-0 mt-1 w-72 bg-card rounded-card-sm shadow-nav z-popover overflow-hidden">
                 <button
+                  type="button"
                   onMouseDown={() => navigate({ to: "/skills/generate" })}
-                  className="block w-full text-left px-3 py-2 text-sm hover:bg-primary/5"
+                  className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-caption text-fg-1 hover:bg-indigo-soft transition-colors duration-fast ease-khx"
                 >
-                  {t("skill_gen.menu_ai")}
+                  <Icon icon={Sparkles} size="sm" className="text-indigo" />
+                  <span>{t("skill_gen.menu_ai")}</span>
                 </button>
                 <button
+                  type="button"
                   onMouseDown={() => navigate({ to: "/skills/new" })}
-                  className="block w-full text-left px-3 py-2 text-sm hover:bg-primary/5 border-t border-black/5"
+                  className="flex items-center gap-2 w-full text-left px-4 py-2.5 text-caption text-fg-1 hover:bg-indigo-soft border-t border-border-subtle transition-colors duration-fast ease-khx"
                 >
-                  {t("skill_gen.menu_manual")}
+                  <Icon icon={Pencil} size="sm" className="text-indigo" />
+                  <span>{t("skill_gen.menu_manual")}</span>
                 </button>
               </div>
             )}
           </div>
           <button
+            type="button"
             onClick={onUploadClick}
-            className="px-3 py-1.5 text-sm rounded bg-primary text-white hover:bg-primary/90"
+            className="inline-flex items-center gap-1.5 px-btn-x py-btn-y rounded-pill bg-navy text-fg-inverse text-caption font-medium shadow-btn hover:bg-navy-hover hover:shadow-btn-hover hover:-translate-y-px transition-[background,box-shadow,transform] duration-fast ease-khx"
           >
-            {t("skills.upload")}
+            <Icon icon={Upload} size="sm" />
+            <span>{t("skills.upload")}</span>
           </button>
           <input
             ref={fileInputRef}
@@ -358,23 +311,27 @@ export default function Skills() {
         </div>
       </div>
 
-      {/* Custom Skills */}
       <section className="mb-8">
-        <div className="text-xs uppercase tracking-wider text-app-fg/50 mb-2 flex items-center gap-2">
+        <div className="text-meta uppercase tracking-wide-brand text-fg-3 mb-3 flex items-center gap-2">
           <span>{t("skills.custom_section")}</span>
-          <span className="text-app-fg/40">({custom.length})</span>
+          <span className="text-fg-3 tabular-nums">({custom.length})</span>
         </div>
         {custom.length === 0 ? (
-          <div className="bg-white border border-dashed border-black/15 rounded p-6 text-center text-sm text-app-fg/50">
+          <div className="bg-card border border-dashed border-border-default rounded-card p-8 text-center text-caption text-fg-3">
             {t("skills.no_custom_yet")}
           </div>
         ) : (
-          <div className="grid gap-2">
+          <div className="grid gap-3">
             {custom.map((s) => (
               <SkillRow
                 key={s.name}
                 skill={s}
-                onEdit={() => navigate({ to: "/skills/$name/edit", params: { name: s.name } })}
+                onEdit={() =>
+                  navigate({
+                    to: "/skills/$name/edit",
+                    params: { name: s.name },
+                  })
+                }
                 onDelete={() => handleDelete(s)}
               />
             ))}
@@ -382,25 +339,28 @@ export default function Skills() {
         )}
       </section>
 
-      {/* Builtin Skills */}
       <section>
-        <div className="text-xs uppercase tracking-wider text-app-fg/50 mb-2 flex items-center gap-2">
+        <div className="text-meta uppercase tracking-wide-brand text-fg-3 mb-3 flex items-center gap-2">
           <span>{t("skills.builtin_section")}</span>
-          <span className="text-app-fg/40">({builtin.length})</span>
+          <span className="text-fg-3 tabular-nums">({builtin.length})</span>
         </div>
-        <div className="grid gap-2 opacity-90">
+        <div className="grid gap-3">
           {builtin.map((s) => (
-            <div key={s.name} className="bg-black/5 rounded">
+            <div key={s.name} className="bg-soft rounded-card">
               <SkillRow
                 skill={s}
+                builtin
                 onCopy={() =>
-                  navigate({ to: "/skills/$name/copy", params: { name: s.name } })
+                  navigate({
+                    to: "/skills/$name/copy",
+                    params: { name: s.name },
+                  })
                 }
               />
             </div>
           ))}
         </div>
       </section>
-    </div>
+    </main>
   );
 }

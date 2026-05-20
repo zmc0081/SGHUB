@@ -15,11 +15,7 @@ pub async fn search(
             ("max_results", limit.to_string()),
         ],
     )?;
-    let body = reqwest::get(url)
-        .await?
-        .error_for_status()?
-        .text()
-        .await?;
+    let body = reqwest::get(url).await?.error_for_status()?.text().await?;
     Ok(parse_atom(&body)?)
 }
 
@@ -51,12 +47,7 @@ fn parse_entry(entry: roxmltree::Node) -> Option<Paper> {
     };
 
     let id_url = atom_child_text("id")?;
-    let arxiv_id = id_url
-        .rsplit('/')
-        .next()?
-        .split('v')
-        .next()?
-        .to_string();
+    let arxiv_id = id_url.rsplit('/').next()?.split('v').next()?.to_string();
 
     let title = atom_child_text("title")?;
     let abstract_ = atom_child_text("summary");

@@ -1,5 +1,5 @@
 // i18n: 本组件文案已国际化 (V2.1.0)
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, ComponentType } from "react";
 import {
   Bar,
   BarChart,
@@ -9,6 +9,25 @@ import {
   YAxis,
 } from "recharts";
 import {
+  AlertTriangle,
+  Bot,
+  Check,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Star,
+  TestTube,
+  Trash2,
+  Wrench,
+  X,
+  XCircle,
+} from "lucide-react";
+import ProviderAnthropic from "../assets/icons/provider-anthropic.svg?react";
+import ProviderOpenAI from "../assets/icons/provider-openai.svg?react";
+import ProviderOllama from "../assets/icons/provider-ollama.svg?react";
+import EmptyModelsArt from "../assets/illustrations/empty-models.svg?react";
+import {
   api,
   type ModelConfig,
   type ModelConfigInput,
@@ -17,9 +36,12 @@ import {
   type UsageStats7Days,
 } from "../lib/tauri";
 import { useT } from "../hooks/useT";
+import { useToast } from "../hooks/useToast";
+import { confirmAsync } from "../components/DialogProvider";
+import { Icon } from "../components/Icon";
+import { Skeleton } from "../components/Skeleton";
+import { Stage } from "../components/Stage";
 
-// Provider names are resolved at render time via models.provider_label_*
-// keys. Static maps keep code paths simple where t() isn't reachable.
 const PROVIDER_LABEL_KEY: Record<string, string> = {
   anthropic: "models.provider_label_anthropic",
   openai: "models.provider_label_openai",
@@ -27,11 +49,12 @@ const PROVIDER_LABEL_KEY: Record<string, string> = {
   custom: "models.provider_label_custom",
 };
 
-const PROVIDER_ICON: Record<string, string> = {
-  anthropic: "🅰️",
-  openai: "🟢",
-  ollama: "🦙",
-  custom: "🔧",
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const PROVIDER_ICON: Record<string, ComponentType<any>> = {
+  anthropic: ProviderAnthropic,
+  openai: ProviderOpenAI,
+  ollama: ProviderOllama,
+  custom: Wrench,
 };
 
 const PROVIDERS = ["anthropic", "openai", "ollama", "custom"];
@@ -47,15 +70,19 @@ const EMPTY_INPUT: ModelConfigInput = {
   output_price_per_1m_tokens: 0,
 };
 
-// ============================================================
-// Stats cards
-// ============================================================
-
-/** Compact "1.2M" / "12.3k" formatter used by the stats cards. */
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
   return String(n);
+}
+
+function ProviderIconBox({ provider }: { provider: string }) {
+  const Comp = PROVIDER_ICON[provider] ?? Bot;
+  return (
+    <span className="shrink-0 w-11 h-11 rounded-icon bg-indigo-soft text-indigo flex items-center justify-center">
+      <Icon icon={Comp} size={22} />
+    </span>
+  );
 }
 
 function StatsCards({
@@ -94,29 +121,31 @@ function StatsCards({
   ];
   return (
     <div className="mb-6">
-      <div className="flex items-baseline justify-between mb-2">
-        <span className="text-[11px] text-app-fg/50 uppercase tracking-wider">
+      <div className="flex items-baseline justify-between mb-3">
+        <span className="text-meta uppercase tracking-wide-brand text-fg-3">
           {t("models.stat_subtitle_7d")}
         </span>
         <button
+          type="button"
           onClick={onRebuild}
-          className="text-[11px] text-app-fg/40 hover:text-primary hover:underline"
+          className="inline-flex items-center gap-1 text-meta text-fg-3 hover:text-indigo transition-colors duration-fast ease-khx"
           title={t("models.stat_rebuild_title")}
         >
-          {t("models.stat_rebuild")}
+          <Icon icon={RefreshCw} size="xs" />
+          <span>{t("models.stat_rebuild")}</span>
         </button>
       </div>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-4 gap-4">
         {cards.map((c) => (
           <div
             key={c.label}
-            className="bg-white border border-black/10 rounded p-4"
+            className="bg-card rounded-card shadow-card p-5 transition-shadow duration-base ease-khx hover:shadow-card-hover"
           >
-            <div className="text-xs text-app-fg/50">{c.label}</div>
-            <div className="text-2xl font-semibold text-primary mt-1">
+            <div className="text-meta text-fg-2">{c.label}</div>
+            <div className="text-h2 font-semibold text-fg-1 mt-1 tabular-nums">
               {c.value}
             </div>
-            <div className="text-[10px] text-app-fg/40 mt-1">{c.hint}</div>
+            <div className="text-micro text-fg-3 mt-1">{c.hint}</div>
           </div>
         ))}
       </div>
@@ -127,12 +156,9 @@ function StatsCards({
   );
 }
 
-/** Mini bar chart of daily input+output tokens over the last 7 days.
- *  Hover tooltip reveals per-day call_count / tokens / cost detail. */
 function UsageBarChart({ stats }: { stats: UsageStats7Days }) {
   const t = useT();
   const data = stats.daily_breakdown.map((d) => ({
-    // Trim ISO date `2026-05-15` → `05/15` for the x-axis tick.
     label: d.date.slice(5).replace("-", "/"),
     full: d.date,
     in: d.tokens_in,
@@ -142,34 +168,49 @@ function UsageBarChart({ stats }: { stats: UsageStats7Days }) {
     cost: d.cost_est,
   }));
   return (
-    <div className="bg-white border border-black/10 rounded p-3 mt-3">
-      <div className="text-[11px] text-app-fg/60 mb-1.5">
+    <div className="bg-card rounded-card shadow-card p-5 mt-4">
+      <div className="text-meta text-fg-2 mb-2">
         {t("models.stat_chart_title")}
       </div>
-      <div style={{ width: "100%", height: 120 }}>
+      <div style={{ width: "100%", height: 140 }}>
         <ResponsiveContainer>
-          <BarChart data={data} margin={{ top: 6, right: 12, bottom: 0, left: 0 }}>
-            <XAxis dataKey="label" tick={{ fontSize: 10 }} stroke="#cbd5e1" />
+          <BarChart
+            data={data}
+            margin={{ top: 6, right: 12, bottom: 0, left: 0 }}
+          >
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 10, fill: "var(--text-3)" }}
+              stroke="var(--border-default)"
+            />
             <YAxis
-              tick={{ fontSize: 10 }}
-              stroke="#cbd5e1"
+              tick={{ fontSize: 10, fill: "var(--text-3)" }}
+              stroke="var(--border-default)"
               tickFormatter={(v: number) => formatTokens(v)}
               width={36}
             />
             <Tooltip
-              content={({ active, payload }: { active?: boolean; payload?: unknown }) => {
+              cursor={{ fill: "var(--navy-faint)" }}
+              content={({
+                active,
+                payload,
+              }: {
+                active?: boolean;
+                payload?: unknown;
+              }) => {
                 if (!active || !Array.isArray(payload) || payload.length === 0) {
                   return null;
                 }
-                const p = (payload as Array<{ payload: typeof data[number] }>)[0]
-                  .payload;
+                const p = (
+                  payload as Array<{ payload: (typeof data)[number] }>
+                )[0].payload;
                 return (
-                  <div className="bg-white border border-black/10 rounded shadow-md px-2 py-1.5 text-[11px]">
-                    <div className="font-semibold text-app-fg">{p.full}</div>
-                    <div className="text-app-fg/70">
+                  <div className="bg-card rounded-card-sm shadow-nav border border-border-default px-3 py-2 text-meta">
+                    <div className="font-semibold text-fg-1">{p.full}</div>
+                    <div className="text-fg-2 mt-0.5">
                       {t("models.stat_chart_tooltip_calls", { count: p.calls })}
                     </div>
-                    <div className="text-app-fg/70">
+                    <div className="text-fg-2">
                       {t("models.stat_chart_tooltip_in", {
                         tokens: formatTokens(p.in),
                       })}
@@ -178,7 +219,7 @@ function UsageBarChart({ stats }: { stats: UsageStats7Days }) {
                         tokens: formatTokens(p.out),
                       })}
                     </div>
-                    <div className="text-app-fg/70">
+                    <div className="text-fg-2">
                       {t("models.stat_chart_tooltip_cost", {
                         cost: p.cost.toFixed(4),
                       })}
@@ -187,17 +228,13 @@ function UsageBarChart({ stats }: { stats: UsageStats7Days }) {
                 );
               }}
             />
-            <Bar dataKey="total" fill="#1F3864" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="total" fill="var(--indigo)" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
     </div>
   );
 }
-
-// ============================================================
-// Single model row
-// ============================================================
 
 function ModelRow({
   model,
@@ -206,10 +243,10 @@ function ModelRow({
 }: {
   model: ModelConfig;
   onChanged: () => void;
-  /** Per-model 7-day usage, if any. */
   usage?: ModelUsage;
 }) {
   const t = useT();
+  const toast = useToast();
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<TestResult | null>(null);
   const [editing, setEditing] = useState(false);
@@ -232,12 +269,25 @@ function ModelRow({
   };
 
   const setAsDefault = () => {
-    api.setDefaultModel(model.id).then(onChanged).catch(alert);
+    api
+      .setDefaultModel(model.id)
+      .then(onChanged)
+      .catch((e) => toast.danger(String(e)));
   };
 
-  const remove = () => {
-    if (!confirm(t("models.confirm_delete", { name: model.name }))) return;
-    api.deleteModelConfig(model.id).then(onChanged).catch(alert);
+  const remove = async () => {
+    const ok = await confirmAsync({
+      title: t("models.confirm_delete_title"),
+      description: t("models.confirm_delete", { name: model.name }),
+      variant: "danger",
+      confirmLabel: t("common.delete"),
+      cancelLabel: t("common.cancel"),
+    });
+    if (!ok) return;
+    api
+      .deleteModelConfig(model.id)
+      .then(onChanged)
+      .catch((e) => toast.danger(String(e)));
   };
 
   if (editing) {
@@ -255,117 +305,140 @@ function ModelRow({
   }
 
   return (
-    <div className="bg-white border border-black/10 rounded p-4">
-      <div className="flex items-start gap-3">
-        <div className="text-2xl shrink-0 leading-none mt-0.5">
-          {PROVIDER_ICON[model.provider] ?? "🤖"}
-        </div>
+    <div className="bg-card rounded-card shadow-card p-5 transition-shadow duration-base ease-khx hover:shadow-card-hover">
+      <div className="flex items-start gap-4">
+        <ProviderIconBox provider={model.provider} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="font-semibold text-primary">{model.name}</div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="text-h3 font-semibold text-fg-1">{model.name}</div>
             {model.is_default && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent/20 text-accent font-semibold">
-                {t("models.default")}
+              <span className="inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-micro font-medium bg-badge-improve-bg text-badge-improve-fg">
+                <Icon
+                  icon={Star}
+                  size={12}
+                  fill="currentColor"
+                  strokeWidth={1.5}
+                />
+                <span>{t("models.default")}</span>
               </span>
             )}
-            <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+            <span className="rounded-pill px-2 py-0.5 text-micro font-medium uppercase tracking-wide-brand bg-badge-default-bg text-badge-default-fg">
               {PROVIDER_LABEL_KEY[model.provider]
                 ? t(PROVIDER_LABEL_KEY[model.provider])
                 : model.provider}
             </span>
           </div>
-          <div className="text-xs text-app-fg/60 mt-0.5 font-mono truncate">
+          <div className="text-meta text-fg-2 mt-1 font-mono truncate">
             {model.endpoint}
-            <span className="mx-1.5 text-app-fg/30">·</span>
+            <span className="mx-1.5 text-fg-3">·</span>
             {model.model_id}
-            <span className="mx-1.5 text-app-fg/30">·</span>
+            <span className="mx-1.5 text-fg-3">·</span>
             {model.max_tokens.toLocaleString()} tokens
           </div>
           {model.keychain_ref ? (
-            <div className="text-[10px] text-green-700 mt-0.5">
-              {t("models.key_stored")}
+            <div className="text-meta text-success-fg mt-1 inline-flex items-center gap-1">
+              <Icon icon={Check} size="xs" />
+              <span>{t("models.key_stored")}</span>
             </div>
           ) : model.provider === "ollama" ? (
-            <div className="text-[10px] text-app-fg/50 mt-0.5">
+            <div className="text-meta text-fg-3 mt-1">
               {t("models.no_key_needed_local")}
             </div>
           ) : (
-            <div className="text-[10px] text-amber-600 mt-0.5">
-              {t("models.key_missing_warn")}
+            <div className="text-meta text-warning-fg-strong mt-1 inline-flex items-center gap-1">
+              <Icon icon={AlertTriangle} size="xs" />
+              <span>{t("models.key_missing_warn")}</span>
             </div>
           )}
           {usage && usage.call_count > 0 && (
-            <div className="text-[10px] text-app-fg/55 mt-0.5">
+            <div className="text-meta text-fg-3 mt-1 tabular-nums">
               {t("models.row_usage_7d", {
                 calls: usage.call_count,
-                tokens: formatTokens(
-                  usage.tokens_in + usage.tokens_out,
-                ),
+                tokens: formatTokens(usage.tokens_in + usage.tokens_out),
                 cost: usage.cost_est.toFixed(2),
               })}
             </div>
           )}
         </div>
-        <div className="flex flex-col items-end gap-1.5 shrink-0">
-          <div className="flex gap-1.5">
-            <button
-              onClick={test}
-              disabled={testing}
-              className="px-2.5 py-1 text-xs rounded border border-primary text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50"
-            >
-              {testing ? t("models.testing") : t("models.test_connection")}
-            </button>
-            {!model.is_default && (
-              <button
-                onClick={setAsDefault}
-                className="px-2.5 py-1 text-xs rounded border border-black/10 text-app-fg hover:border-accent hover:text-accent"
-              >
-                {t("models.set_default")}
-              </button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={test}
+            disabled={testing}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-pill border border-border-default text-meta text-fg-1 hover:border-indigo hover:text-indigo disabled:opacity-50 transition-colors duration-fast ease-khx"
+          >
+            {testing ? (
+              <Icon icon={Loader2} size="xs" className="animate-spin" />
+            ) : (
+              <Icon icon={TestTube} size="xs" />
             )}
+            <span>{testing ? t("models.testing") : t("models.test_connection")}</span>
+          </button>
+          {!model.is_default && (
             <button
-              onClick={() => setEditing(true)}
-              className="px-2.5 py-1 text-xs rounded border border-black/10 text-app-fg hover:border-primary"
+              type="button"
+              onClick={setAsDefault}
+              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-pill border border-border-default text-meta text-fg-1 hover:border-warning-border hover:text-warning-fg-strong transition-colors duration-fast ease-khx"
             >
-              {t("models.edit_model")}
+              <Icon icon={Star} size="xs" />
+              <span>{t("models.set_default")}</span>
             </button>
-            <button
-              onClick={remove}
-              className="px-2.5 py-1 text-xs rounded border border-black/10 text-red-600 hover:border-red-600 hover:bg-red-50"
-            >
-              {t("models.delete_model")}
-            </button>
-          </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-pill border border-border-default text-meta text-fg-1 hover:border-indigo hover:text-indigo transition-colors duration-fast ease-khx"
+          >
+            <Icon icon={Pencil} size="xs" />
+            <span>{t("models.edit_model")}</span>
+          </button>
+          <button
+            type="button"
+            onClick={remove}
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-pill border border-border-default text-meta text-danger-fg hover:bg-danger-bg hover:border-danger-border transition-colors duration-fast ease-khx"
+          >
+            <Icon icon={Trash2} size="xs" />
+            <span>{t("models.delete_model")}</span>
+          </button>
         </div>
       </div>
 
       {result && (
         <div
-          className={`mt-3 px-3 py-2 rounded text-xs ${
+          className={`mt-4 px-4 py-3 rounded-card-sm text-meta border flex items-start gap-2 ${
             result.success
-              ? "bg-green-50 text-green-800 border border-green-200"
-              : "bg-red-50 text-red-800 border border-red-200"
+              ? "bg-success-bg text-success-fg border-success-border"
+              : "bg-danger-bg text-danger-fg border-danger-border"
           }`}
         >
-          <div className="font-medium">
-            {result.success ? "✅" : "❌"} {result.message}
+          <Icon
+            icon={result.success ? Check : XCircle}
+            size="sm"
+            className="flex-shrink-0 mt-0.5"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="font-medium">{result.message}</div>
+            {result.model_response && (
+              <div className="mt-1 text-fg-2 font-mono break-words">
+                {t("models.test_response_prefix", {
+                  response: result.model_response,
+                })}
+              </div>
+            )}
           </div>
-          {result.model_response && (
-            <div className="mt-1 text-app-fg/70 font-mono text-[11px]">
-              {t("models.test_response_prefix", {
-                response: result.model_response,
-              })}
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => setResult(null)}
+            aria-label="Dismiss"
+            className="shrink-0 text-fg-3 hover:text-fg-1"
+          >
+            <Icon icon={X} size="xs" />
+          </button>
         </div>
       )}
     </div>
   );
 }
-
-// ============================================================
-// Add / edit form (shared)
-// ============================================================
 
 function ModelForm({
   initial,
@@ -409,22 +482,23 @@ function ModelForm({
   };
 
   return (
-    <div className="bg-white border border-primary/30 rounded p-5">
-      <div className="font-semibold text-primary mb-4">
+    <div className="bg-card rounded-card shadow-card p-6">
+      <div className="text-h3 font-semibold text-fg-1 mb-4">
         {isEdit ? t("models.form_edit_title") : t("models.form_create_title")}
       </div>
 
       {!isEdit && presets.length > 0 && (
-        <div className="mb-4 pb-4 border-b border-black/5">
-          <label className="text-xs text-app-fg/60">
+        <div className="mb-5 pb-5 border-b border-border-subtle">
+          <div className="text-caption text-fg-2 mb-2">
             {t("models.form_preset_label")}
-          </label>
-          <div className="flex gap-2 mt-2 flex-wrap">
+          </div>
+          <div className="flex gap-2 flex-wrap">
             {presets.map((p, i) => (
               <button
                 key={p.name}
+                type="button"
                 onClick={() => applyPreset(i)}
-                className="text-xs px-2.5 py-1 rounded border border-black/10 hover:border-primary hover:bg-primary/5"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-pill border border-border-default text-meta text-fg-1 hover:border-indigo hover:text-indigo hover:bg-indigo-soft transition-colors duration-fast ease-khx"
               >
                 {p.name}
               </button>
@@ -433,20 +507,22 @@ function ModelForm({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         <Field label={t("models.form_name_label")}>
           <input
             value={form.name}
             onChange={(e) => update("name", e.target.value)}
             placeholder="Claude Opus 4.7"
-            className="w-full px-2.5 py-1.5 border border-black/10 rounded text-sm focus:outline-none focus:border-primary"
+            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+            style={{ fontSize: "13px" }}
           />
         </Field>
         <Field label="Provider">
           <select
             value={form.provider}
             onChange={(e) => update("provider", e.target.value)}
-            className="w-full px-2.5 py-1.5 border border-black/10 rounded text-sm focus:outline-none focus:border-primary bg-white"
+            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+            style={{ fontSize: "13px" }}
           >
             {PROVIDERS.map((p) => (
               <option key={p} value={p}>
@@ -460,7 +536,8 @@ function ModelForm({
             value={form.endpoint}
             onChange={(e) => update("endpoint", e.target.value)}
             placeholder="https://api.anthropic.com"
-            className="w-full px-2.5 py-1.5 border border-black/10 rounded text-sm font-mono focus:outline-none focus:border-primary"
+            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+            style={{ fontSize: "13px" }}
           />
         </Field>
         <Field label="Model ID">
@@ -468,17 +545,17 @@ function ModelForm({
             value={form.model_id}
             onChange={(e) => update("model_id", e.target.value)}
             placeholder="claude-opus-4-7"
-            className="w-full px-2.5 py-1.5 border border-black/10 rounded text-sm font-mono focus:outline-none focus:border-primary"
+            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+            style={{ fontSize: "13px" }}
           />
         </Field>
         <Field label="Max Tokens">
           <input
             type="number"
             value={form.max_tokens}
-            onChange={(e) =>
-              update("max_tokens", Number(e.target.value) || 0)
-            }
-            className="w-full px-2.5 py-1.5 border border-black/10 rounded text-sm focus:outline-none focus:border-primary"
+            onChange={(e) => update("max_tokens", Number(e.target.value) || 0)}
+            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+            style={{ fontSize: "13px" }}
           />
         </Field>
         <Field
@@ -490,12 +567,10 @@ function ModelForm({
             min={0}
             value={form.input_price_per_1m_tokens ?? 0}
             onChange={(e) =>
-              update(
-                "input_price_per_1m_tokens",
-                Number(e.target.value) || 0,
-              )
+              update("input_price_per_1m_tokens", Number(e.target.value) || 0)
             }
-            className="w-full px-2.5 py-1.5 border border-black/10 rounded text-sm focus:outline-none focus:border-primary"
+            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+            style={{ fontSize: "13px" }}
             title={t("models.form_price_hint")}
           />
         </Field>
@@ -508,12 +583,10 @@ function ModelForm({
             min={0}
             value={form.output_price_per_1m_tokens ?? 0}
             onChange={(e) =>
-              update(
-                "output_price_per_1m_tokens",
-                Number(e.target.value) || 0,
-              )
+              update("output_price_per_1m_tokens", Number(e.target.value) || 0)
             }
-            className="w-full px-2.5 py-1.5 border border-black/10 rounded text-sm focus:outline-none focus:border-primary"
+            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+            style={{ fontSize: "13px" }}
             title={t("models.form_price_hint")}
           />
         </Field>
@@ -535,32 +608,40 @@ function ModelForm({
                 : "sk-..."
             }
             disabled={form.provider === "ollama"}
-            className="w-full px-2.5 py-1.5 border border-black/10 rounded text-sm font-mono focus:outline-none focus:border-primary disabled:bg-black/5 disabled:cursor-not-allowed"
+            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus disabled:bg-soft disabled:text-fg-3 disabled:cursor-not-allowed transition-colors duration-fast ease-khx"
+            style={{ fontSize: "13px" }}
           />
-          <div className="text-[10px] text-app-fg/50 mt-1">
+          <div className="text-meta text-fg-3 mt-1.5">
             {t("models.key_storage_note")}
           </div>
         </Field>
       </div>
 
       {err && (
-        <div className="mt-3 text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded">
-          {t("models.error_label", { detail: err })}
+        <div
+          role="alert"
+          className="mt-4 rounded-card-sm bg-danger-bg border border-danger-border text-danger-fg px-4 py-3 flex items-start gap-2 text-caption"
+        >
+          <Icon icon={AlertTriangle} size="sm" className="flex-shrink-0 mt-0.5" />
+          <span>{t("models.error_label", { detail: err })}</span>
         </div>
       )}
 
-      <div className="flex justify-end gap-2 mt-4">
+      <div className="flex justify-end gap-3 mt-5">
         <button
+          type="button"
           onClick={onCancel}
-          className="px-3 py-1.5 text-sm rounded border border-black/10 text-app-fg/70 hover:bg-black/5"
+          className="inline-flex items-center px-btn-x py-btn-y rounded-pill border border-border-default text-caption text-fg-1 hover:bg-navy-faint transition-colors duration-fast ease-khx font-medium"
         >
           {t("models.cancel")}
         </button>
         <button
+          type="button"
           onClick={submit}
           disabled={saving || !form.name || !form.endpoint || !form.model_id}
-          className="px-3 py-1.5 text-sm rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill shadow-btn bg-navy text-fg-inverse hover:bg-navy-hover disabled:opacity-50 transition-colors duration-fast ease-khx font-medium text-caption"
         >
+          {saving && <Icon icon={Loader2} size="sm" className="animate-spin" />}
           {saving
             ? t("models.saving")
             : isEdit
@@ -583,7 +664,7 @@ function Field({
 }) {
   return (
     <label className={`block ${className ?? ""}`}>
-      <div className="text-xs text-app-fg/60 mb-1">{label}</div>
+      <div className="text-caption font-medium text-fg-1 mb-2">{label}</div>
       {children}
     </label>
   );
@@ -604,7 +685,7 @@ function ModelEditForm({
     endpoint: model.endpoint,
     model_id: model.model_id,
     max_tokens: model.max_tokens,
-    api_key: null, // null = leave existing alone
+    api_key: null,
     input_price_per_1m_tokens: model.input_price_per_1m_tokens,
     output_price_per_1m_tokens: model.output_price_per_1m_tokens,
   };
@@ -619,19 +700,15 @@ function ModelEditForm({
   );
 }
 
-// ============================================================
-// Main page
-// ============================================================
-
 export default function Models() {
   const t = useT();
+  const toast = useToast();
   const [models, setModels] = useState<ModelConfig[]>([]);
   const [presets, setPresets] = useState<ModelConfigInput[]>([]);
   const [stats, setStats] = useState<UsageStats7Days | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [rebuildMsg, setRebuildMsg] = useState<string | null>(null);
 
   const refreshStats = useCallback(() => {
     api
@@ -653,8 +730,7 @@ export default function Models() {
   const onRebuild = async () => {
     try {
       const n = await api.rebuildUsageStats();
-      setRebuildMsg(t("models.stat_rebuild_done", { count: n }));
-      setTimeout(() => setRebuildMsg(null), 4000);
+      toast.success(t("models.stat_rebuild_done", { count: n }));
       refreshStats();
     } catch (e) {
       setError(String(e));
@@ -669,38 +745,52 @@ export default function Models() {
       .catch((e) => console.warn("getModelPresets failed", e));
   }, [refresh]);
 
-  /** Per-model 7-day usage lookup for the model row "Last 7d: …" line. */
   const usageByModel: Map<string, ModelUsage> = new Map(
     (stats?.by_model ?? []).map((m) => [m.model_config_id, m]),
   );
 
   return (
-    <div className="p-8 max-w-5xl">
-      <h1 className="text-2xl font-semibold text-primary mb-1">
-        {t("models.title")}
-      </h1>
-      <p className="text-sm text-app-fg/60 mb-6">{t("models.subtitle")}</p>
+    <main role="main" className="p-8 max-w-5xl mx-auto">
+      <header className="mb-6">
+        <h1 className="text-h2 font-semibold text-fg-1">{t("models.title")}</h1>
+        <p className="text-meta text-fg-2 mt-1">{t("models.subtitle")}</p>
+      </header>
 
       <StatsCards models={models} stats={stats} onRebuild={onRebuild} />
-      {rebuildMsg && (
-        <div className="text-xs text-emerald-700 mb-2">{rebuildMsg}</div>
-      )}
 
       {loading && (
-        <div className="text-sm text-app-fg/60">{t("models.loading")}</div>
+        <div className="flex flex-col gap-3">
+          <Skeleton variant="rect" height={120} />
+          <Skeleton variant="rect" height={120} />
+        </div>
       )}
-      {error && (
-        <div className="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded">
-          {t("models.error_label", { detail: error })}
+      {error && !loading && (
+        <div
+          role="alert"
+          className="rounded-card-sm bg-danger-bg border border-danger-border text-danger-fg px-4 py-3 flex items-start gap-2 text-caption"
+        >
+          <Icon icon={AlertTriangle} size="sm" className="flex-shrink-0 mt-0.5" />
+          <span>{t("models.error_label", { detail: error })}</span>
         </div>
       )}
 
       {!loading && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {models.length === 0 && !showAddForm && (
-            <div className="bg-white border border-dashed border-black/15 rounded p-8 text-center text-sm text-app-fg/60">
-              {t("models.empty_state_hint")}
-            </div>
+            <Stage
+              intensity="soft"
+              className="rounded-card p-10 text-center"
+            >
+              <EmptyModelsArt
+                width={160}
+                height={120}
+                aria-hidden="true"
+                className="mx-auto text-indigo opacity-80"
+              />
+              <p className="text-caption text-fg-2 mt-4">
+                {t("models.empty_state_hint")}
+              </p>
+            </Stage>
           )}
 
           {models.map((m) => (
@@ -726,14 +816,17 @@ export default function Models() {
             />
           ) : (
             <button
+              type="button"
               onClick={() => setShowAddForm(true)}
-              className="self-start px-4 py-2 text-sm rounded border border-dashed border-primary/40 text-primary hover:bg-primary/5"
+              className="self-start inline-flex items-center gap-1.5 px-btn-x py-btn-y rounded-pill border border-dashed border-border-default text-caption text-fg-1 hover:border-indigo hover:text-indigo hover:bg-indigo-soft transition-colors duration-fast ease-khx"
             >
-              {t("models.add_model_btn")}
+              <Icon icon={Plus} size="sm" />
+              <span>{t("models.add_model_btn")}</span>
             </button>
           )}
         </div>
       )}
-    </div>
+    </main>
   );
 }
+

@@ -4,6 +4,15 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useSearch } from "@tanstack/react-router";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import {
+  AlertTriangle,
+  Brain,
+  ChevronDown,
+  Check,
+  Loader2,
+  Upload,
+  X,
+} from "lucide-react";
+import {
   api,
   type ModelConfig,
   type Paper,
@@ -16,12 +25,9 @@ import {
 } from "../lib/tauri";
 import { PaperPicker } from "../components/PaperPicker";
 import { PaperMetadataEditor } from "../components/PaperMetadataEditor";
+import { Icon } from "../components/Icon";
+import { Stage } from "../components/Stage";
 import { useT } from "../hooks/useT";
-import { useTranslation } from "react-i18next";
-
-// ============================================================
-// Helpers
-// ============================================================
 
 /**
  * Split a streaming markdown response by `## ` headings into a Map of
@@ -49,8 +55,6 @@ function parseSections(text: string): Map<string, string> {
   return sections;
 }
 
-/** i18n-aware relative time. Caller passes the active `t` so the string
- *  re-renders when the language changes. */
 function formatRelative(
   iso: string,
   t: (k: string, opts?: Record<string, unknown>) => string,
@@ -68,10 +72,6 @@ function formatRelative(
   return t("parse.time_ago_days", { count: Math.round(diff / 86400) });
 }
 
-// ============================================================
-// Output panel
-// ============================================================
-
 function DimensionCard({
   dimension,
   content,
@@ -84,24 +84,29 @@ function DimensionCard({
   const t = useT();
   const empty = !content || content.length === 0;
   return (
-    <div className="bg-white border border-black/10 rounded p-4 flex flex-col">
-      <div className="text-sm font-semibold text-primary mb-2 flex items-center gap-2">
+    <div className="bg-card rounded-card-sm border border-border-default p-4 flex flex-col">
+      <div className="text-caption font-semibold text-indigo mb-2 flex items-center gap-2">
         {dimension.title}
         {streaming && empty && (
-          <span className="text-[10px] text-app-fg/40 animate-pulse">
+          <span className="text-meta text-fg-3 animate-pulse">
             {t("parse.dimension_waiting")}
           </span>
         )}
       </div>
-      <div className="text-sm text-app-fg/85 whitespace-pre-wrap leading-relaxed flex-1">
+      <div className="text-caption text-fg-1 whitespace-pre-wrap leading-relaxed flex-1">
         {empty ? (
-          <span className="text-app-fg/30 text-xs italic">
+          <span className="text-fg-3 text-meta italic">
             {t("parse.dimension_not_generated")}
           </span>
         ) : (
           <>
             {content}
-            {streaming && <span className="inline-block w-1.5 h-4 bg-primary/60 ml-0.5 animate-pulse align-middle" />}
+            {streaming && (
+              <span
+                aria-hidden="true"
+                className="inline-block w-1 h-4 bg-indigo ml-0.5 animate-pulse align-middle"
+              />
+            )}
           </>
         )}
       </div>
@@ -118,30 +123,29 @@ function RawOutput({
 }) {
   const t = useT();
   return (
-    <div className="bg-white border border-black/10 rounded p-4">
-      <div className="text-xs text-app-fg/50 mb-2">
+    <div className="bg-card rounded-card-sm border border-border-default p-5">
+      <div className="text-meta uppercase tracking-wide-brand text-fg-3 mb-2">
         {t("parse.raw_response_header")}
       </div>
-      <div className="text-sm text-app-fg/85 whitespace-pre-wrap leading-relaxed">
+      <div className="text-caption text-fg-1 whitespace-pre-wrap leading-relaxed">
         {text || (
-          <span className="text-app-fg/30 italic">
+          <span className="text-fg-3 italic">
             {t("parse.raw_response_waiting")}
           </span>
         )}
         {streaming && (
-          <span className="inline-block w-1.5 h-4 bg-primary/60 ml-0.5 animate-pulse align-middle" />
+          <span
+            aria-hidden="true"
+            className="inline-block w-1 h-4 bg-indigo ml-0.5 animate-pulse align-middle"
+          />
         )}
       </div>
     </div>
   );
 }
 
-// ============================================================
-// Main
-// ============================================================
-
 export default function Parse() {
-  const { t } = useTranslation();
+  const t = useT();
   const search = useSearch({ from: "/parse" }) as {
     paper_id?: string;
     skill?: string;
@@ -164,10 +168,6 @@ export default function Parse() {
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const [tokensOut, setTokensOut] = useState(0);
 
-  // Local PDF upload state — `uploadStatus` keeps the file-name list
-  // visible AFTER the upload completes too (user feedback: "uploaded
-  // file disappears, can't tell anything happened"). The `kind` field
-  // drives the row's visual treatment; user dismisses via × manually.
   const [uploadProgress, setUploadProgress] =
     useState<UploadProgressPayload | null>(null);
   type UploadFileStatus = {
@@ -188,22 +188,17 @@ export default function Parse() {
     pdfPath: string | null;
   } | null>(null);
 
-  // Stable refs for token append (avoid stale closure in Tauri event handler)
   const outputRef = useRef("");
-  // After deep-link load, scroll the "开始解析" button into view but don't
-  // auto-fire it — the user does a final visual confirm before spending
-  // an API call.
   const startBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Load reference data
   useEffect(() => {
-    // If we arrived here via /parse?paper_id=...&skill=..., the recent
-    // 50-paper list may not contain that paper. Fetch the single paper
-    // by id and prepend it so the <select> can preselect it.
     const loadPapers = async () => {
       try {
         const recent = await api.getRecentPapers(50);
-        if (search.paper_id && !recent.some((p) => p.id === search.paper_id)) {
+        if (
+          search.paper_id &&
+          !recent.some((p) => p.id === search.paper_id)
+        ) {
           try {
             const target = await api.getPaper(search.paper_id);
             if (target) setPapers([target, ...recent]);
@@ -224,7 +219,6 @@ export default function Parse() {
       .getSkills()
       .then((s) => {
         setSkills(s);
-        // Search-param skill wins; otherwise fall back to first.
         if (search.skill && s.some((x) => x.name === search.skill)) {
           setSkillName(search.skill);
         } else if (s.length > 0 && !skillName) {
@@ -243,11 +237,9 @@ export default function Parse() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.paper_id, search.skill]);
 
-  // Apply paper_id from URL once papers list is ready.
   useEffect(() => {
     if (search.paper_id && papers.some((p) => p.id === search.paper_id)) {
       setPaperId(search.paper_id);
-      // Scroll the start button into view so the user knows where to click.
       setTimeout(() => {
         startBtnRef.current?.scrollIntoView({
           behavior: "smooth",
@@ -257,7 +249,6 @@ export default function Parse() {
     }
   }, [search.paper_id, papers]);
 
-  // Subscribe to streaming events
   useEffect(() => {
     let unlisten: UnlistenFn | undefined;
     listen<TokenPayload>("parse:token", (event) => {
@@ -279,7 +270,6 @@ export default function Parse() {
     };
   }, []);
 
-  // Reload history when paper changes
   useEffect(() => {
     if (!paperId) {
       setHistory([]);
@@ -293,8 +283,6 @@ export default function Parse() {
     [paperId, papers],
   );
 
-  // Lazy-load full Skill (incl. output_dimensions + prompt_template) for the
-  // selected skill — get_skills now returns SkillSummary only to keep IPC small.
   useEffect(() => {
     if (!skillName) {
       setSelectedSkill(null);
@@ -325,14 +313,10 @@ export default function Parse() {
       setStreaming(false);
       setFinishedAt(Date.now());
     } finally {
-      // Refresh history (the new entry should now be there)
       api.getParseHistory(paperId).then(setHistory).catch(() => {});
     }
   };
 
-  // ============================================================
-  // Subscribe to upload:progress events (lives for the page lifetime)
-  // ============================================================
   useEffect(() => {
     let unlisten: UnlistenFn | undefined;
     listen<UploadProgressPayload>("upload:progress", (event) => {
@@ -343,9 +327,6 @@ export default function Parse() {
     return () => unlisten?.();
   }, []);
 
-  // ============================================================
-  // Local PDF upload
-  // ============================================================
   const handleUploadClick = async () => {
     let picked: string | string[] | null;
     try {
@@ -361,8 +342,6 @@ export default function Parse() {
     const paths = Array.isArray(picked) ? picked : [picked];
     if (paths.length === 0) return;
 
-    // Seed all files as "pending" so the row shows up immediately with
-    // every name visible — no fly-in surprise.
     const fileNames = paths.map(
       (p) => p.split(/[/\\]/).pop() ?? "(unknown)",
     );
@@ -374,8 +353,6 @@ export default function Parse() {
 
     try {
       if (paths.length === 1) {
-        // Single file → call upload_local_paper directly so we get the
-        // full UploadResult (includes partial_metadata + needs_user_review).
         const result = await api.uploadLocalPaper(paths[0]);
         const recent = await api.getRecentPapers(50);
         setPapers(recent);
@@ -422,7 +399,6 @@ export default function Parse() {
       }
     } catch (e) {
       setError(t("parse.error_upload", { detail: String(e) }));
-      // Mark whole batch as error so the user still sees what they uploaded.
       setUploadStatus((prev) =>
         prev
           ? {
@@ -446,7 +422,7 @@ export default function Parse() {
       const parsed = JSON.parse(h.result_json);
       if (parsed && typeof parsed.text === "string") text = parsed.text;
     } catch {
-      // not JSON, keep raw
+      /* not JSON, keep raw */
     }
     setOutput(text);
     outputRef.current = text;
@@ -467,41 +443,48 @@ export default function Parse() {
     return Math.ceil(approx);
   }, [selectedPaper]);
   const elapsedMs =
-    startedAt && finishedAt ? finishedAt - startedAt : startedAt ? Date.now() - startedAt : 0;
+    startedAt && finishedAt
+      ? finishedAt - startedAt
+      : startedAt
+        ? Date.now() - startedAt
+        : 0;
 
   return (
-    <div className="flex h-full">
-      {/* HISTORY SIDEBAR */}
-      <aside className="w-64 border-r border-black/10 bg-white/40 overflow-y-auto p-3">
-        <div className="text-[10px] uppercase tracking-wider text-app-fg/50 mb-2 px-1">
+    <div className="flex h-full bg-page text-fg-1">
+      <aside
+        aria-label="Parse history"
+        className="w-parse-history border-r border-border-default bg-soft overflow-y-auto p-3"
+      >
+        <div className="text-meta uppercase tracking-wide-brand text-fg-3 mb-3 px-2">
           {t("parse.history")}
         </div>
         {!paperId && (
-          <div className="text-[11px] text-app-fg/40 px-1">
+          <div className="text-meta text-fg-3 px-2">
             {t("parse.select_paper_first")}
           </div>
         )}
         {paperId && history.length === 0 && (
-          <div className="text-[11px] text-app-fg/40 px-1">
+          <div className="text-meta text-fg-3 px-2">
             {t("parse.no_history")}
           </div>
         )}
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-2">
           {history.map((h) => (
             <button
               key={h.id}
+              type="button"
               onClick={() => loadHistoryItem(h)}
-              className="text-left text-xs px-2 py-1.5 rounded border border-black/5 hover:border-primary/30 hover:bg-primary/5 bg-white"
+              className="text-left text-meta px-3 py-2 rounded-card-sm bg-card border border-border-default hover:border-indigo-muted hover:bg-indigo-soft transition-colors duration-fast ease-khx"
             >
-              <div className="flex items-center justify-between gap-1">
-                <span className="font-medium text-primary truncate">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-indigo truncate">
                   {h.skill_name}
                 </span>
-                <span className="text-[10px] text-app-fg/40 shrink-0">
+                <span className="text-micro text-fg-3 shrink-0">
                   {formatRelative(h.created_at, t)}
                 </span>
               </div>
-              <div className="text-[10px] text-app-fg/60 mt-0.5">
+              <div className="text-micro text-fg-3 mt-1 tabular-nums">
                 {h.model_name} · in≈{h.tokens_in} · out≈{h.tokens_out} ·{" "}
                 {(h.duration_ms / 1000).toFixed(1)}s
               </div>
@@ -510,14 +493,14 @@ export default function Parse() {
         </div>
       </aside>
 
-      {/* MAIN */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Config */}
-        <div className="border-b border-black/10 p-4 bg-white/30 space-y-3">
-          <h1 className="text-xl font-semibold text-primary">{t("parse.title")}</h1>
+      <main className="flex-1 flex flex-col overflow-hidden bg-page">
+        <div className="border-b border-border-default px-8 py-5 bg-card space-y-4">
+          <h1 className="text-h2 font-semibold text-fg-1">
+            {t("parse.title")}
+          </h1>
 
-          <div className="flex gap-2 items-center">
-            <label className="text-xs text-app-fg/60 w-12 shrink-0">
+          <div className="flex gap-3 items-center">
+            <label className="text-caption font-medium text-fg-1 w-16 shrink-0">
               {t("parse.paper_label")}
             </label>
             <PaperPicker
@@ -531,35 +514,44 @@ export default function Parse() {
               }))}
             />
             <button
+              type="button"
               onClick={handleUploadClick}
               disabled={!!uploadProgress}
-              className="shrink-0 px-3 py-1.5 text-xs rounded border border-primary text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="shrink-0 inline-flex items-center gap-1.5 px-btn-x py-btn-y rounded-pill border border-border-default text-caption text-fg-1 hover:border-indigo hover:text-indigo disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-fast ease-khx"
               title={t("parse.upload_pdf_title")}
             >
-              {t("parse.upload_pdf")}
+              <Icon icon={Upload} size="sm" />
+              <span>{t("parse.upload_pdf")}</span>
             </button>
           </div>
 
-          {/* Upload status row — stays visible AFTER upload too, so the
-              user can see exactly what they uploaded. Dismiss with ×.
-              During upload it doubles as the progress bar. */}
           {uploadStatus && (
-            <div className="pl-14">
+            <div className="pl-16">
               <div
-                className={`flex items-start gap-2 px-2.5 py-2 rounded border text-[11px] ${
+                className={`flex items-start gap-2 px-3 py-2 rounded-card-sm border text-meta ${
                   uploadStatus.kind === "uploading"
-                    ? "border-amber-300 bg-amber-50"
+                    ? "border-warning-border bg-warning-bg"
                     : uploadStatus.files.some((f) => f.status === "error")
-                      ? "border-red-300 bg-red-50"
-                      : "border-emerald-300 bg-emerald-50"
+                      ? "border-danger-border bg-danger-bg"
+                      : "border-success-border bg-success-bg"
                 }`}
               >
                 <div className="flex-1 min-w-0">
                   {uploadStatus.kind === "uploading" && uploadProgress ? (
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-black/10 rounded overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-card rounded-pill overflow-hidden">
                         <div
-                          className="h-full bg-primary transition-all"
+                          role="progressbar"
+                          aria-valuenow={
+                            uploadProgress.total > 0
+                              ? (uploadProgress.current /
+                                  uploadProgress.total) *
+                                100
+                              : 0
+                          }
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                          className="h-full bg-indigo transition-[width] duration-base ease-khx"
                           style={{
                             width: `${
                               uploadProgress.total > 0
@@ -571,12 +563,13 @@ export default function Parse() {
                           }}
                         />
                       </div>
-                      <span className="tabular-nums shrink-0 text-amber-800">
-                        ⏳ {uploadProgress.current} / {uploadProgress.total}
+                      <span className="tabular-nums shrink-0 text-warning-fg-strong inline-flex items-center gap-1">
+                        <Icon icon={Loader2} size="xs" className="animate-spin" />
+                        {uploadProgress.current} / {uploadProgress.total}
                       </span>
                     </div>
                   ) : (
-                    <div className="font-medium text-app-fg">
+                    <div className="font-medium text-fg-1">
                       {uploadStatus.files.every((f) => f.status === "ok")
                         ? t("parse.upload_status_uploaded_all", {
                             count: uploadStatus.files.length,
@@ -591,39 +584,43 @@ export default function Parse() {
                           })}
                     </div>
                   )}
-                  {/* File-by-file list (always rendered so the names are
-                      visible during AND after upload) */}
-                  <ul className="mt-1 flex flex-col gap-0.5">
+                  <ul className="mt-1 flex flex-col gap-1">
                     {uploadStatus.files.map((f, i) => (
                       <li
                         key={i}
-                        className="flex items-center gap-1.5 text-[10.5px]"
+                        className="flex items-center gap-1.5 text-meta"
                       >
                         <span className="shrink-0">
-                          {f.status === "pending"
-                            ? "⏳"
-                            : f.status === "ok"
-                              ? "✓"
-                              : "✗"}
+                          {f.status === "pending" ? (
+                            <Icon
+                              icon={Loader2}
+                              size="xs"
+                              className="animate-spin text-warning-fg-strong"
+                            />
+                          ) : f.status === "ok" ? (
+                            <Icon icon={Check} size="xs" className="text-success-fg" />
+                          ) : (
+                            <Icon icon={X} size="xs" className="text-danger-fg" />
+                          )}
                         </span>
                         <span
                           className={`truncate ${
                             f.status === "error"
-                              ? "text-red-700"
+                              ? "text-danger-fg"
                               : f.status === "ok"
-                                ? "text-emerald-800"
-                                : "text-amber-800"
+                                ? "text-success-fg"
+                                : "text-warning-fg-strong"
                           }`}
                           title={f.error ?? f.name}
                         >
                           {f.name}
                           {f.needsReview && (
-                            <span className="ml-1 text-amber-700">
+                            <span className="ml-1 text-warning-fg-strong">
                               {t("parse.upload_needs_review")}
                             </span>
                           )}
                           {f.error && (
-                            <span className="ml-1 text-red-600">
+                            <span className="ml-1 text-danger-fg">
                               · {f.error.slice(0, 40)}
                               {f.error.length > 40 ? "…" : ""}
                             </span>
@@ -635,81 +632,102 @@ export default function Parse() {
                 </div>
                 {uploadStatus.kind === "done" && (
                   <button
+                    type="button"
                     onClick={() => setUploadStatus(null)}
-                    className="shrink-0 text-app-fg/40 hover:text-app-fg/80 px-1"
+                    className="shrink-0 text-fg-3 hover:text-fg-1 transition-colors duration-fast ease-khx"
                     title={t("parse.upload_close")}
+                    aria-label={t("parse.upload_close")}
                   >
-                    ✕
+                    <Icon icon={X} size="xs" />
                   </button>
                 )}
               </div>
             </div>
           )}
 
-          <div className="flex gap-2 items-center">
-            <label className="text-xs text-app-fg/60 w-12 shrink-0">
+          <div className="flex gap-3 items-center">
+            <label className="text-caption font-medium text-fg-1 w-16 shrink-0">
               {t("parse.model_label")}
             </label>
-            <select
-              value={modelId}
-              onChange={(e) => setModelId(e.target.value)}
-              className="flex-1 px-2.5 py-1.5 text-sm bg-white border border-black/10 rounded"
-            >
-              {models.length === 0 && (
-                <option value="">{t("parse.model_unconfigured")}</option>
-              )}
-              {models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                  {m.is_default ? t("parse.model_default_suffix") : ""}
-                </option>
-              ))}
-            </select>
+            <div className="relative flex-1">
+              <select
+                value={modelId}
+                onChange={(e) => setModelId(e.target.value)}
+                className="w-full appearance-none pr-9 pl-input-x py-input-y rounded-pill border border-border-default bg-card text-caption text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+              >
+                {models.length === 0 && (
+                  <option value="">{t("parse.model_unconfigured")}</option>
+                )}
+                {models.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                    {m.is_default ? t("parse.model_default_suffix") : ""}
+                  </option>
+                ))}
+              </select>
+              <Icon
+                icon={ChevronDown}
+                size="sm"
+                className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-fg-2"
+              />
+            </div>
             <button
+              type="button"
               ref={startBtnRef}
               onClick={startParse}
               disabled={streaming || !paperId || !skillName || !modelId}
-              className="px-4 py-1.5 text-sm rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill bg-navy text-fg-inverse text-caption font-medium shadow-btn hover:bg-navy-hover hover:shadow-btn-hover hover:-translate-y-px active:bg-navy-active active:translate-y-0 disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-btn transition-[background,box-shadow,transform] duration-fast ease-khx"
             >
-              {streaming ? t("parse.parsing") : t("parse.start")}
+              {streaming ? (
+                <Icon icon={Loader2} size="sm" className="animate-spin" />
+              ) : (
+                <Icon icon={Brain} size="sm" />
+              )}
+              <span>{streaming ? t("parse.parsing") : t("parse.start")}</span>
             </button>
           </div>
 
-          <div className="flex gap-2 items-center">
-            <label className="text-xs text-app-fg/60 w-12 shrink-0">
+          <div className="flex gap-3 items-center">
+            <label className="text-caption font-medium text-fg-1 w-16 shrink-0">
               {t("parse.skill_label")}
             </label>
-            <select
-              value={skillName}
-              onChange={(e) => setSkillName(e.target.value)}
-              className="flex-1 px-2.5 py-1.5 text-sm bg-white border border-black/10 rounded"
-            >
-              {skills.length === 0 && (
-                <option value="">{t("parse.skill_unloaded")}</option>
-              )}
-              {skills.map((s) => (
-                <option key={s.name} value={s.name}>
-                  {s.icon ? `${s.icon} ` : ""}
-                  {s.display_name}
-                  {s.is_builtin
-                    ? t("parse.skill_builtin")
-                    : t("parse.skill_user")}
-                </option>
-              ))}
-            </select>
+            <div className="relative flex-1">
+              <select
+                value={skillName}
+                onChange={(e) => setSkillName(e.target.value)}
+                className="w-full appearance-none pr-9 pl-input-x py-input-y rounded-pill border border-border-default bg-card text-caption text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+              >
+                {skills.length === 0 && (
+                  <option value="">{t("parse.skill_unloaded")}</option>
+                )}
+                {skills.map((s) => (
+                  <option key={s.name} value={s.name}>
+                    {s.icon ? `${s.icon} ` : ""}
+                    {s.display_name}
+                    {s.is_builtin
+                      ? t("parse.skill_builtin")
+                      : t("parse.skill_user")}
+                  </option>
+                ))}
+              </select>
+              <Icon
+                icon={ChevronDown}
+                size="sm"
+                className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-fg-2"
+              />
+            </div>
           </div>
 
-          {/* Selected Skill info line — description + recommended models */}
           {(() => {
             const sel = skills.find((s) => s.name === skillName);
             if (!sel) return null;
             return (
-              <div className="flex gap-2 items-start">
-                <div className="w-12 shrink-0" />
-                <div className="flex-1 text-[11px] text-app-fg/55 leading-snug">
+              <div className="flex gap-3 items-start">
+                <div className="w-16 shrink-0" />
+                <div className="flex-1 text-meta text-fg-2 leading-snug">
                   {sel.description}
                   {sel.recommended_models.length > 0 && (
-                    <span className="ml-2 text-app-fg/40">
+                    <span className="ml-2 text-fg-3">
                       {t("parse.skill_recommended_prefix")}
                       {sel.recommended_models.slice(0, 3).join(" · ")}
                     </span>
@@ -720,69 +738,83 @@ export default function Parse() {
           })()}
         </div>
 
-        {/* Output */}
-        <div className="flex-1 overflow-y-auto p-4 bg-app-bg">
+        <div className="flex-1 overflow-y-auto p-8 bg-page">
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded mb-3">
-              {t("search.error_prefix", { detail: error })}
+            <div
+              role="alert"
+              className="rounded-card-sm bg-danger-bg border border-danger-border text-danger-fg px-4 py-3 flex items-start gap-2 text-caption mb-4"
+            >
+              <Icon
+                icon={AlertTriangle}
+                size="sm"
+                className="flex-shrink-0 mt-0.5"
+              />
+              <span>{t("search.error_prefix", { detail: error })}</span>
             </div>
           )}
 
           {!output && !streaming && !error && (
-            <div className="text-sm text-app-fg/40 text-center py-12">
-              {t("parse.empty_hint")}
-            </div>
-          )}
-
-          {(output || streaming) && selectedSkill && selectedSkill.output_dimensions.length > 0 && (
-            <div className="grid grid-cols-2 gap-3">
-              {selectedSkill.output_dimensions.map((d) => (
-                <DimensionCard
-                  key={d.key}
-                  dimension={d}
-                  content={sections.get(d.title) ?? ""}
-                  streaming={streaming}
-                />
-              ))}
-            </div>
+            <Stage intensity="full" className="rounded-card p-12 text-center">
+              <Icon icon={Brain} size={64} className="mx-auto text-indigo opacity-60" />
+              <p className="text-caption text-fg-2 mt-6">
+                {t("parse.empty_hint")}
+              </p>
+            </Stage>
           )}
 
           {(output || streaming) &&
-            (!selectedSkill || selectedSkill.output_dimensions.length === 0) && (
+            selectedSkill &&
+            selectedSkill.output_dimensions.length > 0 && (
+              <div className="grid grid-cols-2 gap-4">
+                {selectedSkill.output_dimensions.map((d) => (
+                  <DimensionCard
+                    key={d.key}
+                    dimension={d}
+                    content={sections.get(d.title) ?? ""}
+                    streaming={streaming}
+                  />
+                ))}
+              </div>
+            )}
+
+          {(output || streaming) &&
+            (!selectedSkill ||
+              selectedSkill.output_dimensions.length === 0) && (
               <RawOutput text={output} streaming={streaming} />
             )}
         </div>
 
-        {/* Status bar */}
-        <div className="border-t border-black/10 px-4 py-2 bg-white/40 text-[11px] text-app-fg/60 flex items-center gap-4">
+        <div className="border-t border-border-default px-8 py-2 bg-card text-meta text-fg-2 flex items-center gap-4 tabular-nums">
           <span>
-            in ≈ <strong className="text-app-fg">{tokensIn.toLocaleString()}</strong>
+            in ≈ <strong className="text-fg-1">{tokensIn.toLocaleString()}</strong>
             {" · "}
-            out ≈ <strong className="text-app-fg">{tokensOut.toLocaleString()}</strong>
+            out ≈ <strong className="text-fg-1">{tokensOut.toLocaleString()}</strong>
           </span>
           <span>
             {t("parse.elapsed_label")}
-            <strong className="text-app-fg">
+            <strong className="text-fg-1">
               {(elapsedMs / 1000).toFixed(1)}s
             </strong>
           </span>
           <span>
             {t("parse.estimated_cost_label")}
-            <strong className="text-app-fg">$0.00</strong>
-            <span className="text-app-fg/40 ml-1">
+            <strong className="text-fg-1">$0.00</strong>
+            <span className="text-fg-3 ml-1">
               {t("parse.estimated_cost_pending")}
             </span>
           </span>
           {streaming && (
-            <span className="ml-auto text-primary animate-pulse">
+            <span className="ml-auto text-indigo animate-pulse inline-flex items-center gap-1">
+              <span
+                aria-hidden="true"
+                className="w-2 h-2 rounded-full bg-indigo"
+              />
               {t("parse.streaming_indicator")}
             </span>
           )}
         </div>
       </main>
 
-      {/* Metadata editor — opens automatically when upload returns
-          needs_user_review: true */}
       {editorOpen && editorData && (
         <PaperMetadataEditor
           paperId={editorData.paperId}
@@ -793,7 +825,6 @@ export default function Parse() {
             setEditorData(null);
           }}
           onSaved={() => {
-            // Refresh recent papers so the corrected title shows up.
             void api.getRecentPapers(50).then(setPapers);
           }}
         />

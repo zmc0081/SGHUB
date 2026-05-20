@@ -59,8 +59,11 @@ pub(crate) fn db_insert_attachment(
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
     conn.execute(
-        &format!("INSERT INTO chat_attachments ({}) \
-                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)", ATT_COLS),
+        &format!(
+            "INSERT INTO chat_attachments ({}) \
+                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            ATT_COLS
+        ),
         params![
             att.id,
             att.session_id,
@@ -94,8 +97,7 @@ pub(crate) fn db_get_attachments(
         placeholders.join(",")
     );
     let mut stmt = conn.prepare(&sql)?;
-    let params: Vec<&dyn rusqlite::ToSql> =
-        ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+    let params: Vec<&dyn rusqlite::ToSql> = ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
     let rows: Vec<ChatAttachment> = stmt
         .query_map(rusqlite::params_from_iter(params.iter()), row_to_attachment)?
         .collect::<rusqlite::Result<_>>()?;
@@ -173,8 +175,7 @@ pub async fn upload_chat_attachment(
     // Copy to our managed location (V2.1.0 paths via `config::paths`).
     // {effective_data_dir}/data/chat_attachments/{session_id}/{uuid}.{ext}
     let id = uuid::Uuid::now_v7().to_string();
-    let dir: PathBuf =
-        crate::config::paths::chat_attachments_dir(&app, &session_id);
+    let dir: PathBuf = crate::config::paths::chat_attachments_dir(&app, &session_id);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let safe_ext = if ext.is_empty() {
         "bin".into()
@@ -191,10 +192,8 @@ pub async fn upload_chat_attachment(
     // upload IPC dangling forever (which left the UI stuck on
     // "uploading…").
     let dest_for_extract = dest.clone();
-    let extracted_result = tokio::task::spawn_blocking(move || {
-        extract_text(&dest_for_extract, kind)
-    })
-    .await;
+    let extracted_result =
+        tokio::task::spawn_blocking(move || extract_text(&dest_for_extract, kind)).await;
     let extracted = match extracted_result {
         Ok(Ok(opt)) => opt,
         Ok(Err(msg)) if kind == "docx" => {
@@ -251,11 +250,12 @@ pub async fn reference_paper_as_attachment(
 ) -> Result<ChatAttachment, String> {
     let pool = state.db_pool.clone();
     let pid = paper_id.clone();
-    let paper = tokio::task::spawn_blocking(move || crate::library::db_get_paper_by_id(&pool, &pid))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("paper `{}` not found", paper_id))?;
+    let paper =
+        tokio::task::spawn_blocking(move || crate::library::db_get_paper_by_id(&pool, &pid))
+            .await
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("paper `{}` not found", paper_id))?;
 
     // Best-effort full-text extraction from local PDF; else fall back to abstract
     let extracted = match &paper.pdf_path {

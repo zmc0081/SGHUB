@@ -3,8 +3,8 @@
  *
  * Why a store and not per-component state? The same paper can appear on
  * Search, Feed, Library and Chat simultaneously. When the user favorites it
- * in one place we need every other open view to flip its ⭐ state without
- * round-tripping the backend per component. The store subscribes once to
+ * in one place we need every other open view to flip its favorited state
+ * without round-tripping the backend per component. The store subscribes to
  * `library:paper_folder_changed` and patches its internal map; components
  * read from the map via the selector hooks below.
  */

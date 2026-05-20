@@ -4,11 +4,21 @@ import * as jsyaml from "js-yaml";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  AlertTriangle,
+  ArrowLeft,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
+import {
   api,
   type ModelConfig,
   type Paper,
   type TokenPayload,
 } from "../lib/tauri";
+import { useT } from "../hooks/useT";
+import { useToast } from "../hooks/useToast";
+import { confirmAsync } from "./DialogProvider";
+import { Icon } from "./Icon";
 
 // ============================================================
 // Constants
@@ -101,12 +111,15 @@ function estimateTokens(s: string): number {
 
 export default function SkillEditor({ mode, name }: Props) {
   const navigate = useNavigate();
+  const t = useT();
+  const toast = useToast();
   const draftKey = `skill-draft-${name ?? "new"}`;
 
   // ----- Source-of-truth state -----
   const [yaml, setYaml] = useState<string>(EMPTY_TEMPLATE);
   const [loadedYaml, setLoadedYaml] = useState<string>(EMPTY_TEMPLATE);
   const [originalName, setOriginalName] = useState<string | null>(null);
+  const [pendingDraft, setPendingDraft] = useState<string | null>(null);
 
   // ----- Reference data -----
   const [papers, setPapers] = useState<Paper[]>([]);
@@ -120,6 +133,7 @@ export default function SkillEditor({ mode, name }: Props) {
   const [testOutput, setTestOutput] = useState<string>("");
   const [testRunning, setTestRunning] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // ----- Refs -----
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
@@ -135,7 +149,7 @@ export default function SkillEditor({ mode, name }: Props) {
     if (mode === "new") {
       // V2.1.0 — if the AI generator forwarded its YAML for manual
       // tweaking, that takes priority over both the draft restore
-      // dialog and the empty template.
+      // banner and the empty template.
       let prefill: string | null = null;
       try {
         prefill = sessionStorage.getItem("skill-editor-prefill-yaml");
@@ -149,18 +163,10 @@ export default function SkillEditor({ mode, name }: Props) {
         setOriginalName(null);
         return;
       }
-      // Try restore draft first
+      // Draft restore — shown as a banner, not a blocking confirm.
       const draft = localStorage.getItem(draftKey);
       if (draft && draft !== EMPTY_TEMPLATE) {
-        if (
-          window.confirm(
-            "发现一份未保存的草稿,是否恢复?(取消会清除草稿,从模板开始)",
-          )
-        ) {
-          setYaml(draft);
-        } else {
-          localStorage.removeItem(draftKey);
-        }
+        setPendingDraft(draft);
       }
       setLoadedYaml(EMPTY_TEMPLATE);
       setOriginalName(null);
@@ -174,7 +180,9 @@ export default function SkillEditor({ mode, name }: Props) {
         setLoadedYaml(content);
         setOriginalName(name);
       })
-      .catch((e) => setParseError(`加载失败: ${e}`));
+      .catch((e) =>
+        setParseError(t("skill_editor.load_failed", { detail: String(e) })),
+      );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, name]);
 
@@ -211,7 +219,7 @@ export default function SkillEditor({ mode, name }: Props) {
     };
   }, []);
 
-  // ----- Parse YAML for form view (also catches syntax errors) -----
+  // ----- Parse YAML for form view -----
   const parsedSpec = useMemo<Record<string, unknown> | null>(() => {
     try {
       const obj = jsyaml.load(yaml);
@@ -236,10 +244,13 @@ export default function SkillEditor({ mode, name }: Props) {
       monaco.editor.setModelMarkers(model, "yaml-validate", []);
       setParseError(null);
     } catch (err: unknown) {
-      const e = err as { mark?: { line?: number; column?: number }; message?: string };
+      const e = err as {
+        mark?: { line?: number; column?: number };
+        message?: string;
+      };
       const line = (e?.mark?.line ?? 0) + 1;
       const col = (e?.mark?.column ?? 0) + 1;
-      const message = e?.message ?? "YAML 语法错误";
+      const message = e?.message ?? t("skill_editor.yaml_syntax_error");
       monaco.editor.setModelMarkers(model, "yaml-validate", [
         {
           startLineNumber: line,
@@ -250,9 +261,9 @@ export default function SkillEditor({ mode, name }: Props) {
           severity: monaco.MarkerSeverity.Error,
         },
       ]);
-      setParseError(`第 ${line} 行: ${message}`);
+      setParseError(t("skill_editor.yaml_line", { line, message }));
     }
-  }, [yaml]);
+  }, [yaml, t]);
 
   // ----- Auto-save draft to localStorage every 30s -----
   useEffect(() => {
@@ -263,7 +274,8 @@ export default function SkillEditor({ mode, name }: Props) {
     return () => window.clearInterval(interval);
   }, [hasUnsavedChanges, draftKey]);
 
-  // ----- Warn before page unload if unsaved -----
+  // ----- Warn before page unload if unsaved (native browser dialog —
+  // intentionally not ConfirmDialog because beforeunload is synchronous).
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
@@ -280,11 +292,12 @@ export default function SkillEditor({ mode, name }: Props) {
     () =>
       debounce((field: string, value: unknown) => {
         try {
-          const obj = (jsyaml.load(yamlRef.current) as Record<string, unknown>) ?? {};
+          const obj =
+            (jsyaml.load(yamlRef.current) as Record<string, unknown>) ?? {};
           obj[field] = value;
           setYaml(jsyaml.dump(obj, { lineWidth: 100, noRefs: true }));
         } catch {
-          // YAML invalid — skip
+          /* YAML invalid — skip */
         }
       }, SYNC_DEBOUNCE_MS),
     [],
@@ -294,23 +307,29 @@ export default function SkillEditor({ mode, name }: Props) {
 
   // ----- Save logic -----
   const performSave = async (forceNew: boolean) => {
+    setSaving(true);
     try {
       const orig = forceNew ? null : originalName;
       const spec = await api.saveSkill(yaml, orig);
       localStorage.removeItem(draftKey);
       setLoadedYaml(yaml);
-      window.alert(`✓ Skill「${spec.display_name}」已保存`);
+      toast.success(
+        t("skill_editor.saved_title"),
+        t("skill_editor.saved_description", { name: spec.display_name }),
+      );
       navigate({ to: "/skills" });
     } catch (e) {
       const errors = Array.isArray(e) ? (e as string[]) : [String(e)];
-      window.alert(`保存失败:\n\n${errors.join("\n")}`);
+      toast.danger(t("skill_editor.save_failed_title"), errors.join("\n"));
+    } finally {
+      setSaving(false);
     }
   };
 
   // ----- Run test -----
   const runTest = async () => {
     if (!samplePaperId || !testModelId) {
-      setTestError("请选好示例文献和模型");
+      setTestError(t("skill_editor.test_missing_inputs"));
       return;
     }
     setTestError(null);
@@ -326,12 +345,16 @@ export default function SkillEditor({ mode, name }: Props) {
     }
   };
 
-  const onBack = () => {
-    if (
-      hasUnsavedChanges &&
-      !window.confirm("有未保存的修改,确定离开?")
-    ) {
-      return;
+  const onBack = async () => {
+    if (hasUnsavedChanges) {
+      const ok = await confirmAsync({
+        title: t("skill_editor.unsaved_title"),
+        description: t("skill_editor.unsaved_description"),
+        variant: "danger",
+        confirmLabel: t("skill_editor.discard"),
+        cancelLabel: t("common.cancel"),
+      });
+      if (!ok) return;
     }
     navigate({ to: "/skills" });
   };
@@ -361,7 +384,7 @@ export default function SkillEditor({ mode, name }: Props) {
             label: v,
             kind: monaco.languages.CompletionItemKind.Variable,
             insertText: `${v}}}`,
-            detail: `论文 ${v}`,
+            detail: t("skill_editor.var_paper_x", { name: v }),
             range: {
               startLineNumber: position.lineNumber,
               endLineNumber: position.lineNumber,
@@ -374,7 +397,6 @@ export default function SkillEditor({ mode, name }: Props) {
     });
   };
 
-  // ----- Format current YAML (parse + dump) -----
   const formatYaml = () => {
     try {
       const obj = jsyaml.load(yaml);
@@ -382,81 +404,147 @@ export default function SkillEditor({ mode, name }: Props) {
         setYaml(jsyaml.dump(obj, { lineWidth: 100, noRefs: true }));
       }
     } catch {
-      window.alert("YAML 不合法,无法格式化");
+      toast.warning(t("skill_editor.format_invalid"));
     }
+  };
+
+  const restoreDraft = () => {
+    if (pendingDraft) {
+      setYaml(pendingDraft);
+      setPendingDraft(null);
+    }
+  };
+
+  const discardDraft = () => {
+    setPendingDraft(null);
+    localStorage.removeItem(draftKey);
   };
 
   // ----- Form values from parsed spec -----
   const f = parsedSpec ?? {};
   const fStr = (k: string) => String(f[k] ?? "");
 
+  const modeLabel =
+    mode === "new"
+      ? t("skill_editor.mode_new")
+      : mode === "copy"
+        ? t("skill_editor.mode_copy", { name })
+        : t("skill_editor.mode_edit", { name });
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-page text-fg-1">
       {/* Top bar */}
-      <header className="border-b border-black/10 bg-white/60 px-4 py-2 flex items-center gap-3 shrink-0">
+      <header className="border-b border-border-default bg-card px-4 py-2 flex items-center gap-3 shrink-0">
         <button
+          type="button"
           onClick={onBack}
-          className="text-sm text-app-fg/70 hover:text-primary"
-          title="返回 Skill 列表"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill text-caption text-fg-2 hover:text-indigo hover:bg-indigo-soft transition-colors duration-fast ease-khx"
+          title={t("skill_editor.back_title")}
         >
-          ← 返回
+          <Icon icon={ArrowLeft} size="sm" />
+          <span>{t("skill_editor.back")}</span>
         </button>
-        <div className="flex-1 min-w-0 flex items-baseline gap-2">
-          <span className="font-semibold text-primary truncate">
-            {mode === "new"
-              ? "新建 Skill"
-              : mode === "copy"
-                ? `基于「${name}」复制`
-                : `编辑「${name}」`}
+        <div className="flex-1 min-w-0 flex items-center gap-3">
+          <span className="text-h3 font-semibold text-fg-1 truncate">
+            {modeLabel}
           </span>
           {hasUnsavedChanges && (
-            <span className="text-[10px] text-amber-600">● 未保存</span>
+            <span
+              role="status"
+              aria-label={t("skill_editor.unsaved_indicator")}
+              className="inline-flex items-center gap-1.5 text-meta text-warning-fg-strong"
+            >
+              <span
+                aria-hidden="true"
+                className="w-2 h-2 rounded-full bg-warning-fg"
+              />
+              {t("skill_editor.unsaved_indicator")}
+            </span>
           )}
           {parseError && (
-            <span className="text-[10px] text-red-600 truncate">
-              ⚠ {parseError}
+            <span className="inline-flex items-center gap-1 text-meta text-danger-fg truncate">
+              <Icon icon={AlertTriangle} size="xs" />
+              <span className="truncate">{parseError}</span>
             </span>
           )}
         </div>
         <button
+          type="button"
           onClick={runTest}
           disabled={testRunning}
-          className="px-2.5 py-1 text-xs rounded border border-primary text-primary hover:bg-primary hover:text-white disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-btn-x-sm py-btn-y-sm rounded-pill border border-border-default text-caption text-fg-1 hover:border-indigo hover:text-indigo disabled:opacity-50 transition-colors duration-fast ease-khx"
         >
-          {testRunning ? "测试中…" : "测试 Skill"}
+          {testRunning && (
+            <Icon icon={Loader2} size="xs" className="animate-spin" />
+          )}
+          {testRunning
+            ? t("skill_editor.testing")
+            : t("skill_editor.test_skill")}
         </button>
         <button
+          type="button"
           onClick={() => performSave(true)}
-          className="px-2.5 py-1 text-xs rounded border border-black/10 text-app-fg hover:border-primary"
-          title="不论是否在编辑现有 Skill,都强制创建为新 Skill"
+          className="inline-flex items-center px-btn-x-sm py-btn-y-sm rounded-pill border border-border-default text-caption text-fg-1 hover:border-indigo hover:text-indigo transition-colors duration-fast ease-khx"
+          title={t("skill_editor.save_as_new_title")}
         >
-          另存为新 Skill
+          {t("skill_editor.save_as_new")}
         </button>
         <button
+          type="button"
           onClick={() => performSave(false)}
-          className="px-3 py-1 text-xs rounded bg-primary text-white hover:bg-primary/90"
+          disabled={saving}
+          className="inline-flex items-center gap-1.5 px-btn-x py-btn-y rounded-pill shadow-btn bg-navy text-fg-inverse hover:bg-navy-hover disabled:opacity-50 transition-colors duration-fast ease-khx font-medium text-caption"
         >
-          保存
+          {saving && (
+            <Icon icon={Loader2} size="sm" className="animate-spin" />
+          )}
+          {t("skill_editor.save")}
         </button>
       </header>
+
+      {/* Draft restore banner */}
+      {pendingDraft && (
+        <div className="px-4 py-2 bg-info-bg text-info-fg border-b border-info-border flex items-center gap-3 text-caption">
+          <Icon icon={RefreshCw} size="sm" />
+          <span className="flex-1">{t("skill_editor.draft_banner")}</span>
+          <button
+            type="button"
+            onClick={restoreDraft}
+            className="px-3 py-1 rounded-pill bg-info-fg text-fg-inverse text-meta font-medium hover:opacity-90 transition-opacity duration-fast ease-khx"
+          >
+            {t("skill_editor.draft_restore")}
+          </button>
+          <button
+            type="button"
+            onClick={discardDraft}
+            className="px-3 py-1 rounded-pill border border-info-border text-info-fg text-meta hover:bg-info-bg transition-colors duration-fast ease-khx"
+          >
+            {t("skill_editor.draft_discard")}
+          </button>
+        </div>
+      )}
 
       {/* 3-column body */}
       <div className="flex flex-1 overflow-hidden">
         {/* LEFT: form */}
-        <aside className="w-[280px] shrink-0 border-r border-black/10 bg-white/30 overflow-y-auto p-3 space-y-3">
-          <div className="text-[10px] uppercase tracking-wider text-app-fg/50">
-            基础信息
+        <aside
+          aria-label="Skill metadata form"
+          className="w-[280px] shrink-0 border-r border-border-default bg-card overflow-y-auto p-4 space-y-3"
+        >
+          <div className="text-meta uppercase tracking-wide-brand text-fg-3">
+            {t("skill_editor.section_basic")}
           </div>
-          <Field label="name (标识符)">
+          <Field label={t("skill_editor.field_name")}>
             <input
               key={`name-${parsedSpec ? "ok" : "bad"}`}
               defaultValue={fStr("name")}
               onChange={(e) => debouncedFormSync("name", e.target.value)}
               placeholder="my_skill"
-              className="w-full px-2 py-1 text-sm border border-black/10 rounded font-mono"
+              disabled={mode === "edit"}
+              className="w-full px-3 py-1.5 text-caption rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus disabled:bg-soft disabled:text-fg-3 transition-colors duration-fast ease-khx"
             />
           </Field>
-          <Field label="display_name (显示名)">
+          <Field label={t("skill_editor.field_display_name")}>
             <input
               key={`dn-${parsedSpec ? "ok" : "bad"}`}
               defaultValue={fStr("display_name")}
@@ -464,10 +552,10 @@ export default function SkillEditor({ mode, name }: Props) {
                 debouncedFormSync("display_name", e.target.value)
               }
               placeholder="我的 Skill"
-              className="w-full px-2 py-1 text-sm border border-black/10 rounded"
+              className="w-full px-3 py-1.5 text-caption rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
             />
           </Field>
-          <Field label="description">
+          <Field label={t("skill_editor.field_description")}>
             <textarea
               key={`desc-${parsedSpec ? "ok" : "bad"}`}
               defaultValue={fStr("description")}
@@ -475,20 +563,23 @@ export default function SkillEditor({ mode, name }: Props) {
                 debouncedFormSync("description", e.target.value)
               }
               rows={3}
-              className="w-full px-2 py-1 text-sm border border-black/10 rounded resize-y"
+              className="w-full px-3 py-2 text-caption rounded-card-sm border border-border-default bg-card text-fg-1 placeholder:text-fg-3 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx resize-y"
             />
           </Field>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="icon">
+            <Field
+              label={t("skill_editor.field_icon")}
+              hint={t("skill_editor.field_icon_hint")}
+            >
               <input
                 key={`icon-${parsedSpec ? "ok" : "bad"}`}
                 defaultValue={fStr("icon")}
                 onChange={(e) => debouncedFormSync("icon", e.target.value)}
                 placeholder="🤖"
-                className="w-full px-2 py-1 text-sm border border-black/10 rounded"
+                className="w-full px-3 py-1.5 text-caption rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
               />
             </Field>
-            <Field label="category">
+            <Field label={t("skill_editor.field_category")}>
               <input
                 key={`cat-${parsedSpec ? "ok" : "bad"}`}
                 defaultValue={fStr("category")}
@@ -496,11 +587,11 @@ export default function SkillEditor({ mode, name }: Props) {
                   debouncedFormSync("category", e.target.value)
                 }
                 placeholder="basic"
-                className="w-full px-2 py-1 text-sm border border-black/10 rounded"
+                className="w-full px-3 py-1.5 text-caption rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
               />
             </Field>
           </div>
-          <Field label="recommended_models (逗号分隔)">
+          <Field label={t("skill_editor.field_models")}>
             <input
               key={`rm-${parsedSpec ? "ok" : "bad"}`}
               defaultValue={
@@ -516,26 +607,36 @@ export default function SkillEditor({ mode, name }: Props) {
                 debouncedFormSync("recommended_models", arr);
               }}
               placeholder="claude-opus, gpt-5"
-              className="w-full px-2 py-1 text-sm border border-black/10 rounded font-mono"
+              className="w-full px-3 py-1.5 text-caption rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
             />
           </Field>
           {!parsedSpec && (
-            <div className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded">
-              YAML 解析失败,表单已禁用同步,直接编辑右侧 YAML 修复
+            <div
+              role="alert"
+              className="text-meta text-warning-fg-strong bg-warning-bg border border-warning-border rounded-card-sm p-3 flex items-start gap-2"
+            >
+              <Icon
+                icon={AlertTriangle}
+                size="sm"
+                className="flex-shrink-0 mt-0.5"
+              />
+              <span>{t("skill_editor.parse_lock_hint")}</span>
             </div>
           )}
-          <div className="pt-2 border-t border-black/5">
+          <div className="pt-2 border-t border-border-subtle">
             <button
+              type="button"
               onClick={formatYaml}
-              className="w-full px-2 py-1 text-xs rounded border border-black/10 hover:border-primary"
+              className="w-full px-3 py-1.5 text-meta rounded-pill border border-border-default text-fg-1 hover:border-indigo hover:text-indigo transition-colors duration-fast ease-khx"
             >
-              格式化 YAML
+              {t("skill_editor.format_yaml")}
             </button>
           </div>
         </aside>
 
-        {/* MIDDLE: Monaco */}
-        <div className="flex-1 min-w-[600px] flex flex-col bg-[#1e1e1e]">
+        {/* MIDDLE: Monaco — internal theme stays vs-dark per spec; wrapper
+            bg matches vs-dark so there's no flash of light during load. */}
+        <div className="flex-1 min-w-[600px] flex flex-col bg-[var(--monaco-vs-dark)]">
           <Editor
             height="100%"
             language="yaml"
@@ -556,28 +657,24 @@ export default function SkillEditor({ mode, name }: Props) {
         </div>
 
         {/* RIGHT: preview */}
-        <aside className="w-[360px] shrink-0 border-l border-black/10 bg-white/40 flex flex-col overflow-hidden">
-          <div className="border-b border-black/10 flex">
-            <button
+        <aside
+          aria-label="Skill preview"
+          className="w-[360px] shrink-0 border-l border-border-default bg-card flex flex-col overflow-hidden"
+        >
+          <div
+            role="tablist"
+            className="border-b border-border-default flex"
+          >
+            <TabButton
+              active={tab === "prompt"}
               onClick={() => setTab("prompt")}
-              className={`flex-1 text-xs px-3 py-2 ${
-                tab === "prompt"
-                  ? "bg-white text-primary font-medium border-b-2 border-primary"
-                  : "text-app-fg/60 hover:text-app-fg"
-              }`}
-            >
-              渲染后的 Prompt
-            </button>
-            <button
+              label={t("skill_editor.tab_prompt")}
+            />
+            <TabButton
+              active={tab === "test"}
               onClick={() => setTab("test")}
-              className={`flex-1 text-xs px-3 py-2 ${
-                tab === "test"
-                  ? "bg-white text-primary font-medium border-b-2 border-primary"
-                  : "text-app-fg/60 hover:text-app-fg"
-              }`}
-            >
-              测试运行结果
-            </button>
+              label={t("skill_editor.tab_test")}
+            />
           </div>
           {tab === "prompt" ? (
             <PromptPreview
@@ -607,16 +704,47 @@ export default function SkillEditor({ mode, name }: Props) {
 // Sub-components
 // ============================================================
 
+function TabButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`flex-1 px-3 py-2 text-caption font-medium border-b-2 transition-colors duration-fast ease-khx ${
+        active
+          ? "border-indigo text-indigo"
+          : "border-transparent text-fg-2 hover:text-fg-1"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 function Field({
   label,
+  hint,
   children,
 }: {
   label: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
     <label className="block">
-      <div className="text-[10px] text-app-fg/60 mb-0.5">{label}</div>
+      <div className="text-meta text-fg-2 mb-1.5 flex items-baseline justify-between gap-2">
+        <span className="font-medium">{label}</span>
+        {hint && <span className="text-micro text-fg-3">{hint}</span>}
+      </div>
       {children}
     </label>
   );
@@ -633,6 +761,7 @@ function PromptPreview({
   samplePaperId: string;
   setSamplePaperId: (id: string) => void;
 }) {
+  const t = useT();
   const samplePaper = papers.find((p) => p.id === samplePaperId);
   const template =
     typeof parsedSpec?.prompt_template === "string"
@@ -640,31 +769,38 @@ function PromptPreview({
       : "";
 
   const rendered = useMemo(() => {
-    if (!template) return "(prompt_template 为空)";
+    if (!template) return t("skill_editor.prompt_empty");
     if (samplePaper) {
       return template
         .replaceAll("{{title}}", samplePaper.title)
         .replaceAll("{{authors}}", samplePaper.authors.join(", "))
         .replaceAll("{{abstract}}", samplePaper.abstract ?? "")
-        .replaceAll("{{full_text}}", "(此处会替换为论文全文)")
+        .replaceAll(
+          "{{full_text}}",
+          t("skill_editor.full_text_placeholder_runtime"),
+        )
         .replaceAll("{{language}}", "中文");
     }
     return renderPromptPreview(template);
-  }, [template, samplePaper]);
+  }, [template, samplePaper, t]);
 
   const tokenCount = estimateTokens(rendered);
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden">
-      <div className="p-2 border-b border-black/5 text-xs">
+    <div role="tabpanel" className="flex flex-col flex-1 overflow-hidden">
+      <div className="p-3 border-b border-border-subtle">
         <label className="block">
-          <div className="text-[10px] text-app-fg/50 mb-0.5">示例文献</div>
+          <div className="text-meta text-fg-3 mb-1.5">
+            {t("skill_editor.sample_paper")}
+          </div>
           <select
             value={samplePaperId}
             onChange={(e) => setSamplePaperId(e.target.value)}
-            className="w-full px-2 py-1 text-xs bg-white border border-black/10 rounded"
+            className="w-full px-3 py-1.5 text-caption rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
           >
-            {papers.length === 0 && <option value="">(无文献)</option>}
+            {papers.length === 0 && (
+              <option value="">{t("skill_editor.no_papers")}</option>
+            )}
             {papers.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.title.length > 60 ? p.title.slice(0, 60) + "…" : p.title}
@@ -673,11 +809,13 @@ function PromptPreview({
           </select>
         </label>
       </div>
-      <div className="flex-1 overflow-y-auto p-2 text-[11px] text-app-fg/85 leading-relaxed whitespace-pre-wrap font-mono bg-white/50">
+      <pre className="flex-1 overflow-y-auto p-3 text-meta text-fg-1 leading-relaxed whitespace-pre-wrap font-mono bg-soft rounded-none">
         {rendered}
-      </div>
-      <div className="border-t border-black/5 px-2 py-1 text-[10px] text-app-fg/50">
-        预估 ≈ {tokenCount.toLocaleString()} tokens
+      </pre>
+      <div className="border-t border-border-subtle px-3 py-2 text-meta text-fg-2 tabular-nums text-right">
+        {t("skill_editor.token_estimate", {
+          value: tokenCount.toLocaleString(),
+        })}
       </div>
     </div>
   );
@@ -700,7 +838,7 @@ function TestPreview({
   testError: string | null;
   parsedSpec: Record<string, unknown> | null;
 }) {
-  // Try to parse output_dimensions for grouped display
+  const t = useT();
   const dims = useMemo(() => {
     const raw = parsedSpec?.output_dimensions;
     if (!Array.isArray(raw)) return [];
@@ -735,56 +873,71 @@ function TestPreview({
   }, [testOutput, dims]);
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden">
-      <div className="p-2 border-b border-black/5 text-xs">
+    <div role="tabpanel" className="flex flex-col flex-1 overflow-hidden">
+      <div className="p-3 border-b border-border-subtle">
         <label className="block">
-          <div className="text-[10px] text-app-fg/50 mb-0.5">测试模型</div>
+          <div className="text-meta text-fg-3 mb-1.5">
+            {t("skill_editor.test_model")}
+          </div>
           <select
             value={testModelId}
             onChange={(e) => setTestModelId(e.target.value)}
-            className="w-full px-2 py-1 text-xs bg-white border border-black/10 rounded"
+            className="w-full px-3 py-1.5 text-caption rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
           >
-            {models.length === 0 && <option value="">(无模型)</option>}
+            {models.length === 0 && (
+              <option value="">{t("skill_editor.no_models")}</option>
+            )}
             {models.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.name} {m.is_default ? "★" : ""}
+                {m.name}{m.is_default ? t("skill_editor.model_default_suffix") : ""}
               </option>
             ))}
           </select>
         </label>
-        <div className="mt-1 text-[10px] text-app-fg/50">
-          ⚠ 测试 max_tokens 限 1500,顶栏点「测试 Skill」开始
+        <div className="mt-2 inline-flex items-center gap-1 text-micro text-warning-fg-strong">
+          <Icon icon={AlertTriangle} size="xs" />
+          <span>{t("skill_editor.test_hint")}</span>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex-1 overflow-y-auto p-3">
         {testError && (
-          <div className="text-[11px] text-red-600 bg-red-50 border border-red-200 px-2 py-1 rounded mb-2">
-            {testError}
+          <div
+            role="alert"
+            className="text-meta text-danger-fg bg-danger-bg border border-danger-border rounded-card-sm px-3 py-2 mb-3 flex items-start gap-2"
+          >
+            <Icon
+              icon={AlertTriangle}
+              size="sm"
+              className="flex-shrink-0 mt-0.5"
+            />
+            <span>{testError}</span>
           </div>
         )}
         {!testOutput && !testRunning && !testError && (
-          <div className="text-[11px] text-app-fg/40 italic">
-            (尚未运行测试)
+          <div className="text-meta text-fg-3 italic">
+            {t("skill_editor.test_idle")}
           </div>
         )}
         {testRunning && !testOutput && (
-          <div className="text-[11px] text-app-fg/60 animate-pulse">
-            正在生成…
+          <div className="text-meta text-fg-2 animate-pulse">
+            {t("skill_editor.test_generating")}
           </div>
         )}
         {sections && sections.size > 0 ? (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {dims.map((d) => (
               <div
                 key={d.key}
-                className="bg-white border border-black/10 rounded p-2"
+                className="bg-card border border-border-default rounded-card-sm p-3"
               >
-                <div className="text-[11px] font-semibold text-primary mb-1">
+                <div className="text-meta font-semibold text-indigo mb-1.5">
                   {d.title}
                 </div>
-                <div className="text-[11px] text-app-fg/85 whitespace-pre-wrap leading-snug">
+                <div className="text-meta text-fg-1 whitespace-pre-wrap leading-snug">
                   {sections.get(d.title) || (
-                    <span className="text-app-fg/30 italic">(空)</span>
+                    <span className="text-fg-3 italic">
+                      {t("skill_editor.section_empty")}
+                    </span>
                   )}
                 </div>
               </div>
@@ -792,10 +945,13 @@ function TestPreview({
           </div>
         ) : (
           testOutput && (
-            <pre className="text-[11px] text-app-fg/85 whitespace-pre-wrap leading-snug bg-white/60 p-2 rounded">
+            <pre className="text-meta text-fg-1 whitespace-pre-wrap leading-snug bg-soft p-3 rounded-card-sm">
               {testOutput}
               {testRunning && (
-                <span className="inline-block w-1 h-3 bg-primary/60 ml-0.5 animate-pulse align-middle" />
+                <span
+                  aria-hidden="true"
+                  className="inline-block w-1 h-4 bg-indigo align-middle animate-pulse ml-0.5"
+                />
               )}
             </pre>
           )

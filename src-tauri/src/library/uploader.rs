@@ -256,10 +256,7 @@ pub async fn upload_local_paper(
     std::fs::copy(&src, &dest).map_err(|e| format!("复制 PDF 失败: {}", e))?;
 
     // Stored RELATIVE to <app_data_dir>/data/pdfs/ — matches pdf_extract::resolve.
-    let relative = format!(
-        "uploaded/{}.pdf",
-        id
-    );
+    let relative = format!("uploaded/{}.pdf", id);
 
     // Run extraction on the destination copy (still on filesystem).
     let dest_for_extract = dest.clone();
@@ -419,13 +416,12 @@ pub async fn re_extract_paper_metadata(
 ) -> Result<PartialMetadata, String> {
     let pool = state.db_pool.clone();
     let pid = paper_id.clone();
-    let paper = tokio::task::spawn_blocking(move || {
-        crate::library::db_get_paper_by_id(&pool, &pid)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())?
-    .ok_or_else(|| format!("paper `{}` not found", paper_id))?;
+    let paper =
+        tokio::task::spawn_blocking(move || crate::library::db_get_paper_by_id(&pool, &pid))
+            .await
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("paper `{}` not found", paper_id))?;
     let rel = paper
         .pdf_path
         .ok_or_else(|| "该文献无本地 PDF,无法重新提取".to_string())?;

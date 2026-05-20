@@ -54,10 +54,7 @@ pub fn extract_text(path: &Path) -> Result<String, PdfError> {
 }
 
 /// Resolve the paper's stored relative pdf_path and extract its text.
-pub fn extract_paper_text(
-    app: &tauri::AppHandle,
-    pdf_path: &str,
-) -> Result<String, PdfError> {
+pub fn extract_paper_text(app: &tauri::AppHandle, pdf_path: &str) -> Result<String, PdfError> {
     let abs = resolve(app, pdf_path)?;
     extract_text(&abs)
 }

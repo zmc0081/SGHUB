@@ -26,7 +26,10 @@
     "no": "否",
     "open": "打开",
     "open_in_browser": "在浏览器中打开",
-    "open_folder": "打开目录"
+    "open_folder": "打开目录",
+    "create": "创建",
+    "discard": "丢弃",
+    "remove": "移除"
   },
   "sidebar": {
     "chat": "Chat",
@@ -63,7 +66,8 @@
     "time_1y": "近 1 年",
     "sort_relevance": "相关性",
     "sort_latest": "最新",
-    "sort_citation": "引用 (待支持)"
+    "sort_citation": "引用 (待支持)",
+    "source_label": "数据源"
   },
   "feed": {
     "title": "今日推送",
@@ -106,7 +110,8 @@
     "error_action_failed": "操作失败: {{detail}}",
     "error_run_failed": "运行失败: {{detail}}",
     "error_delete_failed": "删除失败: {{detail}}",
-    "confirm_delete": "删除订阅「{{keyword}}」?所有推送结果一并清除。"
+    "confirm_delete": "删除订阅「{{keyword}}」?所有推送结果一并清除。",
+    "confirm_delete_title": "删除订阅"
   },
   "library": {
     "title": "收藏夹",
@@ -149,7 +154,15 @@
     "next_page": "下一页",
     "page_x_of_y": "第 {{cur}} / {{total}} 页",
     "alert_no_papers_to_export": "当前文件夹无文献可导出",
-    "alert_export_success": "✓ 已导出 {{count}} 条到:\n{{path}}",
+    "alert_export_success": "已导出 {{count}} 条到:\n{{path}}",
+    "toast_export_success": "已导出 {{count}} 条文献到 {{path}}",
+    "rename_folder_title": "重命名文件夹",
+    "folder_name_label": "文件夹名称",
+    "new_top_folder_title": "新建文件夹",
+    "new_tag_title": "新建标签",
+    "tag_name_label": "标签名称",
+    "confirm_delete_folder_title": "删除文件夹",
+    "confirm_delete_tag_title": "删除标签",
     "error_rename_failed": "重命名失败: {{detail}}",
     "error_delete_failed": "删除失败: {{detail}}",
     "error_create_failed": "创建失败: {{detail}}",
@@ -233,7 +246,19 @@
     "msg_copied": "✓ 已复制",
     "msg_regenerate": "重新生成",
     "attachment_extracted_chars": "{{name}} · 已提取 {{chars}} 字符内容供模型参考",
-    "attachment_text_extracted_title": "文本内容已提取并发送给模型"
+    "attachment_text_extracted_title": "文本内容已提取并发送给模型",
+    "empty_main_title": "开始一段新对话",
+    "empty_session_title": "会话还没有消息",
+    "empty_kbd_hint": "按 Enter 发送 · Shift+Enter 换行",
+    "menu_attachment_skill": "附件 / Skill",
+    "error_open_picker": "打开文件选择器失败: {{detail}}",
+    "error_create_session": "创建会话失败: {{detail}}",
+    "model_default_suffix": " · 默认",
+    "no_models": "(无模型)",
+    "switch_model": "切换模型",
+    "session_title_label": "对话标题",
+    "delete_session_title": "删除对话",
+    "rename_session_title": "重命名对话"
   },
   "models": {
     "title": "模型配置",
@@ -301,7 +326,8 @@
     "form_output_price": "输出价格",
     "form_price_unit": "$/1M tokens",
     "form_price_hint": "用于成本估算,可在模型提供商官网查询定价。0 表示不计算成本。",
-    "row_usage_7d": "近 7 天:{{calls}} 次 · {{tokens}} tokens · ${{cost}}"
+    "row_usage_7d": "近 7 天:{{calls}} 次 · {{tokens}} tokens · ${{cost}}",
+    "confirm_delete_title": "删除模型"
   },
   "skill_gen": {
     "title": "✨ 用 AI 创建 Skill",
@@ -343,7 +369,12 @@
     "test_run_btn": "运行测试",
     "test_running": "运行中…",
     "test_streaming": "● 流式输出中",
-    "test_result_placeholder": "选好文献后点「运行测试」,这里会展示模型输出"
+    "test_result_placeholder": "选好文献后点「运行测试」,这里会展示模型输出",
+    "send_hint": "Enter 发送 · Shift+Enter 换行",
+    "reset_confirm": "确定要清空当前对话和生成的 Skill?未保存的内容会丢失。",
+    "reset_confirm_title": "重新开始",
+    "model_default_suffix": " · 默认",
+    "saved_toast": "Skill 已保存"
   },
   "skills": {
     "title": "Skill 管理",
@@ -366,7 +397,10 @@
     "zip_ok_count": "{{name}}: 上传完成 — 成功 {{ok}} 个",
     "zip_mixed": "{{name}}: 成功 {{ok}} 个,失败 {{fail}} 个",
     "zip_parse_failed": "{{name}}: 解析失败 — {{detail}}",
-    "unsupported_format": "不支持的文件格式: {{name}} (期望 .yaml / .yml / .skill / .zip)"
+    "unsupported_format": "不支持的文件格式: {{name}} (期望 .yaml / .yml / .skill / .zip)",
+    "builtin_badge": "只读",
+    "confirm_delete_title": "删除自定义 Skill",
+    "upload_failed_title": "上传 Skill 失败"
   },
   "settings": {
     "title": "设置",
@@ -466,7 +500,13 @@
     "data_wizard_next": "下一步",
     "data_wizard_back": "上一步",
     "data_wizard_cancel": "取消",
-    "data_wizard_close": "关闭"
+    "data_wizard_close": "关闭",
+    "data_section_desc": "数据库、PDF、缓存等本地数据的存放位置",
+    "data_reset_default_done": "已恢复到默认数据目录",
+    "updater_section_desc": "启用后将按设定的时间自动检查 GitHub Releases",
+    "data_wizard_step_x": "第 {{current}} / {{total}} 步",
+    "data_wizard_running_header": "执行中",
+    "data_wizard_done_header": "完成"
   },
   "errors": {
     "network": "网络错误,请检查连接后重试",
@@ -496,20 +536,21 @@
     "cancel_title": "取消"
   },
   "favorite_button": {
-    "favorited": "⭐ 已收藏",
-    "favorite": "☆ 收藏",
+    "favorited": "已收藏",
+    "favorite": "收藏",
     "in_folders": "在 {{count}} 个文件夹",
     "quick_collect": "快速收藏到「未分类」",
-    "new_folder": "+ 新建文件夹",
+    "new_folder": "新建文件夹",
     "new_folder_placeholder": "新文件夹名…",
     "cancel": "取消",
     "create_btn": "创建",
-    "unfavorite": "✕ 取消收藏",
+    "unfavorite": "取消收藏",
+    "unfavorite_confirm": "取消收藏将从所有已加入的文件夹中移除。是否继续?",
     "loading": "加载中…",
-    "toast_added": "✓ 已加入「{{name}}」",
-    "toast_moved": "✓ 已移动到「{{name}}」",
-    "toast_removed": "✓ 已从「{{name}}」移除",
-    "toast_unfavorited": "✓ 已取消收藏",
+    "toast_added": "已加入「{{name}}」",
+    "toast_moved": "已移动到「{{name}}」",
+    "toast_removed": "已从「{{name}}」移除",
+    "toast_unfavorited": "已取消收藏",
     "toast_failed": "操作失败: {{detail}}"
   },
   "paper_picker": {
@@ -518,6 +559,58 @@
     "no_match": "无匹配文献 — 试试缩短关键词,或先上传 PDF",
     "recent": "最近文献",
     "selected_short": "已选择 ({{prefix}}…)"
+  },
+  "skill_editor": {
+    "back": "返回",
+    "back_title": "返回 Skill 列表",
+    "mode_new": "新建 Skill",
+    "mode_copy": "基于「{{name}}」复制",
+    "mode_edit": "编辑「{{name}}」",
+    "unsaved_indicator": "未保存",
+    "unsaved_title": "丢弃未保存的修改?",
+    "unsaved_description": "返回后未保存的改动会丢失。",
+    "discard": "丢弃",
+    "test_skill": "测试 Skill",
+    "testing": "测试中…",
+    "save_as_new": "另存为新 Skill",
+    "save_as_new_title": "不论当前是否在编辑现有 Skill,都强制创建为新 Skill",
+    "save": "保存",
+    "saved_title": "Skill 已保存",
+    "saved_description": "「{{name}}」已写入用户 Skill 库",
+    "save_failed_title": "保存失败",
+    "test_missing_inputs": "请先选好示例文献和模型",
+    "load_failed": "加载失败: {{detail}}",
+    "yaml_syntax_error": "YAML 语法错误",
+    "yaml_line": "第 {{line}} 行: {{message}}",
+    "format_invalid": "YAML 不合法,无法格式化",
+    "format_yaml": "格式化 YAML",
+    "draft_banner": "检测到上次未保存的草稿",
+    "draft_restore": "还原",
+    "draft_discard": "丢弃",
+    "parse_lock_hint": "YAML 解析失败,字段已锁定。修复 YAML 后字段可编辑。",
+    "section_basic": "基础信息",
+    "field_name": "name (标识符)",
+    "field_display_name": "display_name (显示名)",
+    "field_description": "description",
+    "field_icon": "icon",
+    "field_icon_hint": "emoji 或 Lucide 名",
+    "field_category": "category",
+    "field_models": "recommended_models",
+    "tab_prompt": "渲染后的 Prompt",
+    "tab_test": "测试运行结果",
+    "sample_paper": "示例文献",
+    "no_papers": "(无文献)",
+    "test_model": "测试模型",
+    "no_models": "(无模型)",
+    "test_hint": "测试 max_tokens 限 1500,顶栏点「测试 Skill」开始",
+    "test_idle": "(尚未运行测试)",
+    "test_generating": "正在生成…",
+    "section_empty": "(空)",
+    "prompt_empty": "(prompt_template 为空)",
+    "full_text_placeholder_runtime": "(此处会替换为论文全文)",
+    "token_estimate": "预估 ≈ {{value}} tokens",
+    "var_paper_x": "论文 {{name}}",
+    "model_default_suffix": " · 默认"
   },
   "paper_metadata_editor": {
     "title": "补全文献元数据",

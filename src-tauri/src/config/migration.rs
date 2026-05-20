@@ -164,9 +164,7 @@ pub fn validate(candidate: &Path, current_dir: &Path) -> ValidationResult {
             valid: false,
             has_existing_sghub_data: false,
             free_space_mb: 0,
-            error: Some(
-                "禁止使用系统关键目录 / system directory is forbidden".into(),
-            ),
+            error: Some("禁止使用系统关键目录 / system directory is forbidden".into()),
         };
     }
     if is_self_or_descendant(candidate, current_dir) {
@@ -291,11 +289,7 @@ fn needs_strong_verify(rel: &Path) -> bool {
 
 /// Pure copy+verify routine — accepts a progress callback so the
 /// Tauri-aware wrapper can emit `data_migration:progress` events.
-pub fn copy_with_verify<F>(
-    src: &Path,
-    dest: &Path,
-    mut progress: F,
-) -> MigrationResult
+pub fn copy_with_verify<F>(src: &Path, dest: &Path, mut progress: F) -> MigrationResult
 where
     F: FnMut(ProgressPayload),
 {
@@ -355,10 +349,7 @@ where
             match (src_hash, dst_hash) {
                 (Ok(a), Ok(b)) if a == b => {}
                 (Ok(_), Ok(_)) => {
-                    errors.push(format!(
-                        "hash mismatch on {}",
-                        rel.display()
-                    ));
+                    errors.push(format!("hash mismatch on {}", rel.display()));
                     rollback(&written);
                     return MigrationResult {
                         success: false,
@@ -368,11 +359,7 @@ where
                     };
                 }
                 (Err(e), _) | (_, Err(e)) => {
-                    errors.push(format!(
-                        "hash read failed for {}: {}",
-                        rel.display(),
-                        e
-                    ));
+                    errors.push(format!("hash read failed for {}: {}", rel.display(), e));
                     rollback(&written);
                     return MigrationResult {
                         success: false,
@@ -462,7 +449,10 @@ mod tests {
 
     #[test]
     fn mode_parses() {
-        assert_eq!(MigrationMode::parse("migrate").unwrap(), MigrationMode::Migrate);
+        assert_eq!(
+            MigrationMode::parse("migrate").unwrap(),
+            MigrationMode::Migrate
+        );
         assert_eq!(MigrationMode::parse("fresh").unwrap(), MigrationMode::Fresh);
         assert_eq!(
             MigrationMode::parse("use_existing").unwrap(),
@@ -546,11 +536,7 @@ mod tests {
         std::fs::write(src.path().join("data").join("sghub.db"), b"hello-db").unwrap();
         std::fs::write(src.path().join("README.md"), b"hi").unwrap();
         std::fs::create_dir_all(src.path().join("skills")).unwrap();
-        std::fs::write(
-            src.path().join("skills").join("foo.yaml"),
-            b"name: foo\n",
-        )
-        .unwrap();
+        std::fs::write(src.path().join("skills").join("foo.yaml"), b"name: foo\n").unwrap();
 
         let mut events: Vec<ProgressPayload> = Vec::new();
         let res = copy_with_verify(src.path(), dst.path(), |p| events.push(p));

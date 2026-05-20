@@ -96,9 +96,7 @@ pub struct UsageStats7Days {
 /// (date_yyyymmdd, model_config_id, tokens_in, tokens_out, call_count, cost)
 type RawUsageRow = (String, String, i64, i64, i64, f64);
 
-fn query_7day_rows(
-    pool: &crate::db::DbPool,
-) -> rusqlite::Result<Vec<RawUsageRow>> {
+fn query_7day_rows(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<RawUsageRow>> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
@@ -124,7 +122,9 @@ fn query_7day_rows(
     Ok(rows)
 }
 
-fn model_names(pool: &crate::db::DbPool) -> rusqlite::Result<std::collections::HashMap<String, String>> {
+fn model_names(
+    pool: &crate::db::DbPool,
+) -> rusqlite::Result<std::collections::HashMap<String, String>> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
@@ -181,8 +181,7 @@ pub fn rollup_7days(
             let date = (today - chrono::Duration::days(back))
                 .format("%Y-%m-%d")
                 .to_string();
-            let (tin, tout, calls, cost) =
-                by_date.get(&date).copied().unwrap_or((0, 0, 0, 0.0));
+            let (tin, tout, calls, cost) = by_date.get(&date).copied().unwrap_or((0, 0, 0, 0.0));
             daily_breakdown.push(DailyUsage {
                 date,
                 tokens_in: tin,
@@ -230,9 +229,7 @@ pub fn rollup_7days(
 }
 
 /// IO-side wrapper.
-pub fn query_usage_stats_7days(
-    pool: &crate::db::DbPool,
-) -> rusqlite::Result<UsageStats7Days> {
+pub fn query_usage_stats_7days(pool: &crate::db::DbPool) -> rusqlite::Result<UsageStats7Days> {
     let rows = query_7day_rows(pool)?;
     let names = model_names(pool)?;
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
@@ -297,8 +294,15 @@ pub fn rebuild_from_history(pool: &crate::db::DbPool) -> rusqlite::Result<i64> {
     let mut prices = conn.prepare(
         "SELECT id, input_price_per_1m_tokens, output_price_per_1m_tokens FROM model_configs",
     )?;
-    let mut price_map: std::collections::HashMap<String, (f64, f64)> = std::collections::HashMap::new();
-    for r in prices.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, f64>(1)?, r.get::<_, f64>(2)?)))? {
+    let mut price_map: std::collections::HashMap<String, (f64, f64)> =
+        std::collections::HashMap::new();
+    for r in prices.query_map([], |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, f64>(1)?,
+            r.get::<_, f64>(2)?,
+        ))
+    })? {
         let (id, ip, op) = r?;
         price_map.insert(id, (ip, op));
     }
@@ -339,9 +343,7 @@ pub async fn get_usage_stats_7days(
 }
 
 #[tauri::command]
-pub async fn rebuild_usage_stats(
-    state: tauri::State<'_, AppState>,
-) -> Result<i64, String> {
+pub async fn rebuild_usage_stats(state: tauri::State<'_, AppState>) -> Result<i64, String> {
     let pool = state.db_pool.clone();
     tokio::task::spawn_blocking(move || rebuild_from_history(&pool))
         .await
@@ -448,14 +450,19 @@ mod tests {
         assert_eq!(
             dates,
             [
-                "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14",
-                "2026-05-15", "2026-05-16", "2026-05-17",
+                "2026-05-11",
+                "2026-05-12",
+                "2026-05-13",
+                "2026-05-14",
+                "2026-05-15",
+                "2026-05-16",
+                "2026-05-17",
             ]
         );
         // The two days with data
         assert_eq!(r.daily_breakdown[4].call_count, 1); // 2026-05-15
         assert_eq!(r.daily_breakdown[6].call_count, 2); // 2026-05-17
-        // Zero-filled in-between
+                                                        // Zero-filled in-between
         assert_eq!(r.daily_breakdown[5].call_count, 0);
 
         assert_eq!(r.total_call_count, 3);
