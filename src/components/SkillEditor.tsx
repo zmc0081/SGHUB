@@ -888,7 +888,7 @@ function TestPreview({
             )}
             {models.map((m) => (
               <option key={m.id} value={m.id}>
-                {m.name} {m.is_default ? "★" : ""}
+                {m.name}{m.is_default ? t("skill_editor.model_default_suffix") : ""}
               </option>
             ))}
           </select>

@@ -34,8 +34,8 @@ import { Icon } from "./Icon";
 
 interface Props {
   paper: Paper;
-  /** Defaults true. Drop the ⭐ button when the host already renders one
-   *  (e.g. Library page where the chip is part of the card header). */
+  /** Defaults true. Drop the favorite button when the host already renders
+   *  one (e.g. Library page where the chip is part of the card header). */
   showFavorite?: boolean;
   /** Compact = icon-only chips; full = labelled chips with more padding. */
   size?: "sm" | "md";

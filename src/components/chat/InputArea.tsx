@@ -1,16 +1,24 @@
 // i18n: 本组件文案已国际化 (V2.1.0)
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, ComponentType } from "react";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import {
+  AlertTriangle,
+  ArrowUp,
+  BookMarked,
+  Check,
+  ChevronDown,
+  FileText,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  Loader2,
+  Paperclip,
+  Plus,
+  X,
+} from "lucide-react";
 import { api, type ModelConfig, type SkillSummary } from "../../lib/tauri";
 import { useChatStore } from "../../stores/chatStore";
 import { useT } from "../../hooks/useT";
-
-// ============================================================
-// Pending upload tracking — keeps chip visible from "user picked
-// the file" through "backend finished extracting text". Without this
-// the chip only pops in when the round-trip completes (often several
-// seconds for large PDFs), which feels broken.
-// ============================================================
+import { Icon } from "../Icon";
 
 interface PendingUpload {
   tempId: string;
@@ -30,68 +38,25 @@ function inferKind(fileName: string): string {
   return "file";
 }
 
-function iconFor(kind: string): string {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function iconFor(kind: string): ComponentType<any> {
   switch (kind) {
     case "pdf":
-      return "📄";
     case "md":
     case "txt":
-      return "📝";
+    case "docx":
+      return FileText;
     case "image":
-      return "🖼";
+      return ImageIcon;
     case "paper_ref":
-      return "📚";
+      return BookMarked;
     case "url":
-      return "🔗";
+      return LinkIcon;
     default:
-      return "📎";
+      return Paperclip;
   }
 }
 
-/** Indeterminate progress ring — Claude-style 270° arc, spinning. */
-function SpinnerRing({
-  size = 14,
-  color = "currentColor",
-}: {
-  size?: number;
-  color?: string;
-}) {
-  const stroke = size <= 14 ? 2.5 : 3;
-  return (
-    <svg
-      className="animate-spin shrink-0"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-    >
-      <circle
-        cx="12"
-        cy="12"
-        r="10"
-        stroke={color}
-        strokeOpacity="0.25"
-        strokeWidth={stroke}
-      />
-      <circle
-        cx="12"
-        cy="12"
-        r="10"
-        stroke={color}
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        strokeDasharray="50 100"
-      />
-    </svg>
-  );
-}
-
-/**
- * Visible banner row for in-flight / failed uploads. Bigger than a chip so
- * the user definitely sees that something is happening, even for sub-second
- * uploads (we also enforce a min 400ms display below).
- */
 function PendingChip({
   item,
   onDismiss,
@@ -101,45 +66,43 @@ function PendingChip({
 }) {
   const t = useT();
   const isError = item.status === "error";
-  // Using Tailwind built-in palette (amber / red) instead of theme tokens
-  // because our `--accent` CSS var is hex, not the rgb-triplet form that
-  // Tailwind's `/15` alpha-modifier requires.
+  const containerCls = isError
+    ? "border-danger-border bg-danger-bg"
+    : "border-warning-border bg-warning-bg";
   return (
     <div
-      className={`flex items-center gap-2.5 px-3 py-2.5 rounded-md border-2 shadow-sm ${
-        isError
-          ? "border-red-400 bg-red-50"
-          : "border-amber-500 bg-amber-100"
-      }`}
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-card-sm border ${containerCls}`}
       title={isError ? item.errorMsg : t("chat.uploading")}
     >
       <div className="shrink-0">
         {isError ? (
-          <span className="text-lg leading-none">⚠</span>
+          <Icon icon={AlertTriangle} size="sm" className="text-danger-fg" />
         ) : (
-          <SpinnerRing size={22} color="#D97706" />
+          <Icon icon={Loader2} size="sm" className="animate-spin text-warning-fg-strong" />
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[13px] font-semibold text-app-fg truncate">
+        <div className="text-caption font-semibold text-fg-1 truncate">
           {item.fileName}
         </div>
         <div
-          className={`text-[11px] mt-0.5 ${
-            isError ? "text-red-600" : "text-amber-800"
+          className={`text-meta mt-0.5 ${
+            isError ? "text-danger-fg" : "text-warning-fg-strong"
           }`}
         >
           {isError
-            ? `✗ ${item.errorMsg ?? t("errors.unknown", { detail: "" })}`
-            : `⏳ ${t("chat.uploading")}`}
+            ? `${item.errorMsg ?? t("errors.unknown", { detail: "" })}`
+            : t("chat.uploading")}
         </div>
       </div>
       <button
+        type="button"
         onClick={onDismiss}
-        className="shrink-0 text-app-fg/50 hover:text-app-fg/80 px-1.5"
-        title="移除"
+        aria-label={t("common.remove")}
+        title={t("common.remove")}
+        className="shrink-0 text-fg-3 hover:text-fg-1 transition-colors duration-fast ease-khx"
       >
-        ✕
+        <Icon icon={X} size="xs" />
       </button>
     </div>
   );
@@ -165,14 +128,13 @@ export function InputArea() {
   const [models, setModels] = useState<ModelConfig[]>([]);
   const [skills, setSkills] = useState<SkillSummary[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [composing, setComposing] = useState(false); // IME state
+  const [composing, setComposing] = useState(false);
   const [pending, setPending] = useState<PendingUpload[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     api.getModelConfigs().then((ms) => {
       setModels(ms);
-      // Default model fallback if none chosen yet
       if (!currentModel && ms.length > 0) {
         const def = ms.find((m) => m.is_default) ?? ms[0];
         setModel(def.id);
@@ -182,7 +144,6 @@ export function InputArea() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-resize textarea
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -192,17 +153,12 @@ export function InputArea() {
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== "Enter") return;
-    if (composing) return; // IME conversion in progress
-    if (e.shiftKey) return; // Allow newline
+    if (composing) return;
+    if (e.shiftKey) return;
     e.preventDefault();
     if (!streamingMessageId) void sendMessage();
   };
 
-  /**
-   * Open the Tauri native file dialog (bypasses WebView2's file-input
-   * security restrictions which were silently dropping our clicks),
-   * then upload each picked path through the backend.
-   */
   const handlePickAndUpload = async () => {
     setMenuOpen(false);
 
@@ -218,10 +174,10 @@ export function InputArea() {
         ],
       });
     } catch (e) {
-      useChatStore.getState().setError(`打开文件选择器失败: ${e}`);
+      useChatStore.getState().setError(t("chat.error_open_picker", { detail: String(e) }));
       return;
     }
-    if (!picked) return; // user cancelled
+    if (!picked) return;
     const paths = Array.isArray(picked) ? picked : [picked];
     await processFilePaths(paths);
   };
@@ -229,7 +185,6 @@ export function InputArea() {
   const processFilePaths = async (paths: string[]) => {
     if (paths.length === 0) return;
 
-    // STEP 1: Show pending banners IMMEDIATELY — before any await.
     const pendingItems: PendingUpload[] = paths.map((p) => {
       const fileName = p.split(/[/\\]/).pop() ?? "file";
       return {
@@ -244,7 +199,6 @@ export function InputArea() {
     });
     setPending((p) => [...p, ...pendingItems]);
 
-    // STEP 2: Ensure a session exists (attachments need session_id)
     let sessionId = currentSessionId;
     if (!sessionId) {
       try {
@@ -253,7 +207,7 @@ export function InputArea() {
         useChatStore.setState({ currentSessionId: sessionId });
         useChatStore.getState().loadSessions();
       } catch (e) {
-        const msg = `创建会话失败: ${e}`;
+        const msg = t("chat.error_create_session", { detail: String(e) });
         setPending((p) =>
           p.map((x) =>
             pendingItems.some((pi) => pi.tempId === x.tempId)
@@ -265,7 +219,6 @@ export function InputArea() {
       }
     }
 
-    // STEP 3: Upload each in parallel
     const MIN_VISIBLE_MS = 400;
     await Promise.all(
       paths.map(async (path, i) => {
@@ -303,10 +256,9 @@ export function InputArea() {
     setPending((p) => p.filter((x) => x.tempId !== tempId));
 
   return (
-    <div className="border-t border-black/10 bg-white/60 px-4 py-3">
-      {/* Pending banners (full-width rows during upload) */}
+    <div className="border-t border-border-default bg-card px-6 py-4">
       {pending.length > 0 && (
-        <div className="flex flex-col gap-1.5 mb-2">
+        <div className="flex flex-col gap-2 mb-3">
           {pending.map((p) => (
             <PendingChip
               key={p.tempId}
@@ -317,103 +269,114 @@ export function InputArea() {
         </div>
       )}
 
-      {/* Ready attachment chips (compact horizontal row) */}
       {currentAttachments.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 mb-2">
+        <div className="flex flex-wrap gap-2 mb-3">
           {currentAttachments.map((a) => (
             <span
               key={a.id}
-              className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-primary/10 text-primary border border-primary/30 max-w-[260px]"
+              className="inline-flex items-center gap-1.5 text-meta px-2 py-1 rounded-pill bg-indigo-soft text-indigo border border-indigo-muted max-w-[260px]"
               title={a.file_name}
             >
-              <span className="shrink-0">{iconFor(a.type)}</span>
+              <Icon icon={iconFor(a.type)} size="xs" className="shrink-0" />
               <span className="truncate font-medium">{a.file_name}</span>
               {a.file_size != null && (
-                <span className="text-primary/50 shrink-0">
+                <span className="text-fg-3 shrink-0">
                   · {formatSize(a.file_size)}
                 </span>
               )}
               {a.extracted_text && (
-                <span
-                  className="text-emerald-600 shrink-0"
-                  title="文本已提取"
-                >
-                  ✓
-                </span>
+                <Icon
+                  icon={Check}
+                  size={12}
+                  className="shrink-0 text-success-fg"
+                  aria-label={t("chat.attachment_text_extracted_title")}
+                />
               )}
               <button
+                type="button"
                 onClick={() => removeAttachment(a.id)}
-                className="hover:text-red-600 ml-0.5 shrink-0"
-                title="移除"
+                aria-label={t("common.remove")}
+                className="hover:text-danger-fg shrink-0 transition-colors duration-fast ease-khx"
               >
-                ✕
+                <Icon icon={X} size={12} />
               </button>
             </span>
           ))}
         </div>
       )}
 
-      <div className="flex items-end gap-2">
-        {/* + menu */}
+      <div className="flex items-end gap-3">
         <div className="relative">
           <button
+            type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="w-8 h-8 rounded-full border border-black/10 text-app-fg/60 hover:border-primary hover:text-primary"
-            title="附件 / Skill"
+            aria-label={t("chat.menu_attachment_skill")}
+            title={t("chat.menu_attachment_skill")}
+            className="w-9 h-9 rounded-pill bg-card border border-border-default shadow-card-sm text-fg-2 hover:text-fg-1 hover:bg-navy-faint hover:-translate-y-px transition-[background,box-shadow,transform] duration-fast ease-khx flex items-center justify-center"
           >
-            +
+            <Icon icon={Plus} size="sm" />
           </button>
           {menuOpen && (
             <div
-              className="absolute bottom-10 left-0 bg-white border border-black/10 rounded shadow-md min-w-44 py-1 z-20"
+              className="absolute bottom-12 left-0 bg-card rounded-card-sm shadow-nav min-w-48 py-2 z-popover"
               onMouseLeave={() => setMenuOpen(false)}
             >
-              {/* Native Tauri file dialog — WebView2 silently swallows
-                  programmatic clicks on `<input type="file">` (and even
-                  on label-associated clicks in some builds), so we go
-                  through the dialog plugin instead. Always reliable. */}
               <button
+                type="button"
                 onClick={handlePickAndUpload}
-                className="block w-full text-left px-3 py-1.5 text-xs hover:bg-primary/5"
+                className="flex items-center gap-2 w-full text-left px-3 py-2 text-caption text-fg-1 hover:bg-navy-faint transition-colors duration-fast ease-khx"
               >
-                📎 {t("chat.upload_attachment")}
+                <Icon icon={Paperclip} size="xs" />
+                <span>{t("chat.upload_attachment")}</span>
               </button>
-              <div className="border-t border-black/5 my-1" />
-              <div className="px-3 py-1 text-[10px] text-app-fg/50 uppercase tracking-wider">
+              <div className="border-t border-border-subtle my-1" />
+              <div className="px-3 py-1 text-meta uppercase tracking-wide-brand text-fg-3">
                 Skill
               </div>
               <button
+                type="button"
                 onClick={() => {
                   setSkill(null);
                   setMenuOpen(false);
                 }}
-                className={`block w-full text-left px-3 py-1 text-xs hover:bg-primary/5 ${
-                  currentSkill === null ? "text-primary font-medium" : ""
+                className={`flex items-center gap-2 w-full text-left px-3 py-1.5 text-caption hover:bg-navy-faint transition-colors duration-fast ease-khx ${
+                  currentSkill === null ? "text-indigo font-medium" : "text-fg-1"
                 }`}
               >
-                {currentSkill === null ? "✓ " : ""}{t("chat.no_skill")}
+                {currentSkill === null ? (
+                  <Icon icon={Check} size="xs" className="text-indigo" />
+                ) : (
+                  <span className="w-3.5" aria-hidden />
+                )}
+                <span>{t("chat.no_skill")}</span>
               </button>
               {skills.map((s) => (
                 <button
                   key={s.name}
+                  type="button"
                   onClick={() => {
                     setSkill(s.name);
                     setMenuOpen(false);
                   }}
-                  className={`block w-full text-left px-3 py-1 text-xs hover:bg-primary/5 ${
-                    currentSkill === s.name ? "text-primary font-medium" : ""
+                  className={`flex items-center gap-2 w-full text-left px-3 py-1.5 text-caption hover:bg-navy-faint transition-colors duration-fast ease-khx ${
+                    currentSkill === s.name
+                      ? "text-indigo font-medium"
+                      : "text-fg-1"
                   }`}
                 >
-                  {currentSkill === s.name ? "✓ " : ""}
-                  {s.icon ? s.icon + " " : ""}
-                  {s.display_name}
+                  {currentSkill === s.name ? (
+                    <Icon icon={Check} size="xs" className="text-indigo" />
+                  ) : (
+                    <span className="w-3.5" aria-hidden />
+                  )}
+                  {s.icon ? <span>{s.icon}</span> : null}
+                  <span>{s.display_name}</span>
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Textarea */}
         <textarea
           ref={textareaRef}
           value={currentInput}
@@ -427,38 +390,49 @@ export function InputArea() {
               : t("chat.input_placeholder")
           }
           rows={1}
-          className="flex-1 px-3 py-2 text-sm bg-white border border-black/10 rounded resize-none focus:outline-none focus:border-primary"
-          style={{ maxHeight: 200, minHeight: 44 }}
+          className="flex-1 px-textarea-x py-textarea-y rounded-card-sm border border-border-default bg-card text-caption text-fg-1 placeholder:text-fg-3 resize-none focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+          style={{ maxHeight: 200, minHeight: 44, fontSize: "13px" }}
         />
 
-        {/* Model picker */}
-        <select
-          value={currentModel ?? ""}
-          onChange={(e) => setModel(e.target.value || null)}
-          className="text-xs bg-white border border-black/10 rounded px-2 py-1 max-w-[160px]"
-          title="切换模型"
-        >
-          {models.length === 0 && <option value="">(无模型)</option>}
-          {models.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name} {m.is_default ? "★" : ""}
-            </option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            value={currentModel ?? ""}
+            onChange={(e) => setModel(e.target.value || null)}
+            aria-label={t("chat.switch_model")}
+            title={t("chat.switch_model")}
+            className="appearance-none pr-8 pl-3 py-2 text-meta rounded-pill border border-border-default bg-card text-fg-1 max-w-[160px] focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+          >
+            {models.length === 0 && (
+              <option value="">{t("chat.no_models")}</option>
+            )}
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}{m.is_default ? t("chat.model_default_suffix") : ""}
+              </option>
+            ))}
+          </select>
+          <Icon
+            icon={ChevronDown}
+            size={12}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-fg-2"
+          />
+        </div>
 
-        {/* Send / Stop */}
         <button
+          type="button"
           onClick={() => sendMessage()}
           disabled={
             !!streamingMessageId ||
             pending.some((p) => p.status === "uploading") ||
             (!currentInput.trim() && currentAttachments.length === 0)
           }
-          className={`w-9 h-9 rounded-full shrink-0 text-white flex items-center justify-center ${
+          aria-label={
             streamingMessageId
-              ? "bg-app-fg/30 cursor-not-allowed"
-              : "bg-primary hover:bg-primary/90 disabled:opacity-40"
-          }`}
+              ? t("chat.generating")
+              : pending.some((p) => p.status === "uploading")
+                ? t("chat.wait_for_attachment")
+                : t("chat.send")
+          }
           title={
             streamingMessageId
               ? t("chat.generating")
@@ -466,13 +440,13 @@ export function InputArea() {
                 ? t("chat.wait_for_attachment")
                 : t("chat.send")
           }
+          className="w-10 h-10 rounded-pill shrink-0 bg-navy text-fg-inverse shadow-btn hover:bg-navy-hover hover:shadow-btn-hover hover:-translate-y-px disabled:opacity-40 disabled:hover:translate-y-0 disabled:hover:shadow-btn disabled:cursor-not-allowed transition-[background,box-shadow,transform] duration-fast ease-khx flex items-center justify-center"
         >
-          {streamingMessageId ? (
-            <SpinnerRing size={14} />
-          ) : pending.some((p) => p.status === "uploading") ? (
-            <SpinnerRing size={14} />
+          {streamingMessageId ||
+          pending.some((p) => p.status === "uploading") ? (
+            <Icon icon={Loader2} size="sm" className="animate-spin" />
           ) : (
-            "↑"
+            <Icon icon={ArrowUp} size="sm" />
           )}
         </button>
       </div>

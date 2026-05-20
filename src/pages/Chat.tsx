@@ -1,11 +1,15 @@
 // i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useRef } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { MessageSquare, X } from "lucide-react";
+import EmptyChatArt from "../assets/illustrations/empty-chat.svg?react";
 import type { ChatTokenPayload } from "../lib/tauri";
 import { useChatStore } from "../stores/chatStore";
 import { Message } from "../components/chat/Message";
 import { InputArea } from "../components/chat/InputArea";
 import { SessionList } from "../components/chat/SessionList";
+import { Icon } from "../components/Icon";
+import { Stage } from "../components/Stage";
 import { useT } from "../hooks/useT";
 
 export default function Chat() {
@@ -24,25 +28,21 @@ export default function Chat() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
-  // Batch token bursts at 50ms cadence to avoid one React render per token
-  const pendingBufferRef = useRef<Map<string, { sessionId: string; text: string }>>(
-    new Map(),
-  );
+  const pendingBufferRef = useRef<
+    Map<string, { sessionId: string; text: string }>
+  >(new Map());
   const flushHandleRef = useRef<number | null>(null);
 
-  // ----- Load sessions once on mount -----
   useEffect(() => {
     void loadSessions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ----- Subscribe to chat:token events -----
   useEffect(() => {
     let unlisten: UnlistenFn | undefined;
     listen<ChatTokenPayload>("chat:token", (event) => {
       const p = event.payload;
       if (p.done) {
-        // Flush any pending tokens first
         flushNow();
         finalizeStream(
           p.session_id,
@@ -54,7 +54,6 @@ export default function Chat() {
         return;
       }
       if (!p.text) return;
-      // Batch by (sessionId, messageId)
       const key = `${p.session_id}|${p.message_id}`;
       const existing = pendingBufferRef.current.get(key);
       if (existing) {
@@ -91,7 +90,6 @@ export default function Chat() {
     }
   }
 
-  // ----- Auto-scroll only when user is already at the bottom -----
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
@@ -110,13 +108,12 @@ export default function Chat() {
     : [];
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full bg-page text-fg-1">
       <SessionList />
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <header className="border-b border-black/10 bg-white/40 px-4 py-2 flex items-center gap-3 shrink-0">
+      <div className="flex-1 flex flex-col min-w-0 bg-page">
+        <header className="border-b border-border-default bg-card px-6 py-3 flex items-center gap-3 shrink-0">
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-semibold text-primary truncate">
+            <div className="text-h3 font-semibold text-fg-1 truncate">
               {currentSessionId
                 ? useChatStore
                     .getState()
@@ -124,7 +121,7 @@ export default function Chat() {
                   t("chat.title_fallback")
                 : t("chat.new_session_title")}
             </div>
-            <div className="text-[10px] text-app-fg/50">
+            <div className="text-meta text-fg-3">
               {t("chat.messages_count", { count: currentMessages.length })}
               {streamingMessageId && ` · ${t("chat.generating_inline")}`}
             </div>
@@ -132,28 +129,56 @@ export default function Chat() {
         </header>
 
         {lastError && (
-          <div className="mx-3 my-2 px-3 py-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded flex items-start gap-2">
+          <div
+            role="alert"
+            className="mx-6 my-3 px-4 py-3 text-caption text-danger-fg bg-danger-bg border border-danger-border rounded-card-sm flex items-start gap-2"
+          >
             <span className="flex-1">{lastError}</span>
             <button
+              type="button"
               onClick={() => setError(null)}
-              className="text-red-500 hover:text-red-700"
+              aria-label="Dismiss error"
+              className="text-fg-3 hover:text-danger-fg transition-colors duration-fast ease-khx"
             >
-              ✕
+              <Icon icon={X} size="xs" />
             </button>
           </div>
         )}
 
-        {/* Messages */}
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="flex-1 overflow-y-auto px-4 py-4 bg-app-bg"
+          className="flex-1 overflow-y-auto px-6 py-6 bg-page"
         >
           {currentMessages.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-sm text-app-fg/40">
-              {currentSessionId
-                ? t("chat.empty_session_hint")
-                : t("chat.empty_main_hint")}
+            <div className="h-full flex items-center justify-center">
+              <Stage
+                intensity="full"
+                className="rounded-card p-12 text-center max-w-md"
+              >
+                <EmptyChatArt
+                  width={160}
+                  height={120}
+                  aria-hidden="true"
+                  className="mx-auto text-indigo opacity-80"
+                />
+                <h2 className="text-h2 font-semibold text-fg-1 mt-6">
+                  {currentSessionId
+                    ? t("chat.empty_session_title")
+                    : t("chat.empty_main_title")}
+                </h2>
+                <p className="text-caption text-fg-2 mt-2">
+                  {currentSessionId
+                    ? t("chat.empty_session_hint")
+                    : t("chat.empty_main_hint")}
+                </p>
+                {!currentSessionId && (
+                  <div className="mt-4 inline-flex items-center gap-1.5 text-meta text-fg-3">
+                    <Icon icon={MessageSquare} size="xs" />
+                    <span>{t("chat.empty_kbd_hint")}</span>
+                  </div>
+                )}
+              </Stage>
             </div>
           ) : (
             currentMessages.map((m) => (
