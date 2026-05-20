@@ -4,29 +4,242 @@
 
 :root,
 [data-theme="light"] {
-  --primary: #1f3864;
-  --accent: #d4a017;
-  --bg: #f8f6f1;
-  --fg: #1a1f2e;
-  --sidebar-bg: #1a1f2e;
-  --sidebar-fg: #c8c8d0;
-  --sidebar-fg-active: #ffffff;
-  --titlebar-bg: #1a1f2e;
-  --titlebar-fg: #c8c8d0;
-  --border: rgba(0, 0, 0, 0.08);
+  /* ── Brand: navy ── */
+  --navy:           #1F2E4D;
+  --navy-hover:     #2A3A5F;
+  --navy-active:    #15203A;
+  --navy-strong:    #15203A;
+  --navy-muted:     #D9DEEA;
+  --navy-soft:      #E8EBF2;
+  --navy-faint:     #F3F5F9;
+
+  /* ── Brand: indigo ── */
+  --indigo:         #4F46E5;
+  --indigo-hover:   #3730A3;
+  --indigo-soft:    #EEF0FF;
+  --indigo-light:   #E0E5FF;
+  --indigo-muted:   #C8D0FF;
+
+  /* ── Text ── */
+  --text-1:         #1F2E4D;
+  --text-2:         #5C6B88;
+  --text-3:         #939EB3;
+  --text-inverse:   #FFFFFF;
+  --text-link:      #4F46E5;
+
+  /* ── Border ── */
+  --border-default: #ECEEF5;
+  --border-strong:  #D9DEEA;
+  --border-focus:   #1F2E4D;
+  --border-subtle:  #F3F5F9;
+
+  /* ── Background ── */
+  --bg-page:        #FFFFFF;
+  --bg-soft:        #F8FAFF;
+  --bg-card:        #FFFFFF;
+
+  /* ── Feedback ── */
+  --success-bg:     #DEF5E2;
+  --success-fg:     #1A8A3A;
+  --success-border: #A8D8B0;
+  --danger-bg:      #FFE0E0;
+  --danger-fg:      #C8323C;
+  --danger-border:  #F0B0B0;
+  --warning-bg:     #FFF3C2;
+  --warning-fg:     #D4AE00;
+  --warning-fg-strong: #8A6D00;
+  --warning-border: #EBD480;
+  --info-bg:        #EEF0FF;
+  --info-fg:        #4F46E5;
+  --info-border:    #C8D0FF;
+
+  /* ── Badges ── */
+  --badge-update-bg:   #EEF0FF;
+  --badge-update-fg:   #4F46E5;
+  --badge-improve-bg:  #DEF5E2;
+  --badge-improve-fg:  #1A8A3A;
+  --badge-bug-bg:      #FFE0E0;
+  --badge-bug-fg:      #C8323C;
+  --badge-new-bg:      #FFF3C2;
+  --badge-new-fg:      #8A6D00;
+  --badge-default-bg:  #ECEEF5;
+  --badge-default-fg:  #5C6B88;
+
+  /* ── Sidebar / Titlebar ── */
+  --sidebar-bg:         #1F2E4D;
+  --sidebar-fg:         #C8C8D0;
+  --sidebar-fg-active:  #FFFFFF;
+  --sidebar-fg-hover:   #E8E8EC;
+  --sidebar-active-bar: #4F46E5;
+  --titlebar-bg:        #1F2E4D;
+  --titlebar-fg:        #C8C8D0;
+  --titlebar-close-hover: #DC2626;
+
+  /* ── Source badges ── */
+  --src-arxiv:      #B31B1B;
+  --src-arxiv-fg:   #FFFFFF;
+  --src-ss:         #1857B6;
+  --src-ss-fg:      #FFFFFF;
+  --src-pubmed:     #00897B;
+  --src-pubmed-fg:  #FFFFFF;
+  --src-openalex:   #7B3FBF;
+  --src-openalex-fg:#FFFFFF;
+  --src-local:      #6B7280;
+  --src-local-fg:   #FFFFFF;
+
+  /* ── Read status ── */
+  --read-unread:   #D9DEEA;
+  --read-reading:  #D4AE00;
+  --read-read:     #1A8A3A;
+  --read-parsed:   #4F46E5;
+
+  /* ── Accent anchors ── */
+  --purple-glow:   #7D42FB;
+  --blue-glow:     #8DADFD;
+
+  /* ── Tag palette ── */
+  --tag-0:         #1F2E4D;
+  --tag-1:         #4F46E5;
+  --tag-2:         #1A8A3A;
+  --tag-3:         #C8323C;
+  --tag-4:         #7D42FB;
+  --tag-5:         #06B6D4;
+  --tag-6:         #D4AE00;
+  --tag-7:         #EC4899;
+
+  /* ── Overlay ── */
+  --overlay-modal-backdrop: rgba(0, 0, 0, 0.4);
+
+  /* ── Gradients ── */
+  --bg-gradient:   linear-gradient(135deg, #F8FAFF 0%, #F0F2FB 100%);
+  --glow-purple:   radial-gradient(circle, rgba(125,66,251,0.18) 0%, transparent 70%);
+  --glow-blue:     radial-gradient(circle, rgba(141,173,253,0.22) 0%, transparent 70%);
+
+  /* ── Shadows ── */
+  --shadow-card:        0 1px 2px rgba(31,46,77,.04), 0 8px 24px rgba(31,46,77,.06);
+  --shadow-card-sm:     0 1px 2px rgba(31,46,77,.04), 0 4px 14px rgba(31,46,77,.05);
+  --shadow-card-hover:  0 2px 4px rgba(31,46,77,.06), 0 12px 32px rgba(31,46,77,.10);
+  --shadow-nav:         0 4px 24px rgba(31,46,77,.08);
+  --shadow-btn:         0 4px 12px rgba(31,46,77,.18);
+  --shadow-btn-hover:   0 6px 16px rgba(31,46,77,.22);
+  --shadow-modal:       0 20px 40px rgba(31,46,77,.18);
+  --shadow-focus:       0 0 0 3px rgba(31,46,77,.08);
+  --shadow-focus-danger:0 0 0 3px rgba(200,50,60,.12);
 }
 
 [data-theme="dark"] {
-  --primary: #4a78c8;
-  --accent: #e6b536;
-  --bg: #0f1115;
-  --fg: #e8e8ec;
-  --sidebar-bg: #0a0c12;
-  --sidebar-fg: #b0b0bc;
-  --sidebar-fg-active: #ffffff;
-  --titlebar-bg: #0a0c12;
-  --titlebar-fg: #b0b0bc;
-  --border: rgba(255, 255, 255, 0.1);
+  /* ── Brand: navy ── */
+  --navy:           #3D5688;
+  --navy-hover:     #4A6BA8;
+  --navy-active:    #5A7BC8;
+  --navy-strong:    #5A7BC8;
+  --navy-muted:     #3D4866;
+  --navy-soft:      #252D40;
+  --navy-faint:     #1C2233;
+
+  /* ── Brand: indigo ── */
+  --indigo:         #7B73F0;
+  --indigo-hover:   #9890F5;
+  --indigo-soft:    #1F1F33;
+  --indigo-light:   #2A2A4D;
+  --indigo-muted:   #3D3D66;
+
+  /* ── Text ── */
+  --text-1:         #E8E8EC;
+  --text-2:         #9CA3B8;
+  --text-3:         #7A8298;
+  --text-inverse:   #FFFFFF;
+  --text-link:      #7B73F0;
+
+  /* ── Border ── */
+  --border-default: #252A38;
+  --border-strong:  #363B4D;
+  --border-focus:   #7B73F0;
+  --border-subtle:  #1C2233;
+
+  /* ── Background ── */
+  --bg-page:        #0F1115;
+  --bg-soft:        #161922;
+  --bg-card:        #1A1E2A;
+
+  /* ── Feedback ── */
+  --success-bg:     #0F2A1F;
+  --success-fg:     #4ADE80;
+  --success-border: #1E5128;
+  --danger-bg:      #2A0F0F;
+  --danger-fg:      #F87171;
+  --danger-border:  #5C1F1F;
+  --warning-bg:     #2A2208;
+  --warning-fg:     #FCD34D;
+  --warning-fg-strong: #FCD34D;
+  --warning-border: #5C4A1F;
+  --info-bg:        #1F1F33;
+  --info-fg:        #7B73F0;
+  --info-border:    #3D3D66;
+
+  /* ── Badges ── */
+  --badge-update-bg:   #1F1F33;
+  --badge-update-fg:   #7B73F0;
+  --badge-improve-bg:  #0F2A1F;
+  --badge-improve-fg:  #4ADE80;
+  --badge-bug-bg:      #2A0F0F;
+  --badge-bug-fg:      #F87171;
+  --badge-new-bg:      #2A2208;
+  --badge-new-fg:      #FCD34D;
+  --badge-default-bg:  #252A38;
+  --badge-default-fg:  #9CA3B8;
+
+  /* ── Sidebar / Titlebar ── */
+  --sidebar-bg:         #0F1115;
+  --sidebar-fg:         #B0B0BC;
+  --sidebar-fg-active:  #FFFFFF;
+  --sidebar-fg-hover:   #E8E8EC;
+  --sidebar-active-bar: #7B73F0;
+  --titlebar-bg:        #0F1115;
+  --titlebar-fg:        #B0B0BC;
+  --titlebar-close-hover: #DC2626;
+
+  /* ── Source badges ── */
+  --src-arxiv:      #D62828;
+  --src-ss:         #3A7BD5;
+  --src-pubmed:     #1FAE9F;
+  --src-openalex:   #9F5FE0;
+  --src-local:      #9CA3AF;
+
+  /* ── Read status ── */
+  --read-unread:   #363B4D;
+  --read-reading:  #FCD34D;
+  --read-read:     #4ADE80;
+  --read-parsed:   #7B73F0;
+
+  /* ── Tag palette ── */
+  --tag-0:         #3D5688;
+  --tag-1:         #7B73F0;
+  --tag-2:         #4ADE80;
+  --tag-3:         #F87171;
+  --tag-4:         #9F65FF;
+  --tag-5:         #22D3EE;
+  --tag-6:         #FCD34D;
+  --tag-7:         #F472B6;
+
+  /* ── Overlay ── */
+  --overlay-modal-backdrop: rgba(0, 0, 0, 0.6);
+
+  /* ── Gradients ── */
+  --bg-gradient:   linear-gradient(135deg, #161922 0%, #1F2335 100%);
+  --glow-purple:   radial-gradient(circle, rgba(125,66,251,0.25) 0%, transparent 70%);
+  --glow-blue:     radial-gradient(circle, rgba(141,173,253,0.30) 0%, transparent 70%);
+
+  /* ── Shadows ── */
+  --shadow-card:        0 1px 2px rgba(0,0,0,.3),  0 8px 24px rgba(0,0,0,.4);
+  --shadow-card-sm:     0 1px 2px rgba(0,0,0,.3),  0 4px 14px rgba(0,0,0,.35);
+  --shadow-card-hover:  0 2px 4px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.5);
+  --shadow-nav:         0 4px 24px rgba(0,0,0,.5);
+  --shadow-btn:         0 4px 12px rgba(0,0,0,.5);
+  --shadow-btn-hover:   0 6px 16px rgba(0,0,0,.55);
+  --shadow-modal:       0 20px 40px rgba(0,0,0,.6);
+  --shadow-focus:       0 0 0 3px rgba(123,115,240,.2);
+  --shadow-focus-danger:0 0 0 3px rgba(248,113,113,.2);
 }
 
 html,
@@ -37,9 +250,9 @@ body,
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei",
-    "PingFang SC", "Hiragino Sans GB", sans-serif;
-  background: var(--bg);
-  color: var(--fg);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", sans-serif;
+  background: var(--bg-page);
+  color: var(--text-1);
   overflow: hidden;
 }
