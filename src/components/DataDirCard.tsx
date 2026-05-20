@@ -2,13 +2,22 @@
 /**
  * DataDirCard — view + manage the active data directory.
  *
- * Lives inside Settings → 💾 数据管理. Composes the simple "show
- * current path + open folder + copy" header with a 3-step migration
- * wizard accessed via the "Change location" button.
+ * Lives inside Settings → Data management. Composes the simple
+ * "show current path + open folder + copy" header with a 3-step
+ * migration wizard accessed via the "Change location" button.
  */
 import { useCallback, useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { relaunch } from "@tauri-apps/plugin-process";
+import {
+  AlertTriangle,
+  Check,
+  Copy,
+  FolderOpen,
+  Loader2,
+  RefreshCw,
+  Undo2,
+} from "lucide-react";
 import {
   api,
   type CurrentDataDir,
@@ -18,10 +27,9 @@ import {
   type MigrationResult,
 } from "../lib/tauri";
 import { useT } from "../hooks/useT";
-
-// ============================================================
-// Format helpers
-// ============================================================
+import { useToast } from "../hooks/useToast";
+import { BaseModal } from "./BaseModal";
+import { Icon } from "./Icon";
 
 function formatSize(t: ReturnType<typeof useT>, mb: number): string {
   if (mb >= 1024) {
@@ -30,22 +38,19 @@ function formatSize(t: ReturnType<typeof useT>, mb: number): string {
   return t("settings.data_size_mb", { size: mb.toFixed(1) });
 }
 
-// ============================================================
-// Main card
-// ============================================================
-
 export function DataDirCard() {
   const t = useT();
+  const toast = useToast();
   const [info, setInfo] = useState<CurrentDataDir | null>(null);
   const [copied, setCopied] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const refresh = useCallback(() => {
     void api
       .getCurrentDataDir()
       .then(setInfo)
-      .catch((e) => setErr(String(e)));
+      .catch((e) => toast.danger(String(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => refresh(), [refresh]);
@@ -66,7 +71,7 @@ export function DataDirCard() {
     try {
       await api.openLocalPdf(info.path);
     } catch (e) {
-      setErr(String(e));
+      toast.danger(String(e));
     }
   };
 
@@ -75,71 +80,88 @@ export function DataDirCard() {
     try {
       await api.resetDataDirToDefault();
       refresh();
+      toast.success(t("settings.data_reset_default_done"));
     } catch (e) {
-      setErr(String(e));
+      toast.danger(String(e));
     }
   };
 
   return (
-    <div className="bg-white rounded border border-black/10 px-6 py-4 space-y-3">
-      <h2 className="text-sm font-semibold text-primary">
-        {t("settings.data_section")}
-      </h2>
+    <div className="bg-card rounded-card shadow-card p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-h3 font-semibold text-fg-1">
+            {t("settings.data_section")}
+          </h2>
+          <p className="text-caption text-fg-2 mt-1">
+            {t("settings.data_section_desc")}
+          </p>
+        </div>
+        {info?.is_custom && (
+          <span className="shrink-0 rounded-pill px-2 py-0.5 text-micro font-medium bg-badge-new-bg text-badge-new-fg">
+            {t("settings.data_path_custom")}
+          </span>
+        )}
+      </div>
 
       {info && (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 flex-wrap text-xs">
-            <span
-              className={`px-1.5 py-0.5 rounded font-semibold ${
-                info.is_custom
-                  ? "bg-amber-100 text-amber-800"
-                  : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {info.is_custom
-                ? t("settings.data_path_custom")
-                : t("settings.data_path_default")}
-            </span>
-            <span className="text-app-fg/60">{formatSize(t, info.size_mb)}</span>
-          </div>
-          <code
-            className="block text-[11px] bg-black/5 px-2 py-1.5 rounded break-all cursor-pointer hover:bg-black/10"
+        <>
+          <button
+            type="button"
             onClick={doCopy}
             title={t("settings.data_copy_path")}
+            className="mt-4 w-full text-left p-4 rounded-card-sm bg-soft hover:bg-navy-faint font-mono text-meta text-fg-1 transition-colors duration-fast ease-khx group"
           >
-            {info.path}
-            {copied && (
-              <span className="ml-2 text-emerald-700">
-                {t("settings.data_copied")}
+            <div className="flex items-center gap-2">
+              <span className="break-all flex-1">{info.path}</span>
+              <span className="shrink-0 text-fg-3 group-hover:text-fg-1">
+                <Icon
+                  icon={copied ? Check : Copy}
+                  size="xs"
+                  className={copied ? "text-success-fg" : ""}
+                />
               </span>
-            )}
-          </code>
-          <div className="flex flex-wrap gap-2 pt-1">
+            </div>
+            <div className="mt-2 text-meta text-fg-2 tabular-nums text-right">
+              {formatSize(t, info.size_mb)}
+              {copied && (
+                <span className="ml-2 text-success-fg">
+                  {t("settings.data_copied")}
+                </span>
+              )}
+            </div>
+          </button>
+
+          <div className="mt-4 flex flex-wrap gap-3">
             <button
+              type="button"
               onClick={doOpenFolder}
-              className="px-3 py-1.5 text-xs rounded border border-black/10 hover:border-primary/30 text-app-fg/80"
+              className="inline-flex items-center gap-1.5 px-btn-x py-btn-y rounded-pill border border-border-default text-caption text-fg-1 hover:border-indigo hover:text-indigo transition-colors duration-fast ease-khx"
             >
-              {t("settings.data_open_folder")}
+              <Icon icon={FolderOpen} size="sm" />
+              <span>{t("settings.data_open_folder")}</span>
             </button>
             <button
+              type="button"
               onClick={() => setWizardOpen(true)}
-              className="px-3 py-1.5 text-xs rounded border border-primary text-primary hover:bg-primary hover:text-white transition-colors"
+              className="inline-flex items-center gap-1.5 px-btn-x py-btn-y rounded-pill border border-border-default text-caption text-fg-1 hover:border-indigo hover:text-indigo transition-colors duration-fast ease-khx"
             >
-              {t("settings.data_change_path")}
+              <Icon icon={RefreshCw} size="sm" />
+              <span>{t("settings.data_change_path")}</span>
             </button>
             {info.is_custom && (
               <button
+                type="button"
                 onClick={doResetDefault}
-                className="px-3 py-1.5 text-xs rounded border border-black/10 hover:border-amber-400 text-app-fg/80"
+                className="inline-flex items-center gap-1.5 px-btn-x py-btn-y rounded-pill border border-border-default text-caption text-fg-1 hover:border-warning-border hover:text-warning-fg-strong transition-colors duration-fast ease-khx"
               >
-                {t("settings.data_reset_default")}
+                <Icon icon={Undo2} size="sm" />
+                <span>{t("settings.data_reset_default")}</span>
               </button>
             )}
           </div>
-        </div>
+        </>
       )}
-
-      {err && <div className="text-xs text-red-600">{err}</div>}
 
       {wizardOpen && info && (
         <MigrationWizard
@@ -168,6 +190,7 @@ function MigrationWizard({
   onClose: () => void;
 }) {
   const t = useT();
+  const toast = useToast();
   const [step, setStep] = useState<Step>("pick");
   const [picked, setPicked] = useState<string | null>(null);
   const [validation, setValidation] = useState<DataDirValidation | null>(null);
@@ -176,10 +199,10 @@ function MigrationWizard({
   const [progress, setProgress] = useState<DataMigrationProgress | null>(null);
   const [result, setResult] = useState<MigrationResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [postChoice, setPostChoice] = useState<"keep" | "delete" | null>(null);
+  // V2.2: default to keeping the old dir (safer).
+  const [postChoice, setPostChoice] = useState<"keep" | "delete">("keep");
   const [restarting, setRestarting] = useState(false);
 
-  // Subscribe to `data_migration:progress` events only while running.
   useEffect(() => {
     if (step !== "running") return;
     let unlisten: UnlistenFn | undefined;
@@ -202,8 +225,6 @@ function MigrationWizard({
       setValidation(v);
       setValidating(false);
       if (!v.valid) return;
-      // If the new path already has SGHUB data, default the mode hint
-      // to "use_existing" so the user notices the option.
       if (v.has_existing_sghub_data) setMode("use_existing");
     } catch (e) {
       setErr(String(e));
@@ -231,253 +252,54 @@ function MigrationWizard({
       try {
         await api.deleteOldDataDir(currentPath);
       } catch (e) {
-        setErr(String(e));
+        toast.danger(String(e));
       }
     }
     try {
       await relaunch();
     } catch (e) {
-      // If relaunch unavailable in dev, just close — user can restart manually.
-      setErr(String(e));
+      toast.danger(String(e));
       setRestarting(false);
       onClose();
     }
   };
 
-  // ============================================================
-  // Render
-  // ============================================================
+  const isRunning = step === "running";
+
+  // Header step count + title
+  const stepIndex = step === "pick" ? 1 : step === "mode" ? 2 : step === "confirm" ? 3 : null;
+  const headerTitle = stepIndex
+    ? t("settings.data_wizard_step_x", { current: stepIndex, total: 3 })
+    : isRunning
+      ? t("settings.data_wizard_running_header")
+      : t("settings.data_wizard_done_header");
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-md shadow-xl max-w-xl w-full max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-black/10">
-          <h3 className="text-sm font-semibold text-primary">
-            {t("settings.data_wizard_title")}
-          </h3>
-          {step !== "running" && (
-            <button
-              onClick={onClose}
-              className="text-app-fg/50 hover:text-app-fg px-1"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto p-4 text-sm space-y-3">
-          {step === "pick" && (
-            <>
-              <div className="text-xs text-app-fg/60 font-semibold">
-                {t("settings.data_wizard_step_pick")}
-              </div>
-              <p className="text-xs text-app-fg/70">
-                {t("settings.data_wizard_pick_desc")}
-              </p>
-              <button
-                onClick={pickFolder}
-                className="px-3 py-1.5 text-xs rounded border border-primary text-primary hover:bg-primary hover:text-white"
-              >
-                {t("settings.data_wizard_pick_btn")}
-              </button>
-              {picked && (
-                <div className="text-xs text-app-fg/80 mt-2">
-                  {t("settings.data_wizard_picked")}{" "}
-                  <code className="text-[11px] bg-black/5 px-1.5 py-0.5 rounded break-all">
-                    {picked}
-                  </code>
-                </div>
-              )}
-              {validating && (
-                <div className="text-xs text-app-fg/50 italic">
-                  {t("settings.data_wizard_validating")}
-                </div>
-              )}
-              {validation && validation.valid && (
-                <div className="text-xs text-emerald-700">
-                  {t("settings.data_wizard_validation_ok")}
-                </div>
-              )}
-              {validation?.has_existing_sghub_data && (
-                <div className="text-xs text-amber-700">
-                  {t("settings.data_wizard_existing_found")}
-                </div>
-              )}
-              {validation && !validation.valid && validation.error && (
-                <div className="text-xs text-red-600">{validation.error}</div>
-              )}
-            </>
-          )}
-
-          {step === "mode" && (
-            <>
-              <div className="text-xs text-app-fg/60 font-semibold">
-                {t("settings.data_wizard_step_mode")}
-              </div>
-              <div className="space-y-3">
-                <ModeOption
-                  value="migrate"
-                  current={mode}
-                  setMode={setMode}
-                  title={t("settings.data_wizard_mode_migrate")}
-                  desc={t("settings.data_wizard_mode_migrate_desc")}
-                />
-                <ModeOption
-                  value="fresh"
-                  current={mode}
-                  setMode={setMode}
-                  title={t("settings.data_wizard_mode_fresh")}
-                  desc={t("settings.data_wizard_mode_fresh_desc")}
-                />
-                <ModeOption
-                  value="use_existing"
-                  current={mode}
-                  setMode={setMode}
-                  title={t("settings.data_wizard_mode_use_existing")}
-                  desc={t("settings.data_wizard_mode_use_existing_desc")}
-                  disabled={!validation?.has_existing_sghub_data}
-                />
-              </div>
-            </>
-          )}
-
-          {step === "confirm" && (
-            <>
-              <div className="text-xs text-app-fg/60 font-semibold">
-                {t("settings.data_wizard_step_confirm")}
-              </div>
-              <div className="text-xs space-y-1">
-                <div>
-                  <span className="text-app-fg/60">
-                    {t("settings.data_wizard_summary_old")}
-                  </span>{" "}
-                  <code className="bg-black/5 px-1.5 py-0.5 rounded text-[11px]">
-                    {currentPath}
-                  </code>
-                </div>
-                <div>
-                  <span className="text-app-fg/60">
-                    {t("settings.data_wizard_summary_new")}
-                  </span>{" "}
-                  <code className="bg-black/5 px-1.5 py-0.5 rounded text-[11px]">
-                    {picked}
-                  </code>
-                </div>
-                <div>
-                  <span className="text-app-fg/60">
-                    {t("settings.data_wizard_summary_mode")}
-                  </span>{" "}
-                  <strong>{labelForMode(t, mode)}</strong>
-                </div>
-              </div>
-              <div className="text-xs text-red-700 bg-red-50 border border-red-200 px-2 py-1.5 rounded">
-                {t("settings.data_wizard_warn")}
-              </div>
-            </>
-          )}
-
-          {step === "running" && (
-            <>
-              <div className="text-xs text-app-fg/70 italic">
-                {t("settings.data_wizard_running")}
-              </div>
-              {progress && (
-                <>
-                  <div className="h-2 bg-black/10 rounded overflow-hidden">
-                    <div
-                      className="h-full bg-primary transition-all"
-                      style={{ width: `${progress.percent}%` }}
-                    />
-                  </div>
-                  <div className="text-xs text-app-fg/70">
-                    {t("settings.data_wizard_progress", {
-                      current: (progress.bytes_copied / (1024 * 1024)).toFixed(1),
-                      total: (progress.total_bytes / (1024 * 1024)).toFixed(1),
-                      percent: progress.percent,
-                    })}
-                  </div>
-                  <div className="text-[10px] text-app-fg/40 truncate">
-                    {t("settings.data_wizard_current_file", {
-                      file: progress.current_file,
-                    })}
-                  </div>
-                </>
-              )}
-            </>
-          )}
-
-          {step === "done" && (
-            <>
-              {result?.success ? (
-                <>
-                  <div className="text-xs text-emerald-700">
-                    {t("settings.data_wizard_success", {
-                      files: result.migrated_files,
-                      size: result.total_size_mb.toFixed(1),
-                    })}
-                  </div>
-                  {mode === "migrate" && (
-                    <div className="space-y-2">
-                      <div className="text-xs text-app-fg/70">
-                        {t("settings.data_wizard_post_migrate_q")}
-                      </div>
-                      <div className="flex gap-2">
-                        <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer">
-                          <input
-                            type="radio"
-                            checked={postChoice === "keep"}
-                            onChange={() => setPostChoice("keep")}
-                          />
-                          {t("settings.data_wizard_post_migrate_keep")}
-                        </label>
-                        <label className="inline-flex items-center gap-1.5 text-xs cursor-pointer">
-                          <input
-                            type="radio"
-                            checked={postChoice === "delete"}
-                            onChange={() => setPostChoice("delete")}
-                          />
-                          {t("settings.data_wizard_post_migrate_delete")}
-                        </label>
-                      </div>
-                    </div>
-                  )}
-                  <div className="text-xs text-app-fg/70 pt-1">
-                    {t("settings.data_wizard_restart_prompt")}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="text-xs text-red-700 font-semibold">
-                    {t("settings.data_wizard_failed")}
-                  </div>
-                  {result?.errors.map((e, i) => (
-                    <div key={i} className="text-xs text-red-600 font-mono">
-                      {e}
-                    </div>
-                  ))}
-                  {err && <div className="text-xs text-red-600">{err}</div>}
-                </>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-end gap-2 p-3 border-t border-black/10 bg-gray-50">
+    <BaseModal
+      open
+      onClose={() => !isRunning && onClose()}
+      size="md"
+      closeOnEscape={!isRunning}
+      closeOnBackdrop={!isRunning}
+      showClose={!isRunning}
+      title={t("settings.data_wizard_title")}
+      description={headerTitle}
+      footer={
+        <>
           {step === "pick" && (
             <>
               <button
+                type="button"
                 onClick={onClose}
-                className="px-3 py-1.5 text-xs rounded border border-black/10 text-app-fg/70 hover:bg-black/5"
+                className="inline-flex items-center px-btn-x py-btn-y rounded-pill border border-border-default text-caption text-fg-1 hover:bg-navy-faint transition-colors duration-fast ease-khx font-medium"
               >
                 {t("settings.data_wizard_cancel")}
               </button>
               <button
+                type="button"
                 onClick={() => setStep("mode")}
                 disabled={!validation?.valid}
-                className="px-3 py-1.5 text-xs rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
+                className="inline-flex items-center px-btn-x py-btn-y rounded-pill shadow-btn bg-navy text-fg-inverse hover:bg-navy-hover disabled:opacity-50 transition-colors duration-fast ease-khx font-medium text-caption"
               >
                 {t("settings.data_wizard_next")}
               </button>
@@ -486,14 +308,16 @@ function MigrationWizard({
           {step === "mode" && (
             <>
               <button
+                type="button"
                 onClick={() => setStep("pick")}
-                className="px-3 py-1.5 text-xs rounded border border-black/10 text-app-fg/70 hover:bg-black/5"
+                className="inline-flex items-center px-btn-x py-btn-y rounded-pill border border-border-default text-caption text-fg-1 hover:bg-navy-faint transition-colors duration-fast ease-khx font-medium"
               >
                 {t("settings.data_wizard_back")}
               </button>
               <button
+                type="button"
                 onClick={() => setStep("confirm")}
-                className="px-3 py-1.5 text-xs rounded bg-primary text-white hover:bg-primary/90"
+                className="inline-flex items-center px-btn-x py-btn-y rounded-pill shadow-btn bg-navy text-fg-inverse hover:bg-navy-hover transition-colors duration-fast ease-khx font-medium text-caption"
               >
                 {t("settings.data_wizard_next")}
               </button>
@@ -502,48 +326,258 @@ function MigrationWizard({
           {step === "confirm" && (
             <>
               <button
+                type="button"
                 onClick={() => setStep("mode")}
-                className="px-3 py-1.5 text-xs rounded border border-black/10 text-app-fg/70 hover:bg-black/5"
+                className="inline-flex items-center px-btn-x py-btn-y rounded-pill border border-border-default text-caption text-fg-1 hover:bg-navy-faint transition-colors duration-fast ease-khx font-medium"
               >
                 {t("settings.data_wizard_back")}
               </button>
               <button
+                type="button"
                 onClick={runMigration}
-                className="px-3 py-1.5 text-xs rounded bg-red-600 text-white hover:bg-red-700"
+                className="inline-flex items-center px-btn-x py-btn-y rounded-pill shadow-btn bg-danger-fg text-fg-inverse hover:opacity-90 transition-opacity duration-fast ease-khx font-medium text-caption"
               >
                 {t("settings.data_wizard_confirm_btn")}
               </button>
             </>
           )}
-          {step === "done" && (
+          {step === "done" &&
+            (result?.success ? (
+              <button
+                type="button"
+                onClick={finishAndRestart}
+                disabled={restarting}
+                className="inline-flex items-center gap-1.5 px-btn-x py-btn-y rounded-pill shadow-btn bg-navy text-fg-inverse hover:bg-navy-hover disabled:opacity-50 transition-colors duration-fast ease-khx font-medium text-caption"
+              >
+                {restarting && (
+                  <Icon icon={Loader2} size="sm" className="animate-spin" />
+                )}
+                {t("settings.data_wizard_restart_btn")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex items-center px-btn-x py-btn-y rounded-pill border border-border-default text-caption text-fg-1 hover:bg-navy-faint transition-colors duration-fast ease-khx font-medium"
+              >
+                {t("settings.data_wizard_close")}
+              </button>
+            ))}
+        </>
+      }
+    >
+      {step === "pick" && (
+        <div className="space-y-3">
+          <p className="text-caption text-fg-2">
+            {t("settings.data_wizard_pick_desc")}
+          </p>
+          <button
+            type="button"
+            onClick={pickFolder}
+            className="inline-flex items-center gap-1.5 px-btn-x py-btn-y rounded-pill border border-border-default text-caption text-fg-1 hover:border-indigo hover:text-indigo transition-colors duration-fast ease-khx"
+          >
+            <Icon icon={FolderOpen} size="sm" />
+            <span>{t("settings.data_wizard_pick_btn")}</span>
+          </button>
+          {picked && (
+            <div className="text-meta text-fg-1">
+              {t("settings.data_wizard_picked")}{" "}
+              <code className="text-meta bg-soft px-2 py-1 rounded-pill break-all">
+                {picked}
+              </code>
+            </div>
+          )}
+          {validating && (
+            <div className="inline-flex items-center gap-2 text-meta text-fg-2">
+              <Icon icon={Loader2} size="xs" className="animate-spin" />
+              <span>{t("settings.data_wizard_validating")}</span>
+            </div>
+          )}
+          {validation?.valid && (
+            <div className="inline-flex items-center gap-1.5 text-meta text-success-fg">
+              <Icon icon={Check} size="xs" />
+              <span>{t("settings.data_wizard_validation_ok")}</span>
+            </div>
+          )}
+          {validation?.has_existing_sghub_data && (
+            <div className="inline-flex items-center gap-1.5 text-meta text-warning-fg-strong">
+              <Icon icon={AlertTriangle} size="xs" />
+              <span>{t("settings.data_wizard_existing_found")}</span>
+            </div>
+          )}
+          {validation && !validation.valid && validation.error && (
+            <div className="inline-flex items-start gap-1.5 text-meta text-danger-fg">
+              <Icon icon={AlertTriangle} size="xs" className="mt-0.5" />
+              <span>{validation.error}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {step === "mode" && (
+        <div role="radiogroup" className="space-y-3">
+          <ModeOption
+            value="migrate"
+            current={mode}
+            setMode={setMode}
+            title={t("settings.data_wizard_mode_migrate")}
+            desc={t("settings.data_wizard_mode_migrate_desc")}
+          />
+          <ModeOption
+            value="fresh"
+            current={mode}
+            setMode={setMode}
+            title={t("settings.data_wizard_mode_fresh")}
+            desc={t("settings.data_wizard_mode_fresh_desc")}
+          />
+          <ModeOption
+            value="use_existing"
+            current={mode}
+            setMode={setMode}
+            title={t("settings.data_wizard_mode_use_existing")}
+            desc={t("settings.data_wizard_mode_use_existing_desc")}
+            disabled={!validation?.has_existing_sghub_data}
+          />
+        </div>
+      )}
+
+      {step === "confirm" && (
+        <div className="space-y-4">
+          <dl className="text-caption space-y-2">
+            <div className="flex gap-3 items-baseline">
+              <dt className="text-fg-2 w-20 shrink-0">
+                {t("settings.data_wizard_summary_old")}
+              </dt>
+              <dd className="font-mono text-meta text-fg-1 break-all">
+                {currentPath}
+              </dd>
+            </div>
+            <div className="flex gap-3 items-baseline">
+              <dt className="text-fg-2 w-20 shrink-0">
+                {t("settings.data_wizard_summary_new")}
+              </dt>
+              <dd className="font-mono text-meta text-fg-1 break-all">
+                {picked}
+              </dd>
+            </div>
+            <div className="flex gap-3 items-baseline">
+              <dt className="text-fg-2 w-20 shrink-0">
+                {t("settings.data_wizard_summary_mode")}
+              </dt>
+              <dd className="font-medium text-fg-1">{labelForMode(t, mode)}</dd>
+            </div>
+          </dl>
+          <div
+            role="alert"
+            className="bg-danger-bg border border-danger-border text-danger-fg rounded-card-sm p-4 flex items-start gap-2 text-caption"
+          >
+            <Icon
+              icon={AlertTriangle}
+              size="sm"
+              className="flex-shrink-0 mt-0.5"
+            />
+            <span>{t("settings.data_wizard_warn")}</span>
+          </div>
+        </div>
+      )}
+
+      {step === "running" && (
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-2 text-caption text-fg-2">
+            <Icon icon={Loader2} size="sm" className="animate-spin" />
+            <span>{t("settings.data_wizard_running")}</span>
+          </div>
+          {progress && (
             <>
-              {result?.success ? (
-                <button
-                  onClick={finishAndRestart}
-                  disabled={restarting || (mode === "migrate" && postChoice === null)}
-                  className="px-3 py-1.5 text-xs rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {t("settings.data_wizard_restart_btn")}
-                </button>
-              ) : (
-                <button
-                  onClick={onClose}
-                  className="px-3 py-1.5 text-xs rounded border border-black/10 text-app-fg/70 hover:bg-black/5"
-                >
-                  {t("settings.data_wizard_close")}
-                </button>
-              )}
+              <div className="h-2 bg-navy-soft rounded-pill overflow-hidden">
+                <div
+                  role="progressbar"
+                  aria-valuenow={progress.percent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className="h-full bg-indigo transition-[width] duration-base ease-khx"
+                  style={{ width: `${progress.percent}%` }}
+                />
+              </div>
+              <div className="text-meta text-fg-2 tabular-nums">
+                {t("settings.data_wizard_progress", {
+                  current: (progress.bytes_copied / (1024 * 1024)).toFixed(1),
+                  total: (progress.total_bytes / (1024 * 1024)).toFixed(1),
+                  percent: progress.percent,
+                })}
+              </div>
+              <div className="text-meta font-mono text-fg-2 truncate">
+                {t("settings.data_wizard_current_file", {
+                  file: progress.current_file,
+                })}
+              </div>
             </>
           )}
         </div>
-      </div>
-    </div>
+      )}
+
+      {step === "done" &&
+        (result?.success ? (
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 text-caption text-success-fg">
+              <Icon icon={Check} size="sm" />
+              <span>
+                {t("settings.data_wizard_success", {
+                  files: result.migrated_files,
+                  size: result.total_size_mb.toFixed(1),
+                })}
+              </span>
+            </div>
+            {mode === "migrate" && (
+              <div className="space-y-2">
+                <div className="text-caption text-fg-1">
+                  {t("settings.data_wizard_post_migrate_q")}
+                </div>
+                <div role="radiogroup" className="flex flex-col gap-2">
+                  <label className="inline-flex items-center gap-2 text-caption text-fg-1 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="post-migrate"
+                      checked={postChoice === "keep"}
+                      onChange={() => setPostChoice("keep")}
+                      className="accent-indigo"
+                    />
+                    {t("settings.data_wizard_post_migrate_keep")}
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-caption text-fg-1 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="post-migrate"
+                      checked={postChoice === "delete"}
+                      onChange={() => setPostChoice("delete")}
+                      className="accent-indigo"
+                    />
+                    {t("settings.data_wizard_post_migrate_delete")}
+                  </label>
+                </div>
+              </div>
+            )}
+            <p className="text-caption text-fg-2 italic">
+              {t("settings.data_wizard_restart_prompt")}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="text-caption text-danger-fg font-semibold inline-flex items-center gap-2">
+              <Icon icon={AlertTriangle} size="sm" />
+              {t("settings.data_wizard_failed")}
+            </div>
+            {result?.errors.map((e, i) => (
+              <div key={i} className="text-meta font-mono text-danger-fg">
+                {e}
+              </div>
+            ))}
+            {err && <div className="text-meta text-danger-fg">{err}</div>}
+          </div>
+        ))}
+    </BaseModal>
   );
 }
-
-// ============================================================
-// Mode option (extracted for tidy JSX)
-// ============================================================
 
 function ModeOption({
   value,
@@ -560,25 +594,33 @@ function ModeOption({
   desc: string;
   disabled?: boolean;
 }) {
+  const selected = current === value;
   return (
     <label
-      className={`block border rounded p-3 cursor-pointer transition-colors ${
-        current === value
-          ? "border-primary bg-primary/5"
-          : "border-black/10 hover:border-primary/30"
-      } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+      role="radio"
+      aria-checked={selected}
+      aria-disabled={disabled}
+      className={`block rounded-card-sm border p-4 transition-colors duration-fast ease-khx ${
+        selected
+          ? "border-indigo bg-indigo-soft shadow-focus"
+          : "border-border-default hover:border-navy-muted"
+      } ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
     >
       <div className="flex items-start gap-2">
         <input
           type="radio"
-          checked={current === value}
+          checked={selected}
           onChange={() => !disabled && setMode(value)}
           disabled={disabled}
-          className="mt-0.5"
+          className="mt-1 accent-indigo"
         />
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold">{title}</div>
-          <div className="text-xs text-app-fg/60 mt-0.5">{desc}</div>
+          <div
+            className={`text-caption font-semibold ${selected ? "text-indigo" : "text-fg-1"}`}
+          >
+            {title}
+          </div>
+          <div className="text-meta text-fg-2 mt-1">{desc}</div>
         </div>
       </div>
     </label>
