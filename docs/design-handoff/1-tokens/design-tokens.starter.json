@@ -1,0 +1,220 @@
+{
+  "$schema": "https://schemas.sghub.app/design-tokens.json",
+  "$comment": [
+    "SGHUB Capsule — V2.2 design tokens.",
+    "All light-mode values are pulled verbatim from ./khx-reference/tokens.css.",
+    "Dark-mode values are SGHUB-derived per design-style-spec.md §6.1.",
+    "Designer should validate every dark value renders ≥ WCAG AA contrast.",
+    "When applying to the codebase, Claude Code reads this file plus the",
+    "five khx-reference/ files; this JSON is the canonical SGHUB-shaped",
+    "intermediate."
+  ],
+  "meta": {
+    "name": "SGHUB Capsule",
+    "version": "2.2.0",
+    "basedOn": "KnowledgeHub X (knowledgehubtemplate.webflow.io)",
+    "khxReferenceDir": "./khx-reference/",
+    "lastUpdated": "2026-05-18"
+  },
+
+  "color": {
+    "brand": {
+      "navy":        { "light": "#1F2E4D", "dark": "#3D5688", "_role": "main CTA, H1, selected" },
+      "navy-hover":  { "light": "#2A3A5F", "dark": "#4A6BA8", "_role": "primary hover" },
+      "navy-active": { "light": "#15203A", "dark": "#5A7BC8", "_role": "primary active" },
+
+      "indigo":       { "light": "#4F46E5", "dark": "#7B73F0", "_role": "links, icons, emphasis" },
+      "indigo-hover": { "light": "#3730A3", "dark": "#9890F5", "_role": "link hover" },
+      "indigo-soft":  { "light": "#EEF0FF", "dark": "#1F1F33", "_role": "icon-box bg" },
+      "indigo-light": { "light": "#E0E5FF", "dark": "#2A2A4D", "_role": "lighter emphasis bg" }
+    },
+
+    "text": {
+      "1":       { "light": "#1F2E4D", "dark": "#E8E8EC", "_role": "primary text, titles" },
+      "2":       { "light": "#5C6B88", "dark": "#9CA3B8", "_role": "body, description" },
+      "3":       { "light": "#939EB3", "dark": "#5C6478", "_role": "placeholder, helper" },
+      "inverse": { "light": "#FFFFFF", "dark": "#FFFFFF", "_role": "text on dark bg (primary button)" },
+      "link":    { "light": "#4F46E5", "dark": "#7B73F0", "_role": "link color" }
+    },
+
+    "border": {
+      "default": { "light": "#ECEEF5", "dark": "#252A38", "_role": "default border, divider" },
+      "strong":  { "light": "#D9DEEA", "dark": "#363B4D", "_role": "strong border, timeline node" },
+      "focus":   { "light": "#1F2E4D", "dark": "#7B73F0", "_role": "input focus border" }
+    },
+
+    "bg": {
+      "page": { "light": "#FFFFFF", "dark": "#0F1115", "_role": "page background" },
+      "soft": { "light": "#F8FAFF", "dark": "#161922", "_role": "secondary bg, disabled" },
+      "card": { "light": "#FFFFFF", "dark": "#1A1E2A", "_role": "card background" }
+    },
+
+    "gradient": {
+      "_comment": "Hero / Contact / empty-state ambient backgrounds (KHX <Stage>)",
+      "page": {
+        "light": "linear-gradient(135deg, #F8FAFF 0%, #F0F2FB 100%)",
+        "dark":  "linear-gradient(135deg, #161922 0%, #1F2335 100%)"
+      },
+      "glowPurple": {
+        "light": "radial-gradient(circle, rgba(125,66,251,0.18) 0%, transparent 70%)",
+        "dark":  "radial-gradient(circle, rgba(125,66,251,0.25) 0%, transparent 70%)"
+      },
+      "glowBlue": {
+        "light": "radial-gradient(circle, rgba(141,173,253,0.22) 0%, transparent 70%)",
+        "dark":  "radial-gradient(circle, rgba(141,173,253,0.30) 0%, transparent 70%)"
+      }
+    },
+
+    "badge": {
+      "_comment": "4 semantic changelog badges (KHX). SGHUB maps them per design-style-spec.md §2.5.",
+      "update":  { "light": { "bg": "#EEF0FF", "fg": "#4F46E5" }, "dark": { "bg": "#1F1F33", "fg": "#7B73F0" }, "_use": "NEW Skill / NEW Chat" },
+      "improve": { "light": { "bg": "#DEF5E2", "fg": "#1A8A3A" }, "dark": { "bg": "#0F2A1F", "fg": "#4ADE80" }, "_use": "auto-update available / paper parsed" },
+      "bug":     { "light": { "bg": "#FFE0E0", "fg": "#C8323C" }, "dark": { "bg": "#2A0F0F", "fg": "#F87171" }, "_use": "error / delete confirm" },
+      "new":     { "light": { "bg": "#FFF3C2", "fg": "#8A6D00" }, "dark": { "bg": "#2A2208", "fg": "#FCD34D" }, "_use": "needs-review metadata / config missing" }
+    },
+
+    "feedback": {
+      "success": { "light": { "soft": "#DEF5E2", "fg": "#1A8A3A" }, "dark": { "soft": "#0F2A1F", "fg": "#4ADE80" } },
+      "danger":  { "light": { "soft": "#FFE0E0", "fg": "#C8323C" }, "dark": { "soft": "#2A0F0F", "fg": "#F87171" } },
+      "warning": { "light": { "soft": "#FFF3C2", "fg": "#D4AE00" }, "dark": { "soft": "#2A2208", "fg": "#FCD34D" } },
+      "info":    { "light": { "soft": "#EEF0FF", "fg": "#4F46E5" }, "dark": { "soft": "#1F1F33", "fg": "#7B73F0" } }
+    },
+
+    "sidebar": {
+      "_comment": "SGHUB-specific, KHX has no left sidebar.",
+      "bg":        { "light": "#1F2E4D", "dark": "#0F1115", "_role": "sidebar background (= navy)" },
+      "fg":        { "light": "#C8C8D0", "dark": "#B0B0BC", "_role": "inactive nav text" },
+      "fg-active": { "light": "#FFFFFF", "dark": "#FFFFFF", "_role": "active nav text" }
+    },
+
+    "titlebar": {
+      "bg": { "light": "#1F2E4D", "dark": "#0F1115", "_role": "titlebar (= navy)" },
+      "fg": { "light": "#C8C8D0", "dark": "#B0B0BC" }
+    },
+
+    "source": {
+      "_comment": "Paper source badges. External brand colors, kept stable across themes (slight bump in dark).",
+      "arxiv":            { "light": { "bg": "#B31B1B", "fg": "#FFFFFF" }, "dark": { "bg": "#D62828", "fg": "#FFFFFF" } },
+      "semantic_scholar": { "light": { "bg": "#1857B6", "fg": "#FFFFFF" }, "dark": { "bg": "#3A7BD5", "fg": "#FFFFFF" } },
+      "pubmed":           { "light": { "bg": "#00897B", "fg": "#FFFFFF" }, "dark": { "bg": "#1FAE9F", "fg": "#FFFFFF" } },
+      "openalex":         { "light": { "bg": "#7B3FBF", "fg": "#FFFFFF" }, "dark": { "bg": "#9F5FE0", "fg": "#FFFFFF" } },
+      "local":            { "light": { "bg": "#6B7280", "fg": "#FFFFFF" }, "dark": { "bg": "#9CA3AF", "fg": "#FFFFFF" } }
+    },
+
+    "readStatus": {
+      "_comment": "Library card left-edge 10px color bar. Reuses feedback tokens for theme-awareness.",
+      "unread":  { "tokenRef": "border.strong" },
+      "reading": { "tokenRef": "feedback.warning.fg" },
+      "read":    { "tokenRef": "feedback.success.fg" },
+      "parsed":  { "tokenRef": "brand.indigo" }
+    },
+
+    "tagPalette": {
+      "_comment": "8-color cycle for Library tag chips. Pulled from KHX-coordinated palette.",
+      "light": ["#1F2E4D", "#4F46E5", "#1A8A3A", "#C8323C", "#7D42FB", "#06B6D4", "#D4AE00", "#EC4899"],
+      "dark":  ["#3D5688", "#7B73F0", "#4ADE80", "#F87171", "#9F65FF", "#22D3EE", "#FCD34D", "#F472B6"]
+    }
+  },
+
+  "typography": {
+    "fontFamily": {
+      "sans":  "'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif",
+      "mono":  "'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace"
+    },
+    "fontSize": {
+      "_comment": "KHX 9-step scale. SGHUB does not use display sizes.",
+      "display":    { "size": "60px", "lineHeight": "1.2",  "fontWeight": 700, "_use": "reserved (not used yet)" },
+      "display-sm": { "size": "48px", "lineHeight": "1.2",  "fontWeight": 700, "_use": "reserved" },
+      "h1":         { "size": "36px", "lineHeight": "1.25", "fontWeight": 700, "_use": "reserved" },
+      "h2":         { "size": "24px", "lineHeight": "1.3",  "fontWeight": 600, "_use": "**page H1** (unified)" },
+      "h3":         { "size": "18px", "lineHeight": "1.4",  "fontWeight": 600, "_use": "section/card title" },
+      "body-lg":    { "size": "18px", "lineHeight": "1.65", "fontWeight": 400, "_use": "main chat bubble" },
+      "body":       { "size": "16px", "lineHeight": "1.65", "fontWeight": 400, "_use": "default body" },
+      "caption":    { "size": "14px", "lineHeight": "1.5",  "fontWeight": 400, "_use": "labels, controls, chips" },
+      "meta":       { "size": "12px", "lineHeight": "1.5",  "fontWeight": 500, "_use": "timestamps, counts" }
+    },
+    "fontWeight": { "regular": 400, "medium": 500, "semibold": 600, "bold": 700 },
+    "numerals": "tabular-nums"
+  },
+
+  "spacing": {
+    "_comment": "4px baseline. KHX 9-step. Strict — no 6/10/14/18/20/28 outside hard-coded paddings (12/18, 12/22).",
+    "1": "4px", "2": "8px", "3": "12px", "4": "16px",
+    "5": "24px", "6": "32px", "7": "48px", "8": "64px", "9": "96px",
+
+    "sidebar":  "220px",
+    "titlebar": "36px"
+  },
+
+  "radius": {
+    "_comment": "KHX 5-step. pill rules everything single-line.",
+    "pill":    "999px",
+    "card":    "16px",
+    "card-sm": "14px",
+    "icon":    "10px",
+    "sm":      "8px"
+  },
+
+  "shadow": {
+    "_comment": "KHX 6-step. Color = navy-tinted rgba(31,46,77,xx). Dark mode swaps to rgba(0,0,0,xx).",
+    "card":    {
+      "light": "0 1px 2px rgba(31,46,77,.04), 0 8px 24px rgba(31,46,77,.06)",
+      "dark":  "0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4)"
+    },
+    "card-sm": {
+      "light": "0 1px 2px rgba(31,46,77,.04), 0 4px 14px rgba(31,46,77,.05)",
+      "dark":  "0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.35)"
+    },
+    "nav": {
+      "light": "0 4px 24px rgba(31,46,77,.08)",
+      "dark":  "0 4px 24px rgba(0,0,0,.5)"
+    },
+    "btn": {
+      "light": "0 4px 12px rgba(31,46,77,.18)",
+      "dark":  "0 4px 12px rgba(0,0,0,.5)"
+    },
+    "modal": {
+      "light": "0 20px 40px rgba(31,46,77,.18)",
+      "dark":  "0 20px 40px rgba(0,0,0,.6)"
+    },
+    "focus": {
+      "light": "0 0 0 3px rgba(31,46,77,.08)",
+      "dark":  "0 0 0 3px rgba(123,115,240,.2)"
+    }
+  },
+
+  "motion": {
+    "_comment": "KHX minimal 3-step.",
+    "duration": {
+      "fast": "120ms",
+      "base": "180ms",
+      "slow": "240ms"
+    },
+    "easing": {
+      "default": "cubic-bezier(0.4, 0, 0.2, 1)"
+    },
+    "_buttonHover": "translateY(-1px)  // KHX primary signature lift"
+  },
+
+  "zIndex": {
+    "base":     0,
+    "elevated": 10,
+    "dropdown": 20,
+    "popover":  30,
+    "modal":    40,
+    "toast":    50,
+    "tooltip":  60
+  },
+
+  "icon": {
+    "library": "lucide",
+    "stroke":  "1.5px",
+    "size":    { "sm": 16, "base": 20, "lg": 24 },
+    "box":     { "size": 44, "radius": 10, "bgToken": "color.brand.indigo-soft", "fgToken": "color.brand.indigo" }
+  },
+
+  "layout": {
+    "containerMax": "1200px",
+    "navTopOffset": "24px"
+  }
+}

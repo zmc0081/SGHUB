@@ -1,0 +1,728 @@
+{
+  "$schema": "https://schemas.sghub.app/design-tokens.json",
+  "$comment": [
+    "SGHUB Capsule — V2.2 design tokens (canonical).",
+    "Every token carries a `source` field: 'khx' = verbatim from khx-reference/tokens.css,",
+    "'sghub-derived' = mechanically derived from KHX value via design-style-spec.md §6 rules,",
+    "'sghub-extension' = SGHUB-specific (KHX has no equivalent, e.g. sidebar/source badges).",
+    "",
+    "Decisions locked in (per user 2026-05-18):",
+    "  - Q1 = B: HEX direct, no Tailwind /N opacity modifiers for semantic shading.",
+    "    All semantic shades are explicit tokens (navy-faint/soft/muted/strong, etc.).",
+    "  - Q2 = B: dark-mode --navy is bg-only; H1 / selected text in dark mode use --text-1.",
+    "  - Q3 = A: KHX padding exceptions (12/18, 12/22, 14/18) are first-class spacing tokens.",
+    "",
+    "When wiring to Tailwind:",
+    "  - Color tokens emit as `theme.extend.colors.{key}: '#HEXVALUE'` directly.",
+    "  - Tailwind `/N` opacity modifiers still work on neutral colors (white, black, currentColor)",
+    "    for one-off cases like hover overlays, but NEVER for navy/indigo/text — those use",
+    "    explicit shade tokens."
+  ],
+
+  "meta": {
+    "name": "SGHUB Capsule",
+    "version": "2.2.0",
+    "basedOn": "KnowledgeHub X (knowledgehubtemplate.webflow.io)",
+    "khxReferenceDir": "./1-tokens/khx-reference/",
+    "lastUpdated": "2026-05-18",
+    "decisions": {
+      "Q1_color_strategy": "B: HEX direct + explicit shade tokens (no Tailwind /N for semantic colors)",
+      "Q2_dark_navy_role": "B: dark-mode --navy is bg-only; dark H1/selected text uses --text-1",
+      "Q3_padding_exceptions": "A: KHX paddings are first-class spacing tokens (btn-x/y, input-x/y, textarea-x/y)",
+      "Q4_tagPalette_opacity_exemption": "B: tagPalette dark mode allows opacity (decorative non-semantic color, 8 colors × 2 themes too verbose to enumerate explicitly)",
+      "Q5_tagPalette_tailwind_exposure": "expose as 8 explicit Tailwind colors (tag-0 ... tag-7) backed by --tag-0 ... --tag-7 CSS vars; required because Tailwind cannot resolve dynamic bg-${i} class names at build time"
+    }
+  },
+
+  "color": {
+    "brand": {
+      "navy": {
+        "light": "#1F2E4D",
+        "dark": "#3D5688",
+        "source": "khx",
+        "khxRef": "--khx-navy",
+        "role": "main CTA only; selected nav background; H1 text (LIGHT MODE ONLY)",
+        "_darkUseRestriction": "DARK MODE: bg-only. Do not use as text color. For H1/selected text in dark mode, use color.text.1.",
+        "_a11yLight": "on bg-page (#FFF) = 12.6:1 ✓ AAA",
+        "_a11yDarkBg": "white text on this color (dark mode) = 8.4:1 ✓ AAA"
+      },
+      "navy-hover": {
+        "light": "#2A3A5F",
+        "dark": "#4A6BA8",
+        "source": "khx",
+        "khxRef": "--khx-navy-hover",
+        "role": "primary button hover"
+      },
+      "navy-active": {
+        "light": "#15203A",
+        "dark": "#5A7BC8",
+        "source": "khx",
+        "khxRef": "--khx-navy-active",
+        "role": "primary button active/pressed"
+      },
+      "navy-strong": {
+        "light": "#15203A",
+        "dark": "#5A7BC8",
+        "source": "sghub-derived",
+        "derivedFrom": "alias of navy-active",
+        "role": "alternate name for visual hierarchy (e.g. selected card border emphasized)"
+      },
+      "navy-muted": {
+        "light": "#D9DEEA",
+        "dark": "#3D4866",
+        "source": "sghub-derived",
+        "derivedFrom": "navy at 20% on white (light) / on bg-page (dark)",
+        "role": "subtle ring on hover, selected card border (1px), drop zone hover",
+        "equivalentTo_v2_1": "border-primary/30 hover:border-primary/30"
+      },
+      "navy-soft": {
+        "light": "#E8EBF2",
+        "dark": "#252D40",
+        "source": "sghub-derived",
+        "derivedFrom": "navy at 10% on white (light) / on bg-page (dark)",
+        "role": "selected nav item bg, primary chip bg",
+        "equivalentTo_v2_1": "bg-primary/10"
+      },
+      "navy-faint": {
+        "light": "#F3F5F9",
+        "dark": "#1C2233",
+        "source": "sghub-derived",
+        "derivedFrom": "navy at 5% on white (light) / on bg-page (dark)",
+        "role": "hover background for ghost buttons, subtle row hover",
+        "equivalentTo_v2_1": "bg-primary/5 hover:bg-black/5"
+      },
+
+      "indigo": {
+        "light": "#4F46E5",
+        "dark": "#7B73F0",
+        "source": "khx",
+        "khxRef": "--khx-indigo",
+        "role": "links, icon foreground, secondary emphasis, unread dot",
+        "_a11yLight": "on bg-page (#FFF) = 7.0:1 ✓ AAA",
+        "_a11yDarkBg": "on bg-card (#1A1E2A) = 5.2:1 ✓ AA"
+      },
+      "indigo-hover": {
+        "light": "#3730A3",
+        "dark": "#9890F5",
+        "source": "khx",
+        "khxRef": "--khx-indigo-hover",
+        "role": "link hover"
+      },
+      "indigo-soft": {
+        "light": "#EEF0FF",
+        "dark": "#1F1F33",
+        "source": "khx",
+        "khxRef": "--khx-indigo-soft",
+        "role": "icon box background (paired with indigo fg), info badge bg"
+      },
+      "indigo-light": {
+        "light": "#E0E5FF",
+        "dark": "#2A2A4D",
+        "source": "khx",
+        "khxRef": "--khx-indigo-light",
+        "role": "lighter emphasis surface (e.g. selected paper card)"
+      },
+      "indigo-muted": {
+        "light": "#C8D0FF",
+        "dark": "#3D3D66",
+        "source": "sghub-derived",
+        "derivedFrom": "indigo at 20% / sized for ring",
+        "role": "ring-1 on selected paper card, drag-over indicator",
+        "equivalentTo_v2_1": "ring-1 ring-primary/20"
+      }
+    },
+
+    "text": {
+      "1": {
+        "light": "#1F2E4D",
+        "dark": "#E8E8EC",
+        "source": "khx",
+        "khxRef": "--khx-text-1",
+        "role": "primary text, headings, H1 (in dark mode also serves as selected-state text)",
+        "_a11yLight": "on bg-page (#FFF) = 13.4:1 ✓ AAA",
+        "_a11yDark": "on bg-page (#0F1115) = 14.1:1 ✓ AAA"
+      },
+      "2": {
+        "light": "#5C6B88",
+        "dark": "#9CA3B8",
+        "source": "khx",
+        "khxRef": "--khx-text-2",
+        "role": "body, descriptions, meta lines",
+        "_a11yLight": "on bg-page (#FFF) = 5.6:1 ✓ AA",
+        "_a11yDark": "on bg-page (#0F1115) = 7.9:1 ✓ AAA"
+      },
+      "3": {
+        "light": "#939EB3",
+        "dark": "#7A8298",
+        "source": "khx",
+        "khxRef": "--khx-text-3 (light) / sghub-tuned for dark contrast",
+        "role": "placeholder, helper text, disabled labels",
+        "_a11yLight": "on bg-page (#FFF) = 4.7:1 ✓ AA (body); on bg-soft = 4.5:1 ✓ AA (just passes)",
+        "_a11yDark": "on bg-page (#0F1115) = 5.2:1 ✓ AA",
+        "_a11yNote": "Spec §2.2 dark value of #5C6478 fails AA. Adjusted to #7A8298 for parity. Designer should validate visually."
+      },
+      "inverse": {
+        "light": "#FFFFFF",
+        "dark": "#FFFFFF",
+        "source": "khx",
+        "khxRef": "--khx-text-inverse",
+        "role": "text on navy backgrounds (primary button, sidebar nav active)"
+      },
+      "link": {
+        "light": "#4F46E5",
+        "dark": "#7B73F0",
+        "source": "khx",
+        "khxRef": "--khx-text-link",
+        "role": "alias of indigo, semantic name for link text"
+      }
+    },
+
+    "border": {
+      "default": {
+        "light": "#ECEEF5",
+        "dark": "#252A38",
+        "source": "khx",
+        "khxRef": "--khx-border",
+        "role": "default border (inputs, cards, dividers)",
+        "equivalentTo_v2_1": "border-black/10"
+      },
+      "strong": {
+        "light": "#D9DEEA",
+        "dark": "#363B4D",
+        "source": "khx",
+        "khxRef": "--khx-border-strong",
+        "role": "emphasized border, timeline node, read-status bar (unread)"
+      },
+      "focus": {
+        "light": "#1F2E4D",
+        "dark": "#7B73F0",
+        "source": "khx",
+        "khxRef": "--khx-border-focus",
+        "role": "input focus border (paired with shadow.focus ring)"
+      },
+      "subtle": {
+        "light": "#F3F5F9",
+        "dark": "#1C2233",
+        "source": "sghub-derived",
+        "derivedFrom": "alias of navy-faint",
+        "role": "nested divider inside card",
+        "equivalentTo_v2_1": "border-black/5"
+      }
+    },
+
+    "bg": {
+      "page": {
+        "light": "#FFFFFF",
+        "dark": "#0F1115",
+        "source": "khx",
+        "khxRef": "--khx-bg-page",
+        "role": "page background"
+      },
+      "soft": {
+        "light": "#F8FAFF",
+        "dark": "#161922",
+        "source": "khx",
+        "khxRef": "--khx-bg-soft",
+        "role": "secondary background, disabled state, built-in skill section bg"
+      },
+      "card": {
+        "light": "#FFFFFF",
+        "dark": "#1A1E2A",
+        "source": "khx",
+        "khxRef": "--khx-bg-card",
+        "role": "card background, modal background, dropdown panel"
+      }
+    },
+
+    "gradient": {
+      "_comment": "Hero / empty-state / Stage ambient backgrounds.",
+      "page": {
+        "light": "linear-gradient(135deg, #F8FAFF 0%, #F0F2FB 100%)",
+        "dark": "linear-gradient(135deg, #161922 0%, #1F2335 100%)",
+        "source": "khx",
+        "khxRef": "--khx-bg-gradient (light) / sghub-derived (dark)"
+      },
+      "glowPurple": {
+        "light": "radial-gradient(circle, rgba(125,66,251,0.18) 0%, transparent 70%)",
+        "dark": "radial-gradient(circle, rgba(125,66,251,0.25) 0%, transparent 70%)",
+        "source": "khx",
+        "_purpleHex": "#7D42FB (same as accent.purple-glow)"
+      },
+      "glowBlue": {
+        "light": "radial-gradient(circle, rgba(141,173,253,0.22) 0%, transparent 70%)",
+        "dark": "radial-gradient(circle, rgba(141,173,253,0.30) 0%, transparent 70%)",
+        "source": "khx",
+        "_blueHex": "#8DADFD"
+      }
+    },
+
+    "accent": {
+      "_comment": "Standalone hex anchors for gradient stops (so they live in token table, not magic numbers).",
+      "purple-glow": {
+        "light": "#7D42FB",
+        "dark": "#7D42FB",
+        "source": "khx",
+        "role": "stop color in gradient.glowPurple; also slot 5 of tag-palette",
+        "_consistencyNote": "Resolves spec §2.4 rgba(125,66,251) and spec §2.10 palette[4] '#7D42FB' to a single token."
+      },
+      "blue-glow": {
+        "light": "#8DADFD",
+        "dark": "#8DADFD",
+        "source": "khx",
+        "role": "stop color in gradient.glowBlue"
+      }
+    },
+
+    "badge": {
+      "_comment": "4 semantic changelog badges (KHX). SGHUB usage per design-style-spec.md §2.5.",
+      "update": {
+        "bg": { "light": "#EEF0FF", "dark": "#1F1F33" },
+        "fg": { "light": "#4F46E5", "dark": "#7B73F0" },
+        "source": "khx",
+        "khxRef": "--khx-badge-update-bg / fg",
+        "use": "NEW Skill, NEW Chat, info badges, indigo-soft icon containers"
+      },
+      "improve": {
+        "bg": { "light": "#DEF5E2", "dark": "#0F2A1F" },
+        "fg": { "light": "#1A8A3A", "dark": "#4ADE80" },
+        "source": "khx",
+        "khxRef": "--khx-badge-improve-bg / fg",
+        "use": "update available, paper parsed, successful action toast"
+      },
+      "bug": {
+        "bg": { "light": "#FFE0E0", "dark": "#2A0F0F" },
+        "fg": { "light": "#C8323C", "dark": "#F87171" },
+        "source": "khx",
+        "khxRef": "--khx-badge-bug-bg / fg",
+        "use": "error states, connection failed, missing API key, delete confirm"
+      },
+      "new": {
+        "bg": { "light": "#FFF3C2", "dark": "#2A2208" },
+        "fg": { "light": "#8A6D00", "dark": "#FCD34D" },
+        "source": "khx",
+        "khxRef": "--khx-badge-new-bg / fg",
+        "use": "needs-review metadata, config required, attention needed"
+      },
+      "default": {
+        "bg": { "light": "#ECEEF5", "dark": "#252A38" },
+        "fg": { "light": "#5C6B88", "dark": "#9CA3B8" },
+        "source": "sghub-extension",
+        "use": "neutral chip (model_id, skill name, DOI, code-like tags)"
+      }
+    },
+
+    "feedback": {
+      "_comment": "Toast / form-validation colors. Aliased to badge tokens.",
+      "success": {
+        "bg": { "light": "#DEF5E2", "dark": "#0F2A1F" },
+        "fg": { "light": "#1A8A3A", "dark": "#4ADE80" },
+        "border": { "light": "#A8D8B0", "dark": "#1E5128" },
+        "source": "khx",
+        "khxRef": "--khx-success / --khx-success-soft"
+      },
+      "danger": {
+        "bg": { "light": "#FFE0E0", "dark": "#2A0F0F" },
+        "fg": { "light": "#C8323C", "dark": "#F87171" },
+        "border": { "light": "#F0B0B0", "dark": "#5C1F1F" },
+        "source": "khx",
+        "khxRef": "--khx-danger / --khx-danger-soft"
+      },
+      "warning": {
+        "bg": { "light": "#FFF3C2", "dark": "#2A2208" },
+        "fg": { "light": "#D4AE00", "dark": "#FCD34D" },
+        "fg-strong": { "light": "#8A6D00", "dark": "#FCD34D" },
+        "border": { "light": "#EBD480", "dark": "#5C4A1F" },
+        "source": "khx",
+        "khxRef": "--khx-warning / --khx-warning-soft",
+        "_note": "fg-strong is darker variant for text on warning bg (light mode needs more contrast)."
+      },
+      "info": {
+        "bg": { "light": "#EEF0FF", "dark": "#1F1F33" },
+        "fg": { "light": "#4F46E5", "dark": "#7B73F0" },
+        "border": { "light": "#C8D0FF", "dark": "#3D3D66" },
+        "source": "khx",
+        "khxRef": "--khx-info / --khx-info-soft"
+      }
+    },
+
+    "sidebar": {
+      "_comment": "SGHUB-specific. KHX has no left sidebar. Per spec §2.7 sidebar bg = navy.",
+      "bg": {
+        "light": "#1F2E4D",
+        "dark": "#0F1115",
+        "source": "sghub-extension",
+        "_lightAlias": "= color.brand.navy.light (intentional unification)",
+        "role": "left sidebar background, titlebar background"
+      },
+      "fg": {
+        "light": "#C8C8D0",
+        "dark": "#B0B0BC",
+        "source": "sghub-extension",
+        "role": "inactive nav text on sidebar",
+        "_a11y": "on sidebar-bg light = 8.2:1 ✓ AAA; on sidebar-bg dark = 9.4:1 ✓ AAA"
+      },
+      "fg-active": {
+        "light": "#FFFFFF",
+        "dark": "#FFFFFF",
+        "source": "sghub-extension",
+        "role": "active nav text, brand logo"
+      },
+      "fg-hover": {
+        "light": "#E8E8EC",
+        "dark": "#E8E8EC",
+        "source": "sghub-extension",
+        "role": "nav text on hover (mid-step between fg and fg-active)"
+      },
+      "active-bar": {
+        "light": "#4F46E5",
+        "dark": "#7B73F0",
+        "source": "sghub-extension",
+        "_aliasOf": "color.brand.indigo",
+        "role": "4px left accent bar on active nav item",
+        "_v2_1_was": "--accent (yellow #D4A017) — replaced by indigo to fit new visual language"
+      },
+      "hover-bg": {
+        "light": "rgba(255, 255, 255, 0.06)",
+        "dark": "rgba(255, 255, 255, 0.05)",
+        "source": "sghub-extension",
+        "role": "nav item hover overlay on sidebar"
+      },
+      "active-bg": {
+        "light": "rgba(255, 255, 255, 0.08)",
+        "dark": "rgba(255, 255, 255, 0.07)",
+        "source": "sghub-extension",
+        "role": "nav item active background on sidebar"
+      }
+    },
+
+    "titlebar": {
+      "bg": {
+        "light": "#1F2E4D",
+        "dark": "#0F1115",
+        "source": "sghub-extension",
+        "_lightAlias": "= color.brand.navy.light"
+      },
+      "fg": {
+        "light": "#C8C8D0",
+        "dark": "#B0B0BC",
+        "source": "sghub-extension"
+      },
+      "close-hover": {
+        "light": "#DC2626",
+        "dark": "#DC2626",
+        "source": "sghub-extension",
+        "role": "Windows-style red close button hover"
+      }
+    },
+
+    "source": {
+      "_comment": "Paper source badges. External brand colors, slight bump in dark for visibility.",
+      "arxiv": {
+        "bg": { "light": "#B31B1B", "dark": "#D62828" },
+        "fg": { "light": "#FFFFFF", "dark": "#FFFFFF" },
+        "source": "sghub-extension"
+      },
+      "semantic_scholar": {
+        "bg": { "light": "#1857B6", "dark": "#3A7BD5" },
+        "fg": { "light": "#FFFFFF", "dark": "#FFFFFF" },
+        "source": "sghub-extension"
+      },
+      "pubmed": {
+        "bg": { "light": "#00897B", "dark": "#1FAE9F" },
+        "fg": { "light": "#FFFFFF", "dark": "#FFFFFF" },
+        "source": "sghub-extension"
+      },
+      "openalex": {
+        "bg": { "light": "#7B3FBF", "dark": "#9F5FE0" },
+        "fg": { "light": "#FFFFFF", "dark": "#FFFFFF" },
+        "source": "sghub-extension"
+      },
+      "local": {
+        "bg": { "light": "#6B7280", "dark": "#9CA3AF" },
+        "fg": { "light": "#FFFFFF", "dark": "#FFFFFF" },
+        "source": "sghub-extension"
+      }
+    },
+
+    "readStatus": {
+      "_comment": "Library card left-edge 10px color bar. Resolves via aliases for theme parity.",
+      "unread": {
+        "tokenRef": "color.border.strong",
+        "source": "sghub-extension"
+      },
+      "reading": {
+        "tokenRef": "color.feedback.warning.fg",
+        "source": "sghub-extension"
+      },
+      "read": {
+        "tokenRef": "color.feedback.success.fg",
+        "source": "sghub-extension"
+      },
+      "parsed": {
+        "tokenRef": "color.brand.indigo",
+        "source": "sghub-extension"
+      }
+    },
+
+    "tagPalette": {
+      "_comment": "8-color cycle for Library tag chips. V2.1 had yellow at slot 7; replaced with warning token color (visually near-identical, theme-aware).",
+      "light": [
+        "#1F2E4D",
+        "#4F46E5",
+        "#1A8A3A",
+        "#C8323C",
+        "#7D42FB",
+        "#06B6D4",
+        "#D4AE00",
+        "#EC4899"
+      ],
+      "dark": [
+        "#3D5688",
+        "#7B73F0",
+        "#4ADE80",
+        "#F87171",
+        "#9F65FF",
+        "#22D3EE",
+        "#FCD34D",
+        "#F472B6"
+      ],
+      "source": "sghub-extension",
+      "_v2_1_diff": "Slot 0 was '#1F3864' (old primary), now '#1F2E4D' (new navy). Slot 6 was '#F97316' (orange), now '#D4AE00' (warning yellow) for token alignment.",
+      "_a11yNote": "Tag chips use bg = palette color, fg = white (light) / palette color at opacity 0.85 + lighter bg (dark). Not for text on white backgrounds.",
+      "_opacityExemption": "Per meta.decisions.Q4: tagPalette is the ONLY semantic-color token allowed to use runtime opacity in dark mode (palette[i] at 0.85). All other colors must use explicit shade tokens. Reason: 8 decorative colors × 2 themes × N opacity steps would create ~50 single-use tokens; tag chips are decorative (not semantic state) so opacity is acceptable."
+    },
+
+    "overlay": {
+      "_comment": "Neutral overlays (Tailwind /N modifiers still allowed on white/black for these one-off cases).",
+      "modal-backdrop": {
+        "light": "rgba(0, 0, 0, 0.4)",
+        "dark": "rgba(0, 0, 0, 0.6)",
+        "source": "sghub-extension"
+      },
+      "scrim-soft": {
+        "light": "rgba(0, 0, 0, 0.03)",
+        "dark": "rgba(255, 255, 255, 0.03)",
+        "source": "sghub-extension",
+        "role": "row hover on light surface"
+      }
+    }
+  },
+
+  "typography": {
+    "fontFamily": {
+      "sans": "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Hiragino Sans GB', sans-serif",
+      "mono": "'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace",
+      "source": "khx + sghub-extension (added Segoe UI for Windows, Hiragino Sans GB for older macOS)"
+    },
+    "fontSize": {
+      "_comment": "KHX 9-step scale. SGHUB uses h2 as page H1 (unified per spec §3.2).",
+      "display":    { "size": "60px", "lineHeight": 1.2,  "fontWeight": 700, "source": "khx", "use": "reserved (not in SGHUB v2.2)" },
+      "display-sm": { "size": "48px", "lineHeight": 1.2,  "fontWeight": 700, "source": "khx", "use": "reserved" },
+      "h1":         { "size": "36px", "lineHeight": 1.25, "fontWeight": 700, "source": "khx", "use": "reserved" },
+      "h2":         { "size": "24px", "lineHeight": 1.3,  "fontWeight": 600, "source": "khx", "use": "PAGE H1 (unified across all 9 pages)" },
+      "h3":         { "size": "18px", "lineHeight": 1.4,  "fontWeight": 600, "source": "khx", "use": "section title, card title" },
+      "body-lg":    { "size": "18px", "lineHeight": 1.65, "fontWeight": 400, "source": "khx", "use": "main chat bubble, markdown body" },
+      "body":       { "size": "16px", "lineHeight": 1.65, "fontWeight": 400, "source": "khx", "use": "default body" },
+      "caption":    { "size": "14px", "lineHeight": 1.5,  "fontWeight": 400, "source": "khx", "use": "labels, control text, chip text, button text" },
+      "meta":       { "size": "12px", "lineHeight": 1.5,  "fontWeight": 500, "source": "khx", "use": "timestamps, counts, mini-labels, badges" },
+      "micro":      { "size": "11px", "lineHeight": 1.4,  "fontWeight": 500, "source": "sghub-extension", "use": "tooltip, group label, NEW badge — for cases where 12px is too dominant" }
+    },
+    "fontWeight": {
+      "regular":  { "value": 400, "source": "khx" },
+      "medium":   { "value": 500, "source": "khx" },
+      "semibold": { "value": 600, "source": "khx" },
+      "bold":     { "value": 700, "source": "khx" }
+    },
+    "lineHeight": {
+      "tight":   { "value": 1.2,  "source": "khx" },
+      "snug":    { "value": 1.3,  "source": "khx" },
+      "normal":  { "value": 1.5,  "source": "khx" },
+      "relaxed": { "value": 1.65, "source": "khx" }
+    },
+    "letterSpacing": {
+      "tight":  "-0.01em",
+      "normal": "0",
+      "wide":   "0.05em",
+      "source": "sghub-extension",
+      "_use": "wide for sidebar brand 'SGHUB' and section uppercase labels"
+    },
+    "numerals": {
+      "value": "tabular-nums",
+      "source": "sghub-extension",
+      "_use": "apply to all numbers in stats cards, badges, timestamps"
+    }
+  },
+
+  "spacing": {
+    "_comment": "4px baseline. KHX 9-step + SGHUB component-padding exceptions (Q3 = A).",
+    "_basisScale": "4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 96",
+    "0":  { "value": "0",    "source": "sghub-extension" },
+    "1":  { "value": "4px",  "source": "khx" },
+    "2":  { "value": "8px",  "source": "khx" },
+    "3":  { "value": "12px", "source": "khx" },
+    "4":  { "value": "16px", "source": "khx" },
+    "5":  { "value": "24px", "source": "khx" },
+    "6":  { "value": "32px", "source": "khx" },
+    "7":  { "value": "48px", "source": "khx" },
+    "8":  { "value": "64px", "source": "khx" },
+    "9":  { "value": "96px", "source": "khx" },
+
+    "sidebar":     { "value": "220px", "source": "sghub-extension" },
+    "titlebar":    { "value": "36px",  "source": "sghub-extension" },
+    "session-list":   { "value": "240px", "source": "sghub-extension", "_use": "Chat session list" },
+    "parse-history":  { "value": "256px", "source": "sghub-extension", "_use": "Parse history sidebar" },
+    "side-panel":     { "value": "288px", "source": "sghub-extension", "_use": "Feed subscriptions / Library folder tree" },
+
+    "btn-x":       { "value": "22px", "source": "khx", "_origin": "KHX .btn-khx-md" },
+    "btn-y":       { "value": "12px", "source": "khx" },
+    "btn-x-sm":    { "value": "14px", "source": "khx", "_origin": "KHX .btn-khx-sm" },
+    "btn-y-sm":    { "value": "8px",  "source": "khx" },
+    "btn-x-lg":    { "value": "26px", "source": "khx", "_origin": "KHX .btn-khx-lg" },
+    "btn-y-lg":    { "value": "14px", "source": "khx" },
+    "input-x":     { "value": "18px", "source": "khx" },
+    "input-y":     { "value": "12px", "source": "khx" },
+    "textarea-x":  { "value": "18px", "source": "khx" },
+    "textarea-y":  { "value": "14px", "source": "khx" }
+  },
+
+  "radius": {
+    "_comment": "KHX 5-step. Pill rules anything single-line; textarea is the only multi-line exception.",
+    "pill":    { "value": "999px", "source": "khx", "use": "button, single-line input, nav, badge, chip, tag" },
+    "card":    { "value": "16px",  "source": "khx", "use": "main card (paper card, model card, settings card, modal)" },
+    "card-sm": { "value": "14px",  "source": "khx", "use": "secondary card, textarea, changelog card" },
+    "icon":    { "value": "10px",  "source": "khx", "use": "icon box (44×44)" },
+    "sm":      { "value": "8px",   "source": "khx", "use": "extra small elements (avatar, tag in very tight space)" },
+    "none":    { "value": "0",     "source": "sghub-extension" }
+  },
+
+  "shadow": {
+    "_comment": "KHX 6-step. Light = navy-tinted rgba(31,46,77,xx). Dark = rgba(0,0,0,xx) heavier.",
+    "card": {
+      "light": "0 1px 2px rgba(31,46,77,.04), 0 8px 24px rgba(31,46,77,.06)",
+      "dark": "0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.4)",
+      "source": "khx",
+      "use": "main card default"
+    },
+    "card-sm": {
+      "light": "0 1px 2px rgba(31,46,77,.04), 0 4px 14px rgba(31,46,77,.05)",
+      "dark": "0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.35)",
+      "source": "khx",
+      "use": "secondary card, chat AI bubble"
+    },
+    "card-hover": {
+      "light": "0 2px 4px rgba(31,46,77,.06), 0 12px 32px rgba(31,46,77,.10)",
+      "dark": "0 2px 4px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.5)",
+      "source": "sghub-derived",
+      "derivedFrom": "card-shadow scaled up",
+      "use": "card hover lift"
+    },
+    "nav": {
+      "light": "0 4px 24px rgba(31,46,77,.08)",
+      "dark": "0 4px 24px rgba(0,0,0,.5)",
+      "source": "khx",
+      "use": "floating nav, dropdown, popover"
+    },
+    "btn": {
+      "light": "0 4px 12px rgba(31,46,77,.18)",
+      "dark": "0 4px 12px rgba(0,0,0,.5)",
+      "source": "khx",
+      "use": "primary button (REQUIRED — KHX signature)"
+    },
+    "btn-hover": {
+      "light": "0 6px 16px rgba(31,46,77,.22)",
+      "dark": "0 6px 16px rgba(0,0,0,.55)",
+      "source": "sghub-derived",
+      "derivedFrom": "btn-shadow scaled for hover (paired with translateY(-1px))",
+      "use": "primary button hover"
+    },
+    "modal": {
+      "light": "0 20px 40px rgba(31,46,77,.18)",
+      "dark": "0 20px 40px rgba(0,0,0,.6)",
+      "source": "khx",
+      "use": "modal, confirm dialog"
+    },
+    "focus": {
+      "light": "0 0 0 3px rgba(31,46,77,.08)",
+      "dark": "0 0 0 3px rgba(123,115,240,.2)",
+      "source": "khx",
+      "use": "input focus ring (paired with border.focus)"
+    },
+    "focus-danger": {
+      "light": "0 0 0 3px rgba(200,50,60,.12)",
+      "dark": "0 0 0 3px rgba(248,113,113,.2)",
+      "source": "sghub-derived",
+      "use": "input focus on validation error"
+    },
+    "none": {
+      "light": "none",
+      "dark": "none",
+      "source": "sghub-extension"
+    }
+  },
+
+  "motion": {
+    "_comment": "KHX minimal 3-step. translateY(-1px) is signature button hover.",
+    "duration": {
+      "instant": { "value": "0ms",   "source": "sghub-extension" },
+      "fast":    { "value": "120ms", "source": "khx", "use": "hover, focus, micro-feedback" },
+      "base":    { "value": "180ms", "source": "khx", "use": "default transition, dropdown, tab switch" },
+      "slow":    { "value": "240ms", "source": "khx", "use": "modal in/out, slide-over" }
+    },
+    "easing": {
+      "standard":  { "value": "cubic-bezier(0.4, 0, 0.2, 1)", "source": "khx", "_alias": "ease-khx" },
+      "decelerate":{ "value": "cubic-bezier(0, 0, 0.2, 1)",   "source": "sghub-extension", "use": "entering elements" },
+      "accelerate":{ "value": "cubic-bezier(0.4, 0, 1, 1)",   "source": "sghub-extension", "use": "exiting elements" }
+    },
+    "transform": {
+      "btn-hover-lift":   "translateY(-1px)",
+      "btn-active-press": "translateY(0)",
+      "card-hover-lift":  "translateY(-2px)",
+      "source": "khx"
+    }
+  },
+
+  "zIndex": {
+    "_comment": "SGHUB convention. Higher = more in front.",
+    "base":     { "value": 0,  "source": "sghub-extension" },
+    "elevated": { "value": 10, "source": "sghub-extension", "use": "sticky headers within scroll containers" },
+    "dropdown": { "value": 20, "source": "sghub-extension", "use": "select dropdown, FavoriteButton menu" },
+    "popover":  { "value": 30, "source": "sghub-extension", "use": "PaperPicker, Sidebar/Chat + menu" },
+    "modal":    { "value": 40, "source": "sghub-extension", "use": "modal backdrop + dialog" },
+    "toast":    { "value": 50, "source": "sghub-extension", "use": "global toast provider" },
+    "tooltip":  { "value": 60, "source": "sghub-extension", "use": "tooltip on hover" },
+    "titlebar": { "value": 100, "source": "sghub-extension", "use": "always-on-top window chrome" }
+  },
+
+  "icon": {
+    "_comment": "Lucide is the canonical icon set. Emoji map produced in Step 4.",
+    "library":  { "value": "lucide-react", "source": "sghub-extension" },
+    "stroke":   { "value": "1.5px", "source": "sghub-extension" },
+    "size": {
+      "xs":   { "value": 14, "source": "sghub-extension", "use": "inline in meta line" },
+      "sm":   { "value": 16, "source": "sghub-extension", "use": "in chip, in button" },
+      "base": { "value": 20, "source": "sghub-extension", "use": "default standalone icon" },
+      "lg":   { "value": 24, "source": "sghub-extension", "use": "in sidebar nav" },
+      "xl":   { "value": 32, "source": "sghub-extension", "use": "in empty-state illustration" }
+    },
+    "box": {
+      "size":   44,
+      "radius": 10,
+      "bg":     "color.brand.indigo-soft",
+      "fg":     "color.brand.indigo",
+      "source": "khx"
+    }
+  },
+
+  "layout": {
+    "container": {
+      "max":   { "value": "1200px", "source": "khx" },
+      "page":  { "value": "max-w-5xl", "source": "sghub-extension", "use": "Search / Library / Models / Skills page width cap" },
+      "form":  { "value": "max-w-3xl", "source": "sghub-extension", "use": "Settings page" },
+      "modal": { "value": "max-w-xl",  "source": "sghub-extension" },
+      "modal-lg": { "value": "max-w-2xl", "source": "sghub-extension", "use": "PaperMetadataEditor" }
+    },
+    "page-padding":   { "value": "32px", "source": "sghub-extension", "_aliasSpacing": "spacing.6", "use": "p-8 on page wrapper" },
+    "card-padding":   { "value": "24px", "source": "khx",            "_aliasSpacing": "spacing.5" },
+    "card-padding-sm":{ "value": "20px", "source": "sghub-extension", "_aliasSpacing": "between 4 and 5 — explicit value, no fractional spacing" }
+  }
+}

@@ -1,0 +1,16 @@
+# Step 4 output goes here
+
+Empty-state line illustrations (viewBox 200×160, stroke 1.5px, currentColor, no fill).
+
+Required (5 total):
+
+- empty-library.svg       (empty bookshelf outline)
+- empty-feed.svg          (empty mailbox)
+- empty-models.svg        (empty plug/socket)
+- empty-chat.svg          (open speech bubble)
+- empty-skillgen.svg      (sprouting seed)
+
+Optional extras:
+
+- empty-search.svg        (magnifier with question mark)
+- empty-history.svg       (clock/scroll motif)

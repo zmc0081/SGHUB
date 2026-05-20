@@ -1,0 +1,14 @@
+# Step 4 output goes here
+
+SVG icons (viewBox 24×24, stroke 1.5px, currentColor, no fill).
+
+Naming: kebab-case matching Lucide names (see ../../design-style-spec.md §5.1):
+  message-square.svg, search.svg, newspaper.svg, star.svg, brain.svg,
+  sparkles.svg, bot.svg, settings.svg, folder.svg, tag.svg, paperclip.svg,
+  file-text.svg, folder-open.svg, download.svg, upload.svg, wrench.svg,
+  check.svg, x.svg, alert-triangle.svg, lock.svg, refresh-cw.svg,
+  rotate-ccw.svg, save.svg, pencil.svg, trash-2.svg, plus-circle.svg,
+  chevron-down.svg, ...
+
+Provider icons (self-drawn since no good Lucide match):
+  provider-anthropic.svg, provider-openai.svg, provider-ollama.svg, provider-custom.svg

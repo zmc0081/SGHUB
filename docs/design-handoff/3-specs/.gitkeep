@@ -1,0 +1,8 @@
+# Step 2 + Step 4 + Step 5 specs go here
+
+Expected files:
+
+- component-specs.md      (Step 2 — propsAPI / variants / states for 8+ shared components)
+- icon-map.md             (Step 4 — emoji → SVG mapping table)
+- interaction-flows.md    (Step 5 — 4 complex flows as Mermaid stateDiagram-v2)
+- a11y-spec.md            (optional — keyboard nav, focus trap, aria)

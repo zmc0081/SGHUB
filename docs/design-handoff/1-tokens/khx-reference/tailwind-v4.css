@@ -1,0 +1,166 @@
+/* =============================================================================
+   KnowledgeHub X · Tailwind v4 配置
+   提取自 knowledgehubtemplate.webflow.io 实际页面截图
+
+   Tailwind v4 用 @theme 在 CSS 中声明设计 token，不再需要 tailwind.config.js。
+   在你的 main.css / app.css 顶部导入即可：
+
+       @import "tailwindcss";
+       @import "./tailwind-v4.css";
+
+   ============================================================================= */
+
+@theme {
+  /* ---------- 颜色 ---------- */
+  /* 品牌主：深海军蓝（主按钮、标题） */
+  --color-navy:         #1F2E4D;
+  --color-navy-hover:   #2A3A5F;
+  --color-navy-active:  #15203A;
+
+  /* 品牌副：靛紫（链接、图标、强调） */
+  --color-indigo-500:   #4F46E5;
+  --color-indigo-700:   #3730A3;
+  --color-indigo-50:    #EEF0FF;
+  --color-indigo-100:   #E0E5FF;
+
+  /* 文字 */
+  --color-khx-text-1:   #1F2E4D;
+  --color-khx-text-2:   #5C6B88;
+  --color-khx-text-3:   #939EB3;
+
+  /* 边框 */
+  --color-khx-border:        #ECEEF5;
+  --color-khx-border-strong: #D9DEEA;
+
+  /* 背景 */
+  --color-khx-bg:    #F8FAFF;
+  --color-khx-card:  #FFFFFF;
+
+  /* Changelog 徽章语义色 */
+  --color-badge-update-bg:  #EEF0FF;
+  --color-badge-update-fg:  #4F46E5;
+  --color-badge-improve-bg: #DEF5E2;
+  --color-badge-improve-fg: #1A8A3A;
+  --color-badge-bug-bg:     #FFE0E0;
+  --color-badge-bug-fg:     #C8323C;
+  --color-badge-new-bg:     #FFF3C2;
+  --color-badge-new-fg:     #8A6D00;
+
+  /* 系统色 */
+  --color-khx-success:      #1A8A3A;
+  --color-khx-success-soft: #DEF5E2;
+  --color-khx-danger:       #C8323C;
+  --color-khx-danger-soft:  #FFE0E0;
+  --color-khx-warning:      #D4AE00;
+  --color-khx-warning-soft: #FFF3C2;
+
+  /* ---------- 字体 ---------- */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont,
+               'PingFang SC', 'Microsoft YaHei', sans-serif;
+
+  /* 自定义字号 */
+  --text-khx-display:    60px;
+  --text-khx-display-sm: 48px;
+  --text-khx-h1:         36px;
+  --text-khx-h2:         24px;
+  --text-khx-h3:         18px;
+  --text-khx-body:       16px;
+  --text-khx-caption:    14px;
+  --text-khx-meta:       12px;
+
+  /* ---------- 圆角 ---------- */
+  --radius-khx-pill:    999px;
+  --radius-khx-card:    16px;
+  --radius-khx-card-sm: 14px;
+  --radius-khx-icon:    10px;
+
+  /* ---------- 阴影 ---------- */
+  --shadow-khx-card:    0 1px 2px rgba(31, 46, 77, 0.04), 0 8px 24px rgba(31, 46, 77, 0.06);
+  --shadow-khx-card-sm: 0 1px 2px rgba(31, 46, 77, 0.04), 0 4px 14px rgba(31, 46, 77, 0.05);
+  --shadow-khx-nav:     0 4px 24px rgba(31, 46, 77, 0.08);
+  --shadow-khx-btn:     0 4px 12px rgba(31, 46, 77, 0.18);
+  --shadow-khx-modal:   0 20px 40px rgba(31, 46, 77, 0.18);
+  --shadow-khx-focus:   0 0 0 3px rgba(31, 46, 77, 0.08);
+
+  /* ---------- 动效 ---------- */
+  --ease-khx: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+
+/* =============================================================================
+   @layer components — 复合类（@apply 各原子工具）
+   使用：直接在 HTML 写 class="btn-khx-primary" 即可
+   ============================================================================= */
+
+@layer components {
+  /* 按钮 */
+  .btn-khx-primary {
+    @apply inline-flex items-center gap-2 px-[22px] py-3
+           text-[13px] font-medium leading-none text-white
+           bg-navy hover:bg-navy-hover active:bg-navy-active
+           rounded-khx-pill shadow-khx-btn
+           transition-all duration-180 ease-khx cursor-pointer
+           hover:-translate-y-px;
+  }
+  .btn-khx-secondary {
+    @apply inline-flex items-center gap-2 px-[22px] py-3
+           text-[13px] font-medium leading-none text-khx-text-1
+           bg-khx-card border border-khx-border hover:border-navy
+           rounded-khx-pill transition-all duration-180 ease-khx cursor-pointer;
+  }
+  .btn-khx-link {
+    @apply inline-flex items-center gap-1 text-[13px] font-semibold
+           text-indigo-500 hover:text-indigo-700
+           cursor-pointer transition-colors;
+  }
+
+  /* 输入 */
+  .input-khx {
+    @apply w-full px-[18px] py-3 text-[13px] text-khx-text-1
+           bg-khx-card border border-khx-border rounded-khx-pill
+           outline-none transition-all duration-180 ease-khx
+           focus:border-navy focus:shadow-khx-focus
+           placeholder:text-khx-text-3;
+  }
+  .textarea-khx {
+    @apply w-full min-h-[90px] px-[18px] py-[14px] text-[13px] text-khx-text-1
+           bg-khx-card border border-khx-border rounded-khx-card-sm
+           outline-none resize-y transition-all duration-180 ease-khx
+           focus:border-navy focus:shadow-khx-focus
+           placeholder:text-khx-text-3;
+  }
+
+  /* 卡片 */
+  .card-khx     { @apply bg-khx-card rounded-khx-card    shadow-khx-card    p-6; }
+  .card-khx-sm  { @apply bg-khx-card rounded-khx-card-sm shadow-khx-card-sm p-5; }
+
+  /* 图标盒 */
+  .icon-box-khx {
+    @apply w-11 h-11 rounded-khx-icon
+           bg-indigo-50 text-indigo-500
+           inline-flex items-center justify-center text-[22px];
+  }
+
+  /* 悬浮胶囊导航 */
+  .nav-khx {
+    @apply bg-khx-card rounded-khx-pill shadow-khx-nav
+           flex items-center justify-between gap-4
+           pl-5 pr-3 py-[10px];
+  }
+
+  /* 徽章 */
+  .badge-khx {
+    @apply inline-flex items-center px-3 py-1 rounded-khx-pill
+           text-xs font-medium leading-normal;
+  }
+  .badge-khx-update  { @apply badge-khx bg-[#EEF0FF] text-[#4F46E5]; }
+  .badge-khx-improve { @apply badge-khx bg-[#DEF5E2] text-[#1A8A3A]; }
+  .badge-khx-bug     { @apply badge-khx bg-[#FFE0E0] text-[#C8323C]; }
+  .badge-khx-new     { @apply badge-khx bg-[#FFF3C2] text-[#8A6D00]; }
+
+  /* 链接 */
+  .link-khx {
+    @apply text-indigo-500 hover:text-indigo-700 font-semibold no-underline
+           transition-colors;
+  }
+}
