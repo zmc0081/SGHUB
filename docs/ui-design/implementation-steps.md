@@ -1,5 +1,12 @@
 # V2.2 UI 重设计 — 7 步实施手册
 
+> ⏳ **历史归档** — 本手册用于 V2.2 重设计阶段(2026-05-18 ~ 2026-05-20),已完成。
+> Step 0-6 设计交付与 Step 7 Claude Code 落地全部完成,合并到 main(PR #17, commit `9c56cd6`)。
+> 当前 UI 规范权威源是 [`design-style-spec.md`](./design-style-spec.md) + [`3-specs/`](./3-specs/)。
+> 保留本文件作流程追溯材料。
+>
+> ---
+>
 > 这是「你」(项目 owner)的执行手册,不是给 Claude design 看的。
 > 与 `briefing.md` 配套使用。
 
@@ -38,7 +45,7 @@ Ready for Step 1. 开始 Tokens 步骤。
 | 颜色硬编码 | 在 tokens 文件内是 OK 的;在 draft 里若出现要 Claude 改 token |
 
 ### 落地
-保存到 `docs/design-handoff/1-tokens/`,回复 Claude「✅ 通过,进入 Step 2」。
+保存到 `docs/ui-design/1-tokens/`,回复 Claude「✅ 通过,进入 Step 2」。
 
 ---
 
@@ -72,7 +79,7 @@ Ready for Step 1. 开始 Tokens 步骤。
 | A11y 行 | 不能空 |
 
 ### 落地
-保存到 `docs/design-handoff/3-specs/component-specs.md`。
+保存到 `docs/ui-design/3-specs/component-specs.md`。
 
 ---
 
@@ -119,7 +126,7 @@ export function SearchDraft_Error() { return <…/>; }
 | 是否含 SVG 占位 | emoji 应替换为 `<Icon name="…" />`(等 Step 4 真实 SVG)|
 
 ### 落地
-保存到 `docs/design-handoff/2-mockups/pages/`。
+保存到 `docs/ui-design/2-mockups/pages/`。
 
 ---
 
@@ -154,7 +161,7 @@ empty-library / empty-feed / empty-models / empty-chat / empty-skillgen
 | 命名 | kebab-case,与 emoji 对照清晰 |
 
 ### 落地
-保存到 `docs/design-handoff/4-assets/icons/` 与 `4-assets/illustrations/`。
+保存到 `docs/ui-design/4-assets/icons/` 与 `4-assets/illustrations/`。
 对照表 `icon-map.md` 放到 `3-specs/`。
 
 ---
@@ -175,7 +182,7 @@ Step 5:为下面 4 个复杂流程产出 interaction-flows.md,
 单一 `interaction-flows.md`,4 节,每节一个 Mermaid 图 + 文字说明。
 
 ### 落地
-保存到 `docs/design-handoff/3-specs/interaction-flows.md`。
+保存到 `docs/ui-design/3-specs/interaction-flows.md`。
 
 ---
 
@@ -195,17 +202,17 @@ Step 6:把 Step 3 的 draft.tsx 转成可直接打开的 HTML
 一组独立 HTML 文件 + 渲染说明。
 
 ### 落地
-你自己截图,保存到 `docs/design-handoff/5-screenshots/`。
+你自己截图,保存到 `docs/ui-design/5-screenshots/`。
 
 ---
 
 ## Step 7 — 交付给 Claude Code(15 分钟,落地代码)
 
 ### 你的操作
-本地把整个 `docs/design-handoff/` 提交 + 推送:
+本地把整个 `docs/ui-design/` 提交 + 推送:
 
 ```bash
-git add docs/design-handoff/
+git add docs/ui-design/
 git commit -m "design: V2.2 redesign handoff package (tokens + mockups + specs + assets)"
 git push -u origin feature/ui-redesign
 ```
@@ -213,24 +220,24 @@ git push -u origin feature/ui-redesign
 然后在本目录开新的 Claude Code 会话,发送:
 
 ```
-读取 docs/design-handoff/0-README.md 和 design-style-spec.md。
+读取 docs/ui-design/0-README.md 和 design-style-spec.md。
 按下面顺序执行 V2.2 UI 重构:
 
 阶段 1:同步 tokens
-  - 根据 docs/design-handoff/1-tokens/design-tokens.json
+  - 根据 docs/ui-design/1-tokens/design-tokens.json
     更新 src/styles/index.css 的全部 CSS 变量
   - 根据 tailwind.config.diff.js 更新 tailwind.config.js
   - cargo tauri dev 验证启动正常,提一个 commit
 
 阶段 2:重构共享组件
-  - 按 docs/design-handoff/2-mockups/components/*.draft.tsx
+  - 按 docs/ui-design/2-mockups/components/*.draft.tsx
     逐个改造 src/components/ 下的对应组件
   - 保留所有现有 props 与逻辑,仅替换 markup + Tailwind 类
-  - 引入 SVG 图标(从 docs/design-handoff/4-assets/icons/ 复制到 src/assets/icons/)
+  - 引入 SVG 图标(从 docs/ui-design/4-assets/icons/ 复制到 src/assets/icons/)
   - 每个组件改完 cargo tauri dev 自检,各提一个 commit
 
 阶段 3:重构 9 个页面(每页一个 commit)
-  - 按 docs/design-handoff/2-mockups/pages/*.draft.tsx
+  - 按 docs/ui-design/2-mockups/pages/*.draft.tsx
     逐页改造 src/pages/
   - 占位数据用现有 store 调用替换 // TODO 注释
   - 每页改完 cargo tauri dev 自检 + 截图对照 5-screenshots/
@@ -253,7 +260,7 @@ git push -u origin feature/ui-redesign
 ```
 
 预计重构 1-2 个工作日。完成后:
-- 把 `docs/design-handoff/` 移到 `docs/archive/v2.2-design-handoff/` 归档
+- 把 `docs/ui-design/` 移到 `docs/archive/v2.2-ui-design/` 归档
 - 更新 `docs/ui-design-requirements.md` 重新对齐 V2.2(可让 Claude Code 顺手做)
 
 ---

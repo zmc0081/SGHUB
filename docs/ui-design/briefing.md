@@ -1,5 +1,11 @@
 # 给 Claude design 的项目简报
 
+> ⏳ **历史归档** — 本文件用于 V2.2 重设计阶段(2026-05),已完成使命。
+> 当前 UI 规范权威源是 [`design-style-spec.md`](./design-style-spec.md) + [`3-specs/`](./3-specs/)。
+> 保留本文件作设计决策的追溯材料。
+>
+> ---
+>
 > 直接复制全文,粘到 claude.ai 新建 Project 的「Project Instructions」框。
 > 然后把以下文件上传到「Project Knowledge」:
 > - `ui-design-requirements.md`(V2.1.0 现状基线)
@@ -150,10 +156,10 @@ Step 6 - 最终预览图(可选,推荐)
 |---|---|---|---|
 | 1 | `ui-design-requirements.md` | `docs/ui-design-requirements.md` | V2.1.0 基线 |
 | 2 | `ui-screenshots-checklist.md` | `docs/ui-screenshots-checklist.md` | 产出目标 |
-| 3 | `design-style-spec.md` | `docs/design-handoff/design-style-spec.md` | 新风格规范「SGHUB Capsule」 |
-| 4 | `khx-reference/tokens.css` | `docs/design-handoff/1-tokens/khx-reference/tokens.css` | KHX 权威 token |
-| 5 | `khx-reference/README.md` | `docs/design-handoff/1-tokens/khx-reference/README.md` | KHX 用法说明 |
-| 6 | `design-tokens.starter.json` | `docs/design-handoff/1-tokens/design-tokens.starter.json` | SGHUB-shaped tokens 中间件(可选)|
+| 3 | `design-style-spec.md` | `docs/ui-design/design-style-spec.md` | 新风格规范「SGHUB Capsule」 |
+| 4 | `khx-reference/tokens.css` | `docs/ui-design/1-tokens/khx-reference/tokens.css` | KHX 权威 token |
+| 5 | `khx-reference/README.md` | `docs/ui-design/1-tokens/khx-reference/README.md` | KHX 用法说明 |
+| 6 | `design-tokens.starter.json` | `docs/ui-design/1-tokens/design-tokens.starter.json` | SGHUB-shaped tokens 中间件(可选)|
 
 > 若 claude.ai 限制附件数量,优先级:1 > 3 > 4 > 2 > 5 > 6。
 > 至少要有 1 / 3 / 4,这是 ground truth 三件套。

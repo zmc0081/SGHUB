@@ -1,5 +1,15 @@
 # SGHUB UI 设计需求清单 (V2.1.0)
 
+> ⚠️ **SUPERSEDED — 本文档为 V2.1.0 历史基线,V2.2.0 起已被 [`ui-design/design-style-spec.md`](./ui-design/design-style-spec.md) 取代。**
+>
+> - **新增功能请勿参考本文件** — token / 组件结构 / icon / 文案模式都已变更
+> - **当前 UI 设计规范权威源**:[`docs/ui-design/`](./ui-design/) 目录,入口 [`0-README.md`](./ui-design/0-README.md)
+> - 保留本文件仅作 V2.1 → V2.2 偏离对照与历史追溯,**不会再更新**
+>
+> ---
+>
+> (以下为 V2.1.0 历史内容)
+>
 > 用途:为后续 UI 重构 / Figma 重做 / 前端代码重构提供完整的需求清单与现状基线。
 > 来源:对仓库中 9 个页面、7 个共享组件、3 个 Chat 子组件、`tailwind.config.js`、
 > `src/styles/index.css`、`locales/{zh-CN,en-US}.json` 的逐文件审计。

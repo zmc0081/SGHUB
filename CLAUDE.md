@@ -92,6 +92,8 @@ D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub\
 │   ├── zh-CN.json
 │   └── en-US.json
 ├── docs/                   # 设计文档 (Markdown)
+│   ├── ui-design/          # UI 设计规范 (V2.2 SGHUB Capsule,权威源)
+│   └── ui-design-requirements.md   # V2.1 历史基线 (SUPERSEDED)
 └── .github/workflows/      # CI/CD
     ├── pr-check.yml
     └── release.yml
@@ -137,6 +139,42 @@ D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub\
 - 分支: main(生产) / develop(集成) / feature/*
 - 每个 PR 必须有描述、影响范围、测试方式
 - Windows 路径: 代码中始终使用 Path / PathBuf,不硬编码 `/` 或 `\`
+
+## UI 设计规范(强约束)
+
+新增任何 UI 功能(新页面 / 新组件 / 新对话框 / 新空状态),**必读**:
+
+| # | 文件 | 何时查 |
+|---|---|---|
+| 1 | [`docs/ui-design/design-style-spec.md`](docs/ui-design/design-style-spec.md) | 任何 UI 改动开工前 — 5 大视觉支柱 / 12 条反模式 / token 表 |
+| 2 | [`docs/ui-design/3-specs/component-specs.md`](docs/ui-design/3-specs/component-specs.md) | 复用 15 个已规范的组件时 — PropsAPI / states / a11y |
+| 3 | [`docs/ui-design/3-specs/icon-map.md`](docs/ui-design/3-specs/icon-map.md) | 选 Lucide icon 时 — emoji → Lucide 映射 |
+| 4 | [`docs/ui-design/3-specs/interaction-flows.md`](docs/ui-design/3-specs/interaction-flows.md) | 实现复杂交互时 — 4 个关键 FSM |
+
+**运行时 token 权威源**(冲突时以下面这两个为准):
+- [`src/styles/index.css`](src/styles/index.css) — CSS 变量(亮 + 暗双主题)
+- [`tailwind.config.js`](tailwind.config.js) — Tailwind 映射
+
+**硬规则(任一违反 = PR 阻塞)**:
+1. **禁用 V2.1 旧 token**:`bg-primary` / `text-app-fg` / `bg-accent` 等(已被 V2.2 token 取代)
+2. **禁用 emoji 当图标**:全部用 Lucide(`lucide-react`),例外是用户输入字段(如 Skill icon)
+3. **禁用 `window.confirm/prompt/alert`**:用 `confirmAsync` / `promptAsync` / `useToast` 代替
+4. **禁用 `transition-all`**:必须指定 property + motion token(`duration-fast/base/slow ease-khx`)
+5. **禁止硬编码颜色**:`#XXXXXX` 仅允许在 `src/styles/index.css` 内出现
+6. **必须双主题验证**:亮 / 暗模式都通过 WCAG AA(正文 4.5:1)
+7. **不改基础设施**:不动 `src/lib/tauri.ts` invoke 签名 / `src/stores/*` shape / `router.tsx` 13 条路由 / i18next key 命名空间(只增不改)
+
+PR 自查 6 条(grep 必须全为 0):
+```
+grep -rE 'bg-primary[^-]|text-app-fg|bg-accent[^-]' src/  → 0
+grep -rE 'transition-all' src/                           → 0
+grep -rE 'window\.(confirm|prompt|alert)' src/           → 0
+grep -rP '[\x{1F300}-\x{1F9FF}]|[\x{2600}-\x{27BF}]' src/ → 0
+grep -rE '#[0-9A-Fa-f]{6}' src/                          → 仅 src/styles/index.css
+eslint src --max-warnings 0                              → clean
+```
+
+> [`docs/ui-design-requirements.md`](docs/ui-design-requirements.md) 是 V2.1.0 旧需求文档,**SUPERSEDED**,只用作 V2.1→V2.2 对照;不要作为新功能依据。
 
 ## AI Client 设计要点
 
