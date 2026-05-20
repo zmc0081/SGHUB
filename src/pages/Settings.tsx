@@ -1,6 +1,7 @@
 // i18n: 本组件文案已国际化 (V2.1.0)
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { AlertTriangle, ChevronDown } from "lucide-react";
 import { api, type AppConfig, type UpdaterConfig } from "../lib/tauri";
 import {
   SUPPORTED_LANGUAGES,
@@ -10,6 +11,8 @@ import {
 } from "../i18n";
 import { UpdaterCard } from "../components/UpdaterCard";
 import { DataDirCard } from "../components/DataDirCard";
+import { Icon } from "../components/Icon";
+import { Skeleton } from "../components/Skeleton";
 
 const THEME_LABEL_KEY: Record<string, string> = {
   light: "settings.theme_light",
@@ -32,9 +35,9 @@ function Row({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-[140px_1fr] gap-4 py-3 border-b border-black/5">
-      <dt className="text-sm text-app-fg/60">{label}</dt>
-      <dd className="text-sm text-app-fg">{children}</dd>
+    <div className="grid grid-cols-[160px_1fr] gap-4 py-4 border-b border-border-subtle last:border-b-0">
+      <dt className="text-caption font-medium text-fg-2">{label}</dt>
+      <dd className="text-caption text-fg-1">{children}</dd>
     </div>
   );
 }
@@ -44,8 +47,6 @@ export default function Settings() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // System locale snapshot — shown next to "follow system" so the user
-  // knows which language the OS would resolve to right now.
   const [systemLocale, setSystemLocale] = useState<SupportedLanguage>("en-US");
 
   useEffect(() => {
@@ -62,10 +63,6 @@ export default function Settings() {
       .catch(() => {});
   }, []);
 
-  // ============================================================
-  // Language switcher
-  // ============================================================
-  // "" → follow system (i.e. config.language is null/undefined).
   const currentLangValue = config?.language ?? "";
 
   const handleLanguageChange = async (
@@ -76,8 +73,6 @@ export default function Settings() {
       next === "" ? null : isSupportedLanguage(next) ? next : null;
     try {
       await setAppLanguage(choice);
-      // Keep local config in sync so the dropdown reflects the pick
-      // without a round-trip refresh.
       setConfig((prev) =>
         prev ? { ...prev, language: choice ?? undefined } : prev,
       );
@@ -87,37 +82,63 @@ export default function Settings() {
   };
 
   return (
-    <div className="p-8 max-w-3xl">
-      <h1 className="text-2xl font-semibold text-primary mb-1">
-        {t("settings.title")}
-      </h1>
-      <p className="text-sm text-app-fg/60 mb-6">
-        ~/.sghub/config.toml
-      </p>
+    <main role="main" className="p-8 max-w-3xl mx-auto">
+      <header className="mb-6">
+        <h1 className="text-h2 font-semibold text-fg-1">
+          {t("settings.title")}
+        </h1>
+        <p className="text-meta text-fg-2 mt-1 font-mono">
+          ~/.sghub/config.toml
+        </p>
+      </header>
 
       {loading && (
-        <div className="text-sm text-app-fg/60">{t("common.loading")}</div>
+        <div className="flex flex-col gap-3">
+          <Skeleton variant="rect" height={120} />
+          <Skeleton variant="rect" height={200} />
+        </div>
       )}
-      {error && <div className="text-sm text-red-600">Error: {error}</div>}
+      {error && !loading && (
+        <div
+          role="alert"
+          className="rounded-card-sm bg-danger-bg border border-danger-border text-danger-fg px-4 py-3 flex items-start gap-2 text-caption"
+        >
+          <Icon
+            icon={AlertTriangle}
+            size="sm"
+            className="flex-shrink-0 mt-0.5"
+          />
+          <span>{error}</span>
+        </div>
+      )}
 
       {config && (
-        <div className="bg-white rounded border border-black/10 px-6 py-2">
+        <div className="bg-card rounded-card shadow-card p-6">
           <Row label={t("settings.language")}>
-            <div className="flex items-center gap-2 flex-wrap">
-              <select
-                value={currentLangValue}
-                onChange={handleLanguageChange}
-                className="text-sm border border-black/10 rounded px-2 py-1 bg-white"
-              >
-                <option value="">{t("settings.language_follow_system")}</option>
-                {SUPPORTED_LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.label}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="relative">
+                <select
+                  value={currentLangValue}
+                  onChange={handleLanguageChange}
+                  className="appearance-none pr-9 pl-input-x py-input-y rounded-pill border border-border-default bg-card text-caption text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+                >
+                  <option value="">
+                    {t("settings.language_follow_system")}
                   </option>
-                ))}
-              </select>
+                  {SUPPORTED_LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+                <Icon
+                  icon={ChevronDown}
+                  size="sm"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-fg-2"
+                />
+              </div>
               {currentLangValue === "" && (
-                <span className="text-xs text-app-fg/50">
+                <span className="text-meta text-fg-3">
                   {t("settings.language_follow_system_with", {
                     current:
                       SUPPORTED_LANGUAGES.find((l) => l.code === systemLocale)
@@ -130,18 +151,13 @@ export default function Settings() {
           <Row label={t("settings.theme")}>
             {t(THEME_LABEL_KEY[config.theme] ?? config.theme)}
           </Row>
-          {/* "数据目录" 行已升级为下方独立的 DataDirCard(V2.1.0)
-              支持完整的修改/迁移/恢复默认流程。 */}
-          {/* "自动更新" 已于 V2.1.0 升级为下方的 UpdaterCard,
-              支持频率/时间/动作精细化设置。`auto_update` 字段仍保留
-              在 AppConfig 里作为向后兼容。 */}
-          {/* "自动备份" 设置项已于 V2.1.0 移除 —— 后端 auto_backup /
-              backup_retention_days 字段保留供未来扩展,但 UI 不再展示。 */}
           <Row label={t("settings.default_model")}>
             {config.default_model_id ? (
-              <code className="text-xs">{config.default_model_id}</code>
+              <code className="text-meta font-mono">
+                {config.default_model_id}
+              </code>
             ) : (
-              <span className="text-app-fg/50">
+              <span className="text-fg-3">
                 {t("settings.default_model_unset")}
               </span>
             )}
@@ -152,25 +168,22 @@ export default function Settings() {
         </div>
       )}
 
-      {/* V2.1.0 — fine-grained auto-updater scheduling. Self-contained,
-          saves on change, live-reschedules the backend cron job.
-          NOTE: handler MUST be stable (useCallback) — UpdaterCard
-          puts it in a useEffect dep list, so a new reference each
-          render would loop the save-on-change debouncer. */}
-      {config && <UpdaterCardSection updater={config.updater} setConfig={setConfig} />}
+      {config && (
+        <div className="mt-4">
+          <UpdaterCardSection
+            updater={config.updater}
+            setConfig={setConfig}
+          />
+        </div>
+      )}
 
-      {/* V2.1.0 — data directory management (bootstrap-backed,
-          supports migrate/fresh/use-existing flows). Self-loads
-          and self-refreshes; no parent config dep. */}
       <div className="mt-4">
         <DataDirCard />
       </div>
-    </div>
+    </main>
   );
 }
 
-/** Thin wrapper that pins a stable `onChange` callback so UpdaterCard's
- *  save-on-change useEffect doesn't fire on every parent re-render. */
 function UpdaterCardSection({
   updater,
   setConfig,
@@ -183,9 +196,5 @@ function UpdaterCardSection({
       setConfig((c) => (c ? { ...c, updater: next } : c)),
     [setConfig],
   );
-  return (
-    <div className="mt-4">
-      <UpdaterCard initial={updater} onChange={handleChange} />
-    </div>
-  );
+  return <UpdaterCard initial={updater} onChange={handleChange} />;
 }
