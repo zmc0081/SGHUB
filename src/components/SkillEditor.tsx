@@ -634,8 +634,9 @@ export default function SkillEditor({ mode, name }: Props) {
           </div>
         </aside>
 
-        {/* MIDDLE: Monaco — internal theme stays vs-dark per spec */}
-        <div className="flex-1 min-w-[600px] flex flex-col bg-[#1e1e1e]">
+        {/* MIDDLE: Monaco — internal theme stays vs-dark per spec; wrapper
+            bg matches vs-dark so there's no flash of light during load. */}
+        <div className="flex-1 min-w-[600px] flex flex-col bg-[var(--monaco-vs-dark)]">
           <Editor
             height="100%"
             language="yaml"

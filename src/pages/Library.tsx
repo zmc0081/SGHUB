@@ -463,9 +463,11 @@ export default function Library() {
       .catch((e) => setError(String(e)));
   };
 
+  // refreshTree runs once on mount; it reads selectedId only to pick a
+  // default folder when none is selected yet, so the missing dep is
+  // intentional — we don't want to re-fetch the tree on every selection.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(refreshTree, []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(refreshPapers, [selectedId, page]);
 
   const refreshAll = () => {

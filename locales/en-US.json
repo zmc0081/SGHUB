@@ -26,7 +26,10 @@
     "no": "No",
     "open": "Open",
     "open_in_browser": "Open in browser",
-    "open_folder": "Open folder"
+    "open_folder": "Open folder",
+    "create": "Create",
+    "discard": "Discard",
+    "remove": "Remove"
   },
   "sidebar": {
     "chat": "Chat",
@@ -63,7 +66,8 @@
     "time_1y": "Last year",
     "sort_relevance": "Relevance",
     "sort_latest": "Latest",
-    "sort_citation": "Citations (soon)"
+    "sort_citation": "Citations (soon)",
+    "source_label": "Source"
   },
   "feed": {
     "title": "Today's feed",
@@ -106,7 +110,8 @@
     "error_action_failed": "Action failed: {{detail}}",
     "error_run_failed": "Run failed: {{detail}}",
     "error_delete_failed": "Delete failed: {{detail}}",
-    "confirm_delete": "Delete subscription \"{{keyword}}\"? All results will be removed."
+    "confirm_delete": "Delete subscription \"{{keyword}}\"? All results will be removed.",
+    "confirm_delete_title": "Delete subscription"
   },
   "library": {
     "title": "Library",
@@ -149,7 +154,15 @@
     "next_page": "Next",
     "page_x_of_y": "Page {{cur}} / {{total}}",
     "alert_no_papers_to_export": "No papers in the current folder to export",
-    "alert_export_success": "✓ Exported {{count}} paper(s) to:\n{{path}}",
+    "alert_export_success": "Exported {{count}} paper(s) to:\n{{path}}",
+    "toast_export_success": "Exported {{count}} papers to {{path}}",
+    "rename_folder_title": "Rename folder",
+    "folder_name_label": "Folder name",
+    "new_top_folder_title": "New folder",
+    "new_tag_title": "New tag",
+    "tag_name_label": "Tag name",
+    "confirm_delete_folder_title": "Delete folder",
+    "confirm_delete_tag_title": "Delete tag",
     "error_rename_failed": "Rename failed: {{detail}}",
     "error_delete_failed": "Delete failed: {{detail}}",
     "error_create_failed": "Create failed: {{detail}}",
@@ -233,7 +246,19 @@
     "msg_copied": "✓ Copied",
     "msg_regenerate": "Regenerate",
     "attachment_extracted_chars": "{{name}} · {{chars}} chars extracted for the model",
-    "attachment_text_extracted_title": "Text content extracted and sent to the model"
+    "attachment_text_extracted_title": "Text content extracted and sent to the model",
+    "empty_main_title": "Start a new conversation",
+    "empty_session_title": "No messages yet",
+    "empty_kbd_hint": "Press Enter to send · Shift+Enter for newline",
+    "menu_attachment_skill": "Attachment / Skill",
+    "error_open_picker": "Failed to open file picker: {{detail}}",
+    "error_create_session": "Failed to create session: {{detail}}",
+    "model_default_suffix": " · default",
+    "no_models": "(no models)",
+    "switch_model": "Switch model",
+    "session_title_label": "Chat title",
+    "delete_session_title": "Delete chat",
+    "rename_session_title": "Rename chat"
   },
   "models": {
     "title": "Models",
@@ -301,7 +326,8 @@
     "form_output_price": "Output price",
     "form_price_unit": "$/1M tokens",
     "form_price_hint": "Used for cost estimation. Check the provider's website for current pricing. 0 disables cost tracking for this model.",
-    "row_usage_7d": "Last 7d: {{calls}} calls · {{tokens}} tokens · ${{cost}}"
+    "row_usage_7d": "Last 7d: {{calls}} calls · {{tokens}} tokens · ${{cost}}",
+    "confirm_delete_title": "Delete model"
   },
   "skill_gen": {
     "title": "✨ Create a Skill with AI",
@@ -343,7 +369,12 @@
     "test_run_btn": "Run test",
     "test_running": "Running…",
     "test_streaming": "● streaming",
-    "test_result_placeholder": "Pick a paper and click \"Run test\" to see model output here"
+    "test_result_placeholder": "Pick a paper and click \"Run test\" to see model output here",
+    "send_hint": "Enter to send · Shift+Enter for newline",
+    "reset_confirm": "Discard the current conversation and the generated Skill? Unsaved work will be lost.",
+    "reset_confirm_title": "Start over",
+    "model_default_suffix": " · default",
+    "saved_toast": "Skill saved"
   },
   "skills": {
     "title": "Skills",
@@ -366,7 +397,10 @@
     "zip_ok_count": "{{name}}: upload complete — {{ok}} item(s)",
     "zip_mixed": "{{name}}: {{ok}} succeeded, {{fail}} failed",
     "zip_parse_failed": "{{name}}: parse failed — {{detail}}",
-    "unsupported_format": "Unsupported file format: {{name}} (expected .yaml / .yml / .skill / .zip)"
+    "unsupported_format": "Unsupported file format: {{name}} (expected .yaml / .yml / .skill / .zip)",
+    "builtin_badge": "Read-only",
+    "confirm_delete_title": "Delete custom Skill",
+    "upload_failed_title": "Skill upload failed"
   },
   "settings": {
     "title": "Settings",
@@ -466,7 +500,13 @@
     "data_wizard_next": "Next",
     "data_wizard_back": "Back",
     "data_wizard_cancel": "Cancel",
-    "data_wizard_close": "Close"
+    "data_wizard_close": "Close",
+    "data_section_desc": "Where SGHUB stores the database, PDFs, and cache.",
+    "data_reset_default_done": "Restored to the default data directory",
+    "updater_section_desc": "When enabled, SGHUB checks GitHub Releases on the schedule below.",
+    "data_wizard_step_x": "Step {{current}} / {{total}}",
+    "data_wizard_running_header": "Running",
+    "data_wizard_done_header": "Done"
   },
   "errors": {
     "network": "Network error — please check your connection and retry",
@@ -496,20 +536,21 @@
     "cancel_title": "Cancel"
   },
   "favorite_button": {
-    "favorited": "⭐ Favorited",
-    "favorite": "☆ Favorite",
+    "favorited": "Favorited",
+    "favorite": "Favorite",
     "in_folders": "in {{count}} folder(s)",
     "quick_collect": "Quick add to \"Uncategorized\"",
-    "new_folder": "+ New folder",
+    "new_folder": "New folder",
     "new_folder_placeholder": "Folder name…",
     "cancel": "Cancel",
     "create_btn": "Create",
-    "unfavorite": "✕ Unfavorite",
+    "unfavorite": "Unfavorite",
+    "unfavorite_confirm": "This removes the paper from every folder it belongs to. Continue?",
     "loading": "Loading…",
-    "toast_added": "✓ Added to \"{{name}}\"",
-    "toast_moved": "✓ Moved to \"{{name}}\"",
-    "toast_removed": "✓ Removed from \"{{name}}\"",
-    "toast_unfavorited": "✓ Unfavorited",
+    "toast_added": "Added to \"{{name}}\"",
+    "toast_moved": "Moved to \"{{name}}\"",
+    "toast_removed": "Removed from \"{{name}}\"",
+    "toast_unfavorited": "Unfavorited",
     "toast_failed": "Failed: {{detail}}"
   },
   "paper_picker": {
@@ -518,6 +559,58 @@
     "no_match": "No matching papers — try shorter keywords, or upload a PDF first",
     "recent": "Recent papers",
     "selected_short": "Selected ({{prefix}}…)"
+  },
+  "skill_editor": {
+    "back": "Back",
+    "back_title": "Back to Skills list",
+    "mode_new": "New Skill",
+    "mode_copy": "Duplicate of \"{{name}}\"",
+    "mode_edit": "Edit \"{{name}}\"",
+    "unsaved_indicator": "unsaved",
+    "unsaved_title": "Discard unsaved changes?",
+    "unsaved_description": "Going back will lose changes you haven't saved.",
+    "discard": "Discard",
+    "test_skill": "Test Skill",
+    "testing": "Testing…",
+    "save_as_new": "Save as new Skill",
+    "save_as_new_title": "Always create a new Skill, even when editing an existing one",
+    "save": "Save",
+    "saved_title": "Skill saved",
+    "saved_description": "\"{{name}}\" was written to your user Skills",
+    "save_failed_title": "Save failed",
+    "test_missing_inputs": "Please pick a sample paper and model first",
+    "load_failed": "Load failed: {{detail}}",
+    "yaml_syntax_error": "YAML syntax error",
+    "yaml_line": "Line {{line}}: {{message}}",
+    "format_invalid": "Invalid YAML — can't format",
+    "format_yaml": "Format YAML",
+    "draft_banner": "A draft from your last session was found.",
+    "draft_restore": "Restore",
+    "draft_discard": "Discard",
+    "parse_lock_hint": "YAML parse failed — fields are locked. Fix the YAML to re-enable.",
+    "section_basic": "Basic",
+    "field_name": "name (identifier)",
+    "field_display_name": "display_name",
+    "field_description": "description",
+    "field_icon": "icon",
+    "field_icon_hint": "emoji or Lucide name",
+    "field_category": "category",
+    "field_models": "recommended_models",
+    "tab_prompt": "Rendered prompt",
+    "tab_test": "Test result",
+    "sample_paper": "Sample paper",
+    "no_papers": "(no papers)",
+    "test_model": "Test model",
+    "no_models": "(no models)",
+    "test_hint": "Test runs cap at max_tokens 1500 — click \"Test Skill\" in the top bar",
+    "test_idle": "(no test run yet)",
+    "test_generating": "Generating…",
+    "section_empty": "(empty)",
+    "prompt_empty": "(prompt_template is empty)",
+    "full_text_placeholder_runtime": "(replaced with the paper full text at runtime)",
+    "token_estimate": "≈ {{value}} tokens",
+    "var_paper_x": "Paper {{name}}",
+    "model_default_suffix": " · default"
   },
   "paper_metadata_editor": {
     "title": "Complete paper metadata",

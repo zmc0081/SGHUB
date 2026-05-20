@@ -404,7 +404,6 @@ export default function Feed() {
       .catch((e) => setError(String(e)));
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(refresh, [selectedSub]);
 
   const grouped = useMemo(() => {
