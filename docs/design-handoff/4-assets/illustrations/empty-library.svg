@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SGHUB empty-state illustration: Library
+     A simple open book on a shelf, with two floating dots overhead to suggest
+     "waiting to be filled". viewBox 200×160, stroke 1.5px, inherits currentColor. -->
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 200 160"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.5"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <!-- Floating dot, left -->
+  <circle cx="62" cy="32" r="2.5" />
+  <!-- Floating dot, right -->
+  <circle cx="138" cy="40" r="2" />
+
+  <!-- Open book: V-shape spine + two pages -->
+  <!-- Left page (slight tilt) -->
+  <path d="M60 100 L60 70 L98 76 L98 106" />
+  <!-- Right page -->
+  <path d="M102 106 L102 76 L140 70 L140 100" />
+  <!-- Spine valley -->
+  <path d="M98 76 L100 80 L102 76" />
+  <!-- Page lines, left -->
+  <path d="M67 84 L92 89" />
+  <path d="M67 90 L92 95" />
+  <!-- Page lines, right -->
+  <path d="M108 89 L133 84" />
+  <path d="M108 95 L133 90" />
+
+  <!-- Shelf line under book -->
+  <path d="M40 116 L160 116" />
+  <!-- Shelf supports (short verticals at each end) -->
+  <path d="M48 116 L48 124" />
+  <path d="M152 116 L152 124" />
+</svg>

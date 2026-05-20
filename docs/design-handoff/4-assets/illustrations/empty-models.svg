@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SGHUB empty-state illustration: Models
+     A plug and a socket separated by a small gap with a spark between them,
+     suggesting "no model configured / not connected yet".
+     viewBox 200×160, stroke 1.5px, inherits currentColor. -->
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 200 160"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.5"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <!-- LEFT: plug -->
+  <!-- Plug body (rounded rect) -->
+  <path d="M40 64 L40 96 Q40 102 46 102 L74 102 Q80 102 80 96 L80 64 Q80 58 74 58 L46 58 Q40 58 40 64 Z" />
+  <!-- Two prongs sticking right -->
+  <path d="M80 68 L92 68" />
+  <path d="M80 92 L92 92" />
+  <!-- Cable trailing left -->
+  <path d="M40 80 Q24 80 24 96 Q24 112 32 116" />
+
+  <!-- SPARK (between plug and socket) -->
+  <!-- Small zigzag suggesting energy gap -->
+  <path d="M100 76 L104 80 L100 84 L104 88" />
+  <!-- Two flanking dots for emphasis -->
+  <circle cx="100" cy="72" r="1.5" fill="currentColor" stroke="none" />
+  <circle cx="104" cy="92" r="1.5" fill="currentColor" stroke="none" />
+
+  <!-- RIGHT: socket -->
+  <!-- Socket body (rectangle with rounded corners) -->
+  <path d="M118 58 L154 58 Q160 58 160 64 L160 96 Q160 102 154 102 L118 102 Z" />
+  <!-- Two slot openings -->
+  <path d="M134 70 L134 76" />
+  <path d="M134 84 L134 90" />
+  <path d="M148 70 L148 76" />
+  <path d="M148 84 L148 90" />
+  <!-- Wall extension lines (back wall) -->
+  <path d="M160 64 L172 56" />
+  <path d="M160 96 L172 104" />
+</svg>

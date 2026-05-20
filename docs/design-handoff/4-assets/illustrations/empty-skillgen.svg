@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SGHUB empty-state illustration: SkillGenerator
+     A sprouting seed (two leaves emerging from soil) with floating sparkles
+     above, suggesting "creating something new".
+     viewBox 200×160, stroke 1.5px, inherits currentColor. -->
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 200 160"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.5"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <!-- Floating sparkle, upper-left -->
+  <path d="M62 38 L62 46" />
+  <path d="M58 42 L66 42" />
+  <!-- Floating sparkle, upper-right -->
+  <path d="M138 50 L138 56" />
+  <path d="M135 53 L141 53" />
+  <!-- Floating dot, between -->
+  <circle cx="100" cy="34" r="2" fill="currentColor" stroke="none" />
+
+  <!-- Stem (vertical line from soil up to fork) -->
+  <path d="M100 116 L100 84" />
+
+  <!-- Left leaf (almond shape, curving down-left) -->
+  <path d="M100 84 Q86 78 80 90 Q92 96 100 90" />
+
+  <!-- Right leaf (mirror, curving down-right) -->
+  <path d="M100 84 Q114 78 120 90 Q108 96 100 90" />
+
+  <!-- Soil line -->
+  <path d="M60 116 L140 116" />
+  <!-- Two short soil tick marks below -->
+  <path d="M76 120 L80 122" />
+  <path d="M120 120 L124 122" />
+</svg>

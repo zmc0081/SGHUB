@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SGHUB empty-state illustration: Chat
+     An open speech bubble with a typing cursor inside, suggesting
+     "ready to receive your first message".
+     viewBox 200×160, stroke 1.5px, inherits currentColor. -->
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 200 160"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.5"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  <!-- Large speech bubble (rounded rectangle with tail at bottom-left) -->
+  <!-- Main bubble body -->
+  <path d="M50 44 L142 44 Q156 44 156 58 L156 96 Q156 110 142 110 L80 110 L62 124 L66 110 L62 110 Q50 110 50 96 L50 58 Q50 44 64 44 Z" />
+
+  <!-- Inside content: 3 dots (typing indicator) -->
+  <circle cx="86"  cy="76" r="2.5" fill="currentColor" stroke="none" />
+  <circle cx="100" cy="76" r="2.5" fill="currentColor" stroke="none" />
+  <circle cx="114" cy="76" r="2.5" fill="currentColor" stroke="none" />
+
+  <!-- Small floating sparkle to the upper-right of bubble -->
+  <path d="M168 50 L168 58" />
+  <path d="M164 54 L172 54" />
+</svg>
