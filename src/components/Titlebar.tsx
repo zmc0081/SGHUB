@@ -1,68 +1,98 @@
+import { useEffect, useState } from "react";
+import { Copy, Minus, Square, X } from "lucide-react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { windowControls } from "../lib/tauri";
-
-function ButtonMin() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-      <rect x="0" y="4.5" width="10" height="1" />
-    </svg>
-  );
-}
-
-function ButtonMax() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1">
-      <rect x="0.5" y="0.5" width="9" height="9" />
-    </svg>
-  );
-}
-
-function ButtonClose() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" stroke="currentColor" strokeWidth="1">
-      <line x1="0" y1="0" x2="10" y2="10" />
-      <line x1="10" y1="0" x2="0" y2="10" />
-    </svg>
-  );
-}
+import { Icon } from "./Icon";
 
 export default function Titlebar() {
+  const [maximized, setMaximized] = useState(false);
+
+  useEffect(() => {
+    const win = getCurrentWindow();
+    let cancelled = false;
+    let unlisten: (() => void) | null = null;
+
+    win
+      .isMaximized()
+      .then((v) => !cancelled && setMaximized(v))
+      .catch(() => {});
+
+    win
+      .onResized(async () => {
+        try {
+          const v = await win.isMaximized();
+          if (!cancelled) setMaximized(v);
+        } catch {
+          /* ignore */
+        }
+      })
+      .then((un) => {
+        if (cancelled) un();
+        else unlisten = un;
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+
+  const MaxIcon = maximized ? Copy : Square;
+  const maxLabel = maximized ? "Restore" : "Maximize";
+
   return (
-    <div
+    <header
+      role="banner"
       data-tauri-drag-region
-      className="h-titlebar flex items-center select-none bg-titlebar text-titlebar-fg border-b border-border"
+      className="h-titlebar flex items-center select-none bg-titlebar-bg text-titlebar-fg z-titlebar"
     >
-      <div data-tauri-drag-region className="w-14 flex items-center justify-center">
-        <div className="w-5 h-5 rounded-sm bg-accent/80" aria-hidden />
-      </div>
       <div
         data-tauri-drag-region
-        className="flex-1 text-center text-xs font-medium tracking-wider"
+        className="w-14 flex items-center justify-center"
+      >
+        <div
+          className="w-5 h-5 rounded-icon bg-indigo"
+          aria-hidden="true"
+        />
+      </div>
+
+      <div
+        data-tauri-drag-region
+        className="flex-1 text-center text-meta font-medium tracking-wide-brand text-sidebar-fg-active"
       >
         SGHUB
       </div>
-      <div className="flex h-full">
+
+      <div className="flex h-full" data-tauri-drag-region="false">
         <button
+          type="button"
+          tabIndex={-1}
           onClick={() => windowControls.minimize()}
-          className="w-12 h-full flex items-center justify-center hover:bg-white/10 transition-colors"
           aria-label="Minimize"
+          className="w-12 h-titlebar flex items-center justify-center hover:bg-white/10 transition-colors duration-fast ease-khx"
         >
-          <ButtonMin />
+          <Icon icon={Minus} size={10} />
         </button>
         <button
+          type="button"
+          tabIndex={-1}
           onClick={() => windowControls.toggleMaximize()}
-          className="w-12 h-full flex items-center justify-center hover:bg-white/10 transition-colors"
-          aria-label="Maximize"
+          aria-label={maxLabel}
+          className="w-12 h-titlebar flex items-center justify-center hover:bg-white/10 transition-colors duration-fast ease-khx"
         >
-          <ButtonMax />
+          <Icon icon={MaxIcon} size={10} />
         </button>
         <button
+          type="button"
+          tabIndex={-1}
           onClick={() => windowControls.close()}
-          className="w-12 h-full flex items-center justify-center hover:bg-red-600 hover:text-white transition-colors"
           aria-label="Close"
+          className="w-12 h-titlebar flex items-center justify-center hover:bg-titlebar-close-hover hover:text-white transition-colors duration-fast ease-khx"
         >
-          <ButtonClose />
+          <Icon icon={X} size={10} />
         </button>
       </div>
-    </div>
+    </header>
   );
 }
