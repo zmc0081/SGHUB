@@ -1,23 +1,35 @@
 // i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
+  Check,
+  Loader2,
+  Pause,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
+import {
   api,
   type Subscription,
   type SubscriptionInput,
   type SubscriptionResult,
 } from "../lib/tauri";
 import { PaperActions } from "../components/PaperActions";
+import { Icon } from "../components/Icon";
+import { Skeleton } from "../components/Skeleton";
+import { confirmAsync } from "../components/DialogProvider";
+import { useToast } from "../hooks/useToast";
 import { useT } from "../hooks/useT";
 
-// ============================================================
-// Constants
-// ============================================================
-
 const SOURCE_BADGE: Record<string, string> = {
-  arxiv: "bg-[#B31B1B] text-white",
-  semantic_scholar: "bg-[#1857B6] text-white",
-  pubmed: "bg-[#00897B] text-white",
-  openalex: "bg-[#7B3FBF] text-white",
+  arxiv: "bg-src-arxiv text-src-arxiv-fg",
+  semantic_scholar: "bg-src-ss text-src-ss-fg",
+  pubmed: "bg-src-pubmed text-src-pubmed-fg",
+  openalex: "bg-src-openalex text-src-openalex-fg",
+  local: "bg-src-local text-src-local-fg",
 };
 
 const ALL_SOURCES = [
@@ -38,10 +50,6 @@ const EMPTY_INPUT: SubscriptionInput = {
   frequency: "daily",
   max_results: 20,
 };
-
-// ============================================================
-// Subscription form (modal-style)
-// ============================================================
 
 function SubscriptionForm({
   initial,
@@ -89,13 +97,13 @@ function SubscriptionForm({
   };
 
   return (
-    <div className="bg-white border border-primary/30 rounded p-4 space-y-3">
-      <div className="font-semibold text-primary">
+    <div className="bg-card rounded-card shadow-card p-6 space-y-4">
+      <div className="text-h3 font-semibold text-fg-1">
         {isEdit ? t("feed.form_edit_title") : t("feed.form_create_title")}
       </div>
 
       <label className="block">
-        <div className="text-xs text-app-fg/60 mb-1">
+        <div className="text-caption font-medium text-fg-1 mb-2">
           {t("feed.form_keyword_label")}
         </div>
         <input
@@ -104,12 +112,13 @@ function SubscriptionForm({
             setForm((f) => ({ ...f, keyword_expr: e.target.value }))
           }
           placeholder={t("feed.form_keyword_placeholder")}
-          className="w-full px-2.5 py-1.5 text-sm border border-black/10 rounded font-mono focus:outline-none focus:border-primary"
+          className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+          style={{ fontSize: "13px" }}
         />
       </label>
 
       <div>
-        <div className="text-xs text-app-fg/60 mb-1.5">
+        <div className="text-caption font-medium text-fg-1 mb-2">
           {t("feed.form_sources_label")}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -118,15 +127,18 @@ function SubscriptionForm({
             return (
               <button
                 key={s.value}
+                type="button"
+                role="checkbox"
+                aria-checked={checked}
                 onClick={() => toggleSource(s.value)}
-                className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-pill border text-meta transition-colors duration-fast ease-khx ${
                   checked
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-black/10 text-app-fg/60 hover:border-primary/40"
+                    ? "bg-indigo-soft border-indigo-muted text-indigo font-medium"
+                    : "bg-card border-border-default text-fg-2 hover:border-indigo-muted hover:text-fg-1"
                 }`}
               >
-                {checked ? "✓ " : ""}
-                {s.label}
+                {checked && <Icon icon={Check} size={12} />}
+                <span>{s.label}</span>
               </button>
             );
           })}
@@ -135,7 +147,7 @@ function SubscriptionForm({
 
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
-          <div className="text-xs text-app-fg/60 mb-1">
+          <div className="text-caption font-medium text-fg-1 mb-2">
             {t("feed.form_freq_label")}
           </div>
           <select
@@ -143,7 +155,8 @@ function SubscriptionForm({
             onChange={(e) =>
               setForm((f) => ({ ...f, frequency: e.target.value }))
             }
-            className="w-full px-2.5 py-1.5 text-sm border border-black/10 rounded bg-white"
+            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+            style={{ fontSize: "13px" }}
           >
             {FREQUENCIES.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -153,7 +166,7 @@ function SubscriptionForm({
           </select>
         </label>
         <label className="block">
-          <div className="text-xs text-app-fg/60 mb-1">
+          <div className="text-caption font-medium text-fg-1 mb-2">
             {t("feed.form_max_label")}
           </div>
           <input
@@ -167,29 +180,37 @@ function SubscriptionForm({
             }
             min="1"
             max="200"
-            className="w-full px-2.5 py-1.5 text-sm border border-black/10 rounded"
+            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+            style={{ fontSize: "13px" }}
           />
         </label>
       </div>
 
       {err && (
-        <div className="text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-1.5 rounded">
-          {err}
+        <div
+          role="alert"
+          className="rounded-card-sm bg-danger-bg border border-danger-border text-danger-fg px-4 py-3 flex items-start gap-2 text-caption"
+        >
+          <Icon icon={AlertTriangle} size="sm" className="flex-shrink-0 mt-0.5" />
+          <span>{err}</span>
         </div>
       )}
 
-      <div className="flex justify-end gap-2 pt-1">
+      <div className="flex justify-end gap-3 pt-1">
         <button
+          type="button"
           onClick={onCancel}
-          className="px-3 py-1 text-xs rounded border border-black/10 text-app-fg/70 hover:bg-black/5"
+          className="inline-flex items-center px-btn-x py-btn-y rounded-pill border border-border-default text-caption text-fg-1 hover:bg-navy-faint transition-colors duration-fast ease-khx font-medium"
         >
           {t("common.cancel")}
         </button>
         <button
+          type="button"
           onClick={submit}
           disabled={saving}
-          className="px-3 py-1 text-xs rounded bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill shadow-btn bg-navy text-fg-inverse hover:bg-navy-hover disabled:opacity-50 transition-colors duration-fast ease-khx font-medium text-caption"
         >
+          {saving && <Icon icon={Loader2} size="sm" className="animate-spin" />}
           {saving
             ? t("common.saving")
             : isEdit
@@ -200,10 +221,6 @@ function SubscriptionForm({
     </div>
   );
 }
-
-// ============================================================
-// Subscription sidebar item
-// ============================================================
 
 function SubscriptionItem({
   sub,
@@ -226,73 +243,82 @@ function SubscriptionItem({
   return (
     <div
       onClick={onSelect}
-      className={`group p-2 rounded cursor-pointer transition-colors ${
+      role="button"
+      tabIndex={0}
+      className={`group p-3 rounded-card-sm cursor-pointer transition-colors duration-fast ease-khx ${
         selected
-          ? "bg-primary/10 ring-1 ring-primary/30"
-          : "hover:bg-black/5"
+          ? "bg-navy-soft ring-1 ring-indigo-muted"
+          : "hover:bg-navy-faint"
       }`}
     >
       <div className="flex items-center gap-2">
         <span
           className={`shrink-0 w-1.5 h-1.5 rounded-full ${
-            sub.is_active ? "bg-emerald-500" : "bg-gray-300"
+            sub.is_active ? "bg-success-fg" : "bg-border-strong"
           }`}
         />
         <span
-          className={`flex-1 text-sm truncate font-mono ${
-            sub.is_active ? "text-app-fg" : "text-app-fg/50"
+          className={`flex-1 text-caption truncate font-mono ${
+            sub.is_active ? "text-fg-1" : "text-fg-3"
           }`}
         >
           {sub.keyword_expr}
         </span>
         {unreadCount > 0 && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent text-[#1A1F2E] font-semibold leading-none">
-            {unreadCount}
+          <span
+            aria-label={`${unreadCount} unread`}
+            className="rounded-pill px-2 py-0.5 text-micro font-medium bg-badge-improve-bg text-badge-improve-fg tabular-nums"
+          >
+            {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
       </div>
-      <div className="mt-1 text-[10px] text-app-fg/50 ml-3.5">
+      <div className="mt-1 text-meta text-fg-3 ml-3.5">
         {sub.sources.join(" · ")} · {sub.frequency} · {t("feed.last_run_prefix")}{" "}
         {sub.last_run_at
           ? new Date(sub.last_run_at).toLocaleDateString()
           : t("feed.last_run_never")}
       </div>
-      <div className="mt-1.5 ml-3.5 opacity-0 group-hover:opacity-100 flex gap-2 text-[10px]">
+      <div className="mt-2 ml-3.5 opacity-0 group-hover:opacity-100 transition-opacity duration-fast ease-khx flex gap-3 text-meta">
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onToggle();
           }}
-          className="text-app-fg/60 hover:text-primary"
+          className="inline-flex items-center gap-1 text-fg-2 hover:text-indigo transition-colors duration-fast ease-khx"
         >
-          {sub.is_active ? t("feed.toggle_pause") : t("feed.toggle_enable")}
+          <Icon icon={sub.is_active ? Pause : Play} size="xs" />
+          <span>
+            {sub.is_active ? t("feed.toggle_pause") : t("feed.toggle_enable")}
+          </span>
         </button>
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onEdit();
           }}
-          className="text-app-fg/60 hover:text-primary"
+          className="inline-flex items-center gap-1 text-fg-2 hover:text-indigo transition-colors duration-fast ease-khx"
         >
-          {t("feed.edit_button")}
+          <Icon icon={Pencil} size="xs" />
+          <span>{t("feed.edit_button")}</span>
         </button>
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onDelete();
           }}
-          className="text-app-fg/60 hover:text-red-600"
+          className="inline-flex items-center gap-1 text-fg-2 hover:text-danger-fg transition-colors duration-fast ease-khx"
         >
-          {t("feed.delete_button")}
+          <Icon icon={Trash2} size="xs" />
+          <span>{t("feed.delete_button")}</span>
         </button>
       </div>
     </div>
   );
 }
-
-// ============================================================
-// Result card (one paper from a subscription run)
-// ============================================================
 
 function ResultCard({
   result,
@@ -303,49 +329,55 @@ function ResultCard({
 }) {
   const t = useT();
   const { paper } = result;
-  const sourceCls = SOURCE_BADGE[paper.source] ?? "bg-app-fg/20 text-app-fg";
+  const sourceCls =
+    SOURCE_BADGE[paper.source] ?? "bg-badge-default-bg text-badge-default-fg";
   return (
     <article
-      className={`bg-white border rounded p-3 transition-colors ${
-        result.is_read ? "border-black/5 opacity-70" : "border-black/10"
+      className={`rounded-card bg-card shadow-card p-5 transition-shadow duration-base ease-khx ${
+        result.is_read ? "opacity-70" : "hover:shadow-card-hover"
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {!result.is_read && (
-            <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-accent" />
+            <span
+              aria-label="Unread"
+              className="shrink-0 w-2 h-2 rounded-full bg-indigo"
+            />
           )}
           <span
-            className={`shrink-0 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold ${sourceCls}`}
+            className={`shrink-0 text-micro uppercase tracking-wide-brand px-2 py-0.5 rounded-pill font-semibold ${sourceCls}`}
           >
             {paper.source}
           </span>
-          <span className="text-sm font-semibold text-primary leading-snug truncate">
-            {paper.title}
-          </span>
         </div>
-        <span className="shrink-0 text-[10px] text-app-fg/40">
+        <span className="shrink-0 text-meta text-fg-3 tabular-nums">
           {new Date(result.found_at).toLocaleString()}
         </span>
       </div>
-      <div className="mt-1 text-xs text-app-fg/70">
+      <h3 className="text-h3 font-semibold text-fg-1 leading-snug">
+        {paper.title}
+      </h3>
+      <p className="text-meta text-fg-2 mt-1">
         {paper.authors.slice(0, 4).join(", ")}
         {paper.authors.length > 4 && t("feed.et_al")}
         {paper.published_at && ` · ${paper.published_at.slice(0, 10)}`}
-      </div>
+      </p>
       {paper.abstract && (
-        <p className="mt-1.5 text-xs text-app-fg/70 line-clamp-2">
+        <p className="mt-2 text-caption text-fg-2 line-clamp-2 leading-relaxed">
           {paper.abstract}
         </p>
       )}
-      <div className="mt-2 flex items-center gap-2 flex-wrap">
+      <div className="mt-3 flex items-center gap-2 flex-wrap">
         <PaperActions paper={paper} />
         {!result.is_read && (
           <button
+            type="button"
             onClick={onMarkRead}
-            className="px-2 py-1 rounded border border-black/10 text-app-fg/60 hover:border-primary/30 text-xs"
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-pill border border-border-default text-meta text-fg-2 hover:text-indigo hover:bg-indigo-soft hover:border-indigo-muted transition-colors duration-fast ease-khx"
           >
-            {t("feed.mark_read_button")}
+            <Icon icon={Check} size="xs" />
+            <span>{t("feed.mark_read_button")}</span>
           </button>
         )}
       </div>
@@ -353,12 +385,9 @@ function ResultCard({
   );
 }
 
-// ============================================================
-// Main page
-// ============================================================
-
 export default function Feed() {
   const t = useT();
+  const toast = useToast();
   const [subs, setSubs] = useState<Subscription[]>([]);
   const [results, setResults] = useState<SubscriptionResult[]>([]);
   const [selectedSub, setSelectedSub] = useState<string | null>(null);
@@ -375,10 +404,9 @@ export default function Feed() {
       .catch((e) => setError(String(e)));
   };
 
-   
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(refresh, [selectedSub]);
 
-  // Group results by subscription_id when in "all" view
   const grouped = useMemo(() => {
     const groups = new Map<
       string,
@@ -398,7 +426,6 @@ export default function Feed() {
     return groups;
   }, [results]);
 
-  // Per-subscription unread count for sidebar badges
   const unreadBySub = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of results) {
@@ -414,7 +441,7 @@ export default function Feed() {
       await api.markSubscriptionPaperRead(subId, paperId);
       refresh();
     } catch (e) {
-      alert(t("feed.error_action_failed", { detail: String(e) }));
+      toast.danger(t("feed.error_action_failed", { detail: String(e) }));
     }
   };
 
@@ -424,7 +451,7 @@ export default function Feed() {
       await api.runSubscriptionsNow();
       refresh();
     } catch (e) {
-      alert(t("feed.error_run_failed", { detail: String(e) }));
+      toast.danger(t("feed.error_run_failed", { detail: String(e) }));
     } finally {
       setRunning(false);
     }
@@ -442,14 +469,20 @@ export default function Feed() {
   };
 
   const handleDelete = async (sub: Subscription) => {
-    if (!confirm(t("feed.confirm_delete", { keyword: sub.keyword_expr })))
-      return;
+    const ok = await confirmAsync({
+      title: t("feed.confirm_delete_title"),
+      description: t("feed.confirm_delete", { keyword: sub.keyword_expr }),
+      variant: "danger",
+      confirmLabel: t("common.delete"),
+      cancelLabel: t("common.cancel"),
+    });
+    if (!ok) return;
     try {
       await api.deleteSubscription(sub.id);
       if (selectedSub === sub.id) setSelectedSub(null);
       refresh();
     } catch (e) {
-      alert(t("feed.error_delete_failed", { detail: String(e) }));
+      toast.danger(t("feed.error_delete_failed", { detail: String(e) }));
     }
   };
 
@@ -458,33 +491,38 @@ export default function Feed() {
       await api.toggleSubscriptionActive(sub.id);
       refresh();
     } catch (e) {
-      alert(t("feed.error_action_failed", { detail: String(e) }));
+      toast.danger(t("feed.error_action_failed", { detail: String(e) }));
     }
   };
 
   return (
-    <div className="flex h-full">
-      {/* SIDEBAR */}
-      <aside className="w-72 border-r border-black/10 bg-white/40 flex flex-col overflow-hidden">
-        <div className="p-3 border-b border-black/5">
-          <div className="text-[10px] uppercase tracking-wider text-app-fg/50 mb-2 flex items-center justify-between">
+    <div className="flex h-full bg-page text-fg-1">
+      <aside
+        aria-label="Subscriptions"
+        className="w-side-panel border-r border-border-default bg-soft flex flex-col overflow-hidden"
+      >
+        <div className="p-4 border-b border-border-subtle">
+          <div className="text-meta uppercase tracking-wide-brand text-fg-3 mb-3 flex items-center justify-between">
             <span>{t("feed.subscriptions_header")}</span>
             <button
+              type="button"
               onClick={() => {
                 setShowAddForm(true);
                 setEditingSub(null);
               }}
-              className="text-[10px] text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-indigo hover:text-indigo-hover transition-colors duration-fast ease-khx normal-case tracking-normal"
             >
-              {t("feed.new_button")}
+              <Icon icon={Plus} size="xs" />
+              <span>{t("feed.new_button")}</span>
             </button>
           </div>
           <button
+            type="button"
             onClick={() => setSelectedSub(null)}
-            className={`w-full text-left text-sm px-2 py-1.5 rounded ${
+            className={`w-full text-left text-caption px-3 py-2 rounded-pill transition-colors duration-fast ease-khx ${
               selectedSub === null
-                ? "bg-primary/10 text-primary font-medium"
-                : "text-app-fg/70 hover:bg-black/5"
+                ? "bg-navy-soft text-indigo font-medium"
+                : "text-fg-2 hover:bg-navy-faint hover:text-fg-1"
             }`}
           >
             {t("feed.all_pushes")}
@@ -493,7 +531,7 @@ export default function Feed() {
 
         <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-1">
           {subs.length === 0 && (
-            <div className="text-[11px] text-app-fg/40 text-center py-4">
+            <div className="text-meta text-fg-3 text-center py-6">
               {t("feed.no_subscriptions")}
             </div>
           )}
@@ -515,30 +553,41 @@ export default function Feed() {
         </div>
       </aside>
 
-      {/* MAIN */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="border-b border-black/10 p-4 bg-white/30 flex items-baseline gap-3">
-          <h1 className="text-xl font-semibold text-primary">
-            {t("feed.title")}
-          </h1>
-          <span className="text-xs text-app-fg/50">
+      <main className="flex-1 flex flex-col overflow-hidden bg-page">
+        <div className="border-b border-border-default px-8 py-4 bg-card flex items-baseline gap-3">
+          <h1 className="text-h2 font-semibold text-fg-1">{t("feed.title")}</h1>
+          <span className="text-meta text-fg-3">
             {t("feed.count_papers", { count: results.length })}
           </span>
           <div className="ml-auto flex gap-2">
             <button
+              type="button"
               onClick={runNow}
               disabled={running}
-              className="px-3 py-1.5 text-xs rounded border border-primary text-primary hover:bg-primary hover:text-white transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-btn-x py-btn-y rounded-pill border border-border-default text-caption text-fg-1 hover:border-indigo hover:text-indigo disabled:opacity-50 transition-colors duration-fast ease-khx"
             >
-              {running ? t("feed.running") : t("feed.refresh_now")}
+              {running ? (
+                <Icon icon={Loader2} size="sm" className="animate-spin" />
+              ) : (
+                <Icon icon={RefreshCw} size="sm" />
+              )}
+              <span>{running ? t("feed.running") : t("feed.refresh_now")}</span>
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+        <div className="flex-1 overflow-y-auto p-8 space-y-5 max-w-5xl">
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-200 px-3 py-2 rounded">
-              {t("search.error_prefix", { detail: error })}
+            <div
+              role="alert"
+              className="rounded-card-sm bg-danger-bg border border-danger-border text-danger-fg px-4 py-3 flex items-start gap-2 text-caption"
+            >
+              <Icon
+                icon={AlertTriangle}
+                size="sm"
+                className="flex-shrink-0 mt-0.5"
+              />
+              <span>{t("search.error_prefix", { detail: error })}</span>
             </div>
           )}
 
@@ -563,18 +612,27 @@ export default function Feed() {
             />
           )}
 
-          {!showAddForm && !editingSub && results.length === 0 && (
-            <div className="text-sm text-app-fg/50 text-center py-12">
+          {!showAddForm && !editingSub && running && results.length === 0 && (
+            <div className="flex flex-col gap-3">
+              <Skeleton variant="paper-card" />
+              <Skeleton variant="paper-card" />
+            </div>
+          )}
+
+          {!showAddForm && !editingSub && !running && results.length === 0 && (
+            <div className="text-caption text-fg-3 text-center py-12">
               {subs.length === 0 ? (
                 <>
                   {t("feed.no_results_subs_empty_prefix")}
-                  <span className="text-primary mx-1">{t("feed.new_link")}</span>
+                  <span className="text-indigo mx-1">
+                    {t("feed.new_link")}
+                  </span>
                   {t("feed.no_results_subs_empty_suffix")}
                 </>
               ) : (
                 <>
                   {t("feed.no_results_run_now_prefix")}
-                  <span className="text-primary mx-1">
+                  <span className="text-indigo mx-1">
                     {t("feed.refresh_now_link")}
                   </span>
                   {t("feed.no_results_run_now_suffix")}
@@ -583,18 +641,21 @@ export default function Feed() {
             </div>
           )}
 
-          {/* Grouped view (only when no specific sub selected, multiple groups) */}
           {selectedSub === null && grouped.size > 1 && (
             <>
               {Array.from(grouped.entries()).map(([subId, group]) => (
                 <section key={subId}>
-                  <div className="text-xs font-semibold text-app-fg/70 mb-2 flex items-center gap-2">
-                    <span className="font-mono text-primary">{group.keyword}</span>
-                    <span className="text-app-fg/40">
-                      {t("feed.papers_count_short", { count: group.items.length })}
+                  <div className="text-caption font-semibold text-fg-1 mb-3 flex items-center gap-2">
+                    <span className="font-mono text-indigo">
+                      {group.keyword}
+                    </span>
+                    <span className="text-meta text-fg-3">
+                      {t("feed.papers_count_short", {
+                        count: group.items.length,
+                      })}
                     </span>
                   </div>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-3">
                     {group.items.map((r) => (
                       <ResultCard
                         key={`${r.subscription_id}-${r.paper.id}`}
@@ -608,9 +669,8 @@ export default function Feed() {
             </>
           )}
 
-          {/* Flat view (single subscription selected, or only one group) */}
           {(selectedSub !== null || grouped.size <= 1) && results.length > 0 && (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {results.map((r) => (
                 <ResultCard
                   key={`${r.subscription_id}-${r.paper.id}`}
