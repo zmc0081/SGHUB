@@ -13,8 +13,11 @@
 // i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Command } from "cmdk";
+import { FolderClosed } from "lucide-react";
 import { api, type PaperSearchResult } from "../lib/tauri";
 import { useT } from "../hooks/useT";
+import { Icon } from "./Icon";
+import { Skeleton } from "./Skeleton";
 
 interface Props {
   selectedId: string;
@@ -26,11 +29,11 @@ interface Props {
 }
 
 const SOURCE_BADGE: Record<string, string> = {
-  arxiv: "bg-[#B31B1B] text-white",
-  semantic_scholar: "bg-[#1857B6] text-white",
-  pubmed: "bg-[#00897B] text-white",
-  openalex: "bg-[#7B3FBF] text-white",
-  local: "bg-gray-500 text-white",
+  arxiv: "bg-src-arxiv text-src-arxiv-fg",
+  semantic_scholar: "bg-src-ss text-src-ss-fg",
+  pubmed: "bg-src-pubmed text-src-pubmed-fg",
+  openalex: "bg-src-openalex text-src-openalex-fg",
+  local: "bg-src-local text-src-local-fg",
 };
 
 export function PaperPicker({
@@ -59,13 +62,11 @@ export function PaperPicker({
       setSelectedLabel("");
       return;
     }
-    // Try recent list first (cheap, no IPC).
     const fromRecent = recentFallback.find((p) => p.id === selectedId);
     if (fromRecent) {
       setSelectedLabel(fromRecent.title);
       return;
     }
-    // Otherwise pull the row directly.
     void api.getPaper(selectedId).then((p) => {
       if (p) setSelectedLabel(p.title);
     });
@@ -84,11 +85,11 @@ export function PaperPicker({
     }
     setLoading(true);
     const seq = ++searchSeq.current;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       void api
         .searchLocalPapers(q, 30)
         .then((items) => {
-          if (seq !== searchSeq.current) return; // stale
+          if (seq !== searchSeq.current) return;
           setResults(items);
         })
         .catch(() => {
@@ -99,7 +100,7 @@ export function PaperPicker({
           if (seq === searchSeq.current) setLoading(false);
         });
     }, 200);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [input, open]);
 
   // Close on outside click.
@@ -113,10 +114,6 @@ export function PaperPicker({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
-
-  // ============================================================
-  // Render
-  // ============================================================
 
   const showRecents =
     open && input.trim().length === 0 && recentFallback.length > 0;
@@ -137,8 +134,6 @@ export function PaperPicker({
         <Command.Input
           value={open ? input : inputBlurDisplay}
           onValueChange={(v) => {
-            // Treat editing as "the user wants to search again" — reset
-            // selection so they don't keep an out-of-date selection.
             setInput(v);
             if (!open) setOpen(true);
             if (selectedId && v !== inputBlurDisplay) {
@@ -150,21 +145,22 @@ export function PaperPicker({
             if (selectedId) setInput("");
           }}
           placeholder={effectivePlaceholder}
-          className="w-full px-2.5 py-1.5 text-sm bg-white border border-black/10 rounded focus:outline-none focus:border-primary"
+          className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+          style={{ fontSize: "13px" }}
         />
 
         {open && (
-          <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-black/10 rounded shadow-lg overflow-hidden">
-            <Command.List className="max-h-72 overflow-y-auto">
+          <div className="absolute z-popover left-0 right-0 mt-1 bg-card rounded-card-sm shadow-nav overflow-hidden">
+            <Command.List className="max-h-80 overflow-y-auto">
               {loading && (
-                <div className="px-3 py-2 text-xs text-app-fg/50">
-                  {t("paper_picker.searching")}
+                <div className="p-3">
+                  <Skeleton variant="text" lines={3} />
                 </div>
               )}
 
               {showRecents && (
                 <>
-                  <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-app-fg/50">
+                  <div className="px-3 py-2 text-meta uppercase tracking-wide-brand text-fg-3">
                     {t("paper_picker.recent")}
                   </div>
                   {recentFallback.slice(0, 15).map((p) => (
@@ -188,17 +184,19 @@ export function PaperPicker({
                         setInput("");
                         setOpen(false);
                       }}
-                      className="cursor-pointer px-3 py-2 text-xs hover:bg-primary/5 data-[selected=true]:bg-primary/10 flex items-center gap-2"
+                      className="cursor-pointer px-3 py-2 text-caption hover:bg-navy-faint data-[selected=true]:bg-navy-soft flex items-center gap-2"
                     >
                       <SourceBadge source={p.source} />
-                      <span className="truncate flex-1 font-medium">{p.title}</span>
+                      <span className="truncate flex-1 font-medium text-fg-1">
+                        {p.title}
+                      </span>
                     </Command.Item>
                   ))}
                 </>
               )}
 
               {showResults && !loading && !hasResults && (
-                <div className="px-3 py-2 text-xs text-app-fg/50">
+                <div className="px-3 py-3 text-caption text-fg-3">
                   {t("paper_picker.no_match")}
                 </div>
               )}
@@ -215,28 +213,30 @@ export function PaperPicker({
                       setInput("");
                       setOpen(false);
                     }}
-                    className="cursor-pointer px-3 py-2 hover:bg-primary/5 data-[selected=true]:bg-primary/10 border-b border-black/5 last:border-b-0"
+                    className="cursor-pointer px-3 py-2 hover:bg-navy-faint data-[selected=true]:bg-navy-soft border-b border-border-subtle last:border-b-0"
                   >
                     <div className="flex items-start gap-2">
                       <SourceBadge source={p.source} />
                       <div className="flex-1 min-w-0">
                         <div
-                          className="text-xs font-medium text-app-fg [&_mark]:bg-yellow-200 [&_mark]:text-app-fg [&_mark]:px-0.5 [&_mark]:rounded-sm truncate"
-                          // Backend already FTS5-escaped & wraps hits in <mark>;
-                          // safe to render as HTML.
+                          className="text-caption font-medium text-fg-1 [&_mark]:bg-indigo-soft [&_mark]:text-indigo [&_mark]:px-1 [&_mark]:rounded-pill truncate"
                           dangerouslySetInnerHTML={{ __html: p.title_highlight }}
                         />
-                        <div className="text-[10px] text-app-fg/60 mt-0.5 truncate">
-                          {p.authors.slice(0, 3).join(", ")}
-                          {p.authors.length > 3 &&
-                            t("search.authors_more", { count: p.authors.length })}
+                        <div className="text-meta text-fg-2 mt-0.5 truncate flex items-center gap-1">
+                          <span className="truncate">
+                            {p.authors.slice(0, 3).join(", ")}
+                            {p.authors.length > 3 &&
+                              t("search.authors_more", { count: p.authors.length })}
+                          </span>
                           {p.current_folder_path && (
-                            <span className="ml-2 text-app-fg/40">
-                              · 📁 {p.current_folder_path}
+                            <span className="text-fg-3 inline-flex items-center gap-1">
+                              <span aria-hidden>·</span>
+                              <Icon icon={FolderClosed} size="xs" />
+                              <span className="truncate">{p.current_folder_path}</span>
                             </span>
                           )}
                           {p.doi && (
-                            <span className="ml-2 text-app-fg/40">
+                            <span className="text-fg-3">
                               · DOI: {p.doi.slice(0, 24)}
                             </span>
                           )}
@@ -254,10 +254,10 @@ export function PaperPicker({
 }
 
 function SourceBadge({ source }: { source: string }) {
-  const cls = SOURCE_BADGE[source] ?? "bg-app-fg/20 text-app-fg";
+  const cls = SOURCE_BADGE[source] ?? "bg-badge-default-bg text-badge-default-fg";
   return (
     <span
-      className={`shrink-0 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold ${cls}`}
+      className={`shrink-0 text-micro uppercase tracking-wide-brand px-2 py-0.5 rounded-pill font-semibold ${cls}`}
     >
       {source}
     </span>
