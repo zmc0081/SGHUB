@@ -76,14 +76,7 @@ pub(crate) fn db_create_session(
         "INSERT INTO chat_sessions \
          (id, title, model_config_id, system_prompt, skill_name, pinned, created_at, updated_at) \
          VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?6)",
-        params![
-            id,
-            title,
-            model_config_id,
-            system_prompt,
-            skill_name,
-            now
-        ],
+        params![id, title, model_config_id, system_prompt, skill_name, now],
     )?;
     Ok(ChatSession {
         id,
@@ -155,10 +148,7 @@ pub(crate) fn db_list_sessions(
     Ok(rows)
 }
 
-pub(crate) fn db_delete_session(
-    pool: &crate::db::DbPool,
-    id: &str,
-) -> rusqlite::Result<usize> {
+pub(crate) fn db_delete_session(pool: &crate::db::DbPool, id: &str) -> rusqlite::Result<usize> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
@@ -194,10 +184,7 @@ pub(crate) fn db_pin_session(
     )
 }
 
-pub(crate) fn db_touch_session(
-    pool: &crate::db::DbPool,
-    id: &str,
-) -> rusqlite::Result<usize> {
+pub(crate) fn db_touch_session(pool: &crate::db::DbPool, id: &str) -> rusqlite::Result<usize> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
@@ -234,12 +221,10 @@ pub async fn create_chat_session(
     let pool = state.db_pool.clone();
     let t = title.unwrap_or_else(|| "新对话".into());
     let mid = model_config_id.clone();
-    tokio::task::spawn_blocking(move || {
-        db_create_session(&pool, &t, mid.as_deref(), None, None)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())
+    tokio::task::spawn_blocking(move || db_create_session(&pool, &t, mid.as_deref(), None, None))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -316,10 +301,11 @@ pub async fn get_session_detail(
     };
     let pool = state.db_pool.clone();
     let id_for_msgs = id.clone();
-    let messages = tokio::task::spawn_blocking(move || db_list_messages(&pool, &id_for_msgs, 500, None))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?;
+    let messages =
+        tokio::task::spawn_blocking(move || db_list_messages(&pool, &id_for_msgs, 500, None))
+            .await
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
     Ok(Some(ChatSessionDetail { session, messages }))
 }
 

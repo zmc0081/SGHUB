@@ -103,10 +103,7 @@ pub async fn init(app: AppHandle) -> Result<(), String> {
                         log::warn!("updater live-reschedule failed: {}", e);
                     }
                 }
-                Err(e) => log::warn!(
-                    "config:updater_changed payload parse failed: {}",
-                    e
-                ),
+                Err(e) => log::warn!("config:updater_changed payload parse failed: {}", e),
             }
         });
     });
@@ -189,9 +186,7 @@ async fn run_tick(app: AppHandle, cfg: UpdaterConfig) {
 /// `UPDATER_STATE`. Failure to reach the update server is logged and
 /// swallowed — the scheduler should keep ticking next time.
 pub async fn perform_check(app: AppHandle, action: &str) {
-    let now = chrono::Utc::now()
-        .format("%Y-%m-%dT%H:%M:%SZ")
-        .to_string();
+    let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
     {
         let mut st = state().write().await;
         st.last_check_at = Some(now.clone());
@@ -246,11 +241,7 @@ pub async fn perform_check(app: AppHandle, action: &str) {
 }
 
 #[cfg(all(desktop, not(debug_assertions)))]
-async fn handle_action(
-    app: &AppHandle,
-    update: &tauri_plugin_updater::Update,
-    action: &str,
-) {
+async fn handle_action(app: &AppHandle, update: &tauri_plugin_updater::Update, action: &str) {
     match action {
         "silent_download" => {
             // Download + install without prompting. The OS still reopens
@@ -365,11 +356,7 @@ fn days_since(iso: &str) -> Option<i64> {
 mod tests {
     use super::*;
 
-    fn cfg(
-        ftype: &str,
-        fval: u32,
-        time: &str,
-    ) -> UpdaterConfig {
+    fn cfg(ftype: &str, fval: u32, time: &str) -> UpdaterConfig {
         UpdaterConfig {
             enabled: true,
             frequency_type: ftype.into(),
@@ -401,10 +388,7 @@ mod tests {
         assert_eq!(weekday_bitmask_to_cron(0), "");
         assert_eq!(weekday_bitmask_to_cron(1), "MON");
         assert_eq!(weekday_bitmask_to_cron(1 + 4 + 16), "MON,WED,FRI");
-        assert_eq!(
-            weekday_bitmask_to_cron(0x7F),
-            "MON,TUE,WED,THU,FRI,SAT,SUN"
-        );
+        assert_eq!(weekday_bitmask_to_cron(0x7F), "MON,TUE,WED,THU,FRI,SAT,SUN");
         // Bits above weekday 7 are silently masked off by the caller.
         assert_eq!(weekday_bitmask_to_cron(64), "SUN");
     }

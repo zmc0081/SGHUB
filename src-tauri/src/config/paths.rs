@@ -72,10 +72,7 @@ pub fn uploaded_pdfs_dir<R: Runtime>(app: &AppHandle<R>) -> PathBuf {
 }
 
 /// `<effective>/data/chat_attachments/<session_id>/`
-pub fn chat_attachments_dir<R: Runtime>(
-    app: &AppHandle<R>,
-    session_id: &str,
-) -> PathBuf {
+pub fn chat_attachments_dir<R: Runtime>(app: &AppHandle<R>, session_id: &str) -> PathBuf {
     data_root(app).join("chat_attachments").join(session_id)
 }
 

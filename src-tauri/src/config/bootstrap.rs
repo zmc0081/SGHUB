@@ -63,9 +63,7 @@ pub fn load() -> BootstrapConfig {
             );
             BootstrapConfig::default()
         }),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            BootstrapConfig::default()
-        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => BootstrapConfig::default(),
         Err(e) => {
             log::warn!(
                 "bootstrap: failed to read `{}`: {} — using default",
@@ -81,16 +79,13 @@ pub fn load() -> BootstrapConfig {
 /// the same dir, then rename). Returns a path or a human-friendly
 /// error.
 pub fn save(cfg: &BootstrapConfig) -> Result<PathBuf, String> {
-    let dir = bootstrap_dir()
-        .ok_or_else(|| "no OS config directory available".to_string())?;
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| format!("create bootstrap dir failed: {}", e))?;
+    let dir = bootstrap_dir().ok_or_else(|| "no OS config directory available".to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("create bootstrap dir failed: {}", e))?;
     let path = dir.join(BOOTSTRAP_FILE_NAME);
     let text = toml::to_string_pretty(cfg)
         .map_err(|e| format!("serialize bootstrap toml failed: {}", e))?;
     let tmp = dir.join(format!("{}.tmp", BOOTSTRAP_FILE_NAME));
-    std::fs::write(&tmp, &text)
-        .map_err(|e| format!("write tmp bootstrap failed: {}", e))?;
+    std::fs::write(&tmp, &text).map_err(|e| format!("write tmp bootstrap failed: {}", e))?;
     std::fs::rename(&tmp, &path)
         .map_err(|e| format!("rename tmp -> bootstrap.toml failed: {}", e))?;
     Ok(path)
@@ -158,9 +153,6 @@ mod tests {
     fn parse_explicit_data_dir() {
         let text = "data_dir = \"D:\\\\custom\\\\sghub\"\n";
         let parsed: BootstrapConfig = toml::from_str(text).unwrap();
-        assert_eq!(
-            parsed.data_dir,
-            Some(PathBuf::from(r"D:\custom\sghub"))
-        );
+        assert_eq!(parsed.data_dir, Some(PathBuf::from(r"D:\custom\sghub")));
     }
 }

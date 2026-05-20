@@ -8,9 +8,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use futures::StreamExt;
 
-use crate::ai_client::{
-    status_to_error, AiError, AiProvider, Message, ModelConfig, TokenStream,
-};
+use crate::ai_client::{status_to_error, AiError, AiProvider, Message, ModelConfig, TokenStream};
 
 const TEST_TIMEOUT: Duration = Duration::from_secs(5);
 const STREAM_TIMEOUT: Duration = Duration::from_secs(1800); // 30 min
@@ -57,9 +55,7 @@ impl AiProvider for OllamaProvider {
     }
 }
 
-fn parse_ollama_ndjson<S>(
-    byte_stream: S,
-) -> impl futures::Stream<Item = Result<String, AiError>>
+fn parse_ollama_ndjson<S>(byte_stream: S) -> impl futures::Stream<Item = Result<String, AiError>>
 where
     S: futures::Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send + 'static + Unpin,
 {
@@ -212,7 +208,9 @@ mod tests {
         chunks: Vec<&'static str>,
     ) -> impl futures::Stream<Item = Result<Bytes, reqwest::Error>> + Unpin {
         Box::pin(futures::stream::iter(
-            chunks.into_iter().map(|s| Ok(Bytes::from_static(s.as_bytes()))),
+            chunks
+                .into_iter()
+                .map(|s| Ok(Bytes::from_static(s.as_bytes()))),
         ))
     }
 

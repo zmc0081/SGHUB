@@ -6,9 +6,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use futures::StreamExt;
 
-use crate::ai_client::{
-    status_to_error, AiError, AiProvider, Message, ModelConfig, TokenStream,
-};
+use crate::ai_client::{status_to_error, AiError, AiProvider, Message, ModelConfig, TokenStream};
 
 const TEST_TIMEOUT: Duration = Duration::from_secs(15);
 /// Total stream timeout — covers very long generations (full HTML reports with
@@ -34,10 +32,7 @@ impl AiProvider for OpenAiCompatible {
         messages: Vec<Message>,
         config: &ModelConfig,
     ) -> Result<TokenStream, AiError> {
-        let url = format!(
-            "{}/chat/completions",
-            config.endpoint.trim_end_matches('/')
-        );
+        let url = format!("{}/chat/completions", config.endpoint.trim_end_matches('/'));
         let body = serde_json::json!({
             "model": config.model_id,
             "messages": messages,
@@ -246,7 +241,9 @@ mod tests {
         chunks: Vec<&'static str>,
     ) -> impl futures::Stream<Item = Result<Bytes, reqwest::Error>> + Unpin {
         Box::pin(futures::stream::iter(
-            chunks.into_iter().map(|s| Ok(Bytes::from_static(s.as_bytes()))),
+            chunks
+                .into_iter()
+                .map(|s| Ok(Bytes::from_static(s.as_bytes()))),
         ))
     }
 
@@ -326,9 +323,7 @@ mod tests {
             .await;
 
         let provider = OpenAiCompatible::new("bad-key".into());
-        let result = provider
-            .chat_stream(vec![], &cfg(&server.url()))
-            .await;
+        let result = provider.chat_stream(vec![], &cfg(&server.url())).await;
         assert!(matches!(result, Err(AiError::Unauthorized)));
     }
 
@@ -343,9 +338,7 @@ mod tests {
             .await;
 
         let provider = OpenAiCompatible::new("k".into());
-        let result = provider
-            .chat_stream(vec![], &cfg(&server.url()))
-            .await;
+        let result = provider.chat_stream(vec![], &cfg(&server.url())).await;
         assert!(matches!(result, Err(AiError::RateLimited)));
     }
 }

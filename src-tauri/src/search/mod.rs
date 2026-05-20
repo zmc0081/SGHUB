@@ -280,11 +280,7 @@ pub async fn search_papers(
 
     let started = Instant::now();
 
-    async fn run_source<F, Fut>(
-        name: &'static str,
-        enabled: bool,
-        fetcher: F,
-    ) -> Vec<Paper>
+    async fn run_source<F, Fut>(name: &'static str, enabled: bool, fetcher: F) -> Vec<Paper>
     where
         F: FnOnce() -> Fut,
         Fut: std::future::Future<
@@ -370,7 +366,12 @@ mod tests {
     #[test]
     fn dedupe_removes_same_doi() {
         let p1 = paper("a", "T1", Some("10.1/x"), "arxiv");
-        let p2 = paper("b", "T2 different title", Some("10.1/x"), "semantic_scholar");
+        let p2 = paper(
+            "b",
+            "T2 different title",
+            Some("10.1/x"),
+            "semantic_scholar",
+        );
         let out = dedupe(vec![p1, p2]);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].id, "a", "first instance wins");
@@ -379,7 +380,12 @@ mod tests {
     #[test]
     fn dedupe_removes_case_and_whitespace_title_dupes() {
         let p1 = paper("a", "Attention Is All You Need", None, "arxiv");
-        let p2 = paper("b", "  attention is\n all you   NEED  ", None, "semantic_scholar");
+        let p2 = paper(
+            "b",
+            "  attention is\n all you   NEED  ",
+            None,
+            "semantic_scholar",
+        );
         let out = dedupe(vec![p1, p2]);
         assert_eq!(out.len(), 1);
     }

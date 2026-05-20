@@ -170,19 +170,11 @@ pub fn find_skill(app: &tauri::AppHandle, name: &str) -> Option<Skill> {
 
 /// Replace `{{title}}`, `{{authors}}`, `{{abstract}}`, `{{full_text}}`,
 /// `{{language}}` in `template` with paper-derived values.
-pub fn render_prompt(
-    template: &str,
-    paper: &Paper,
-    full_text: &str,
-    language: &str,
-) -> String {
+pub fn render_prompt(template: &str, paper: &Paper, full_text: &str, language: &str) -> String {
     let mut out = template.to_string();
     out = out.replace("{{title}}", &paper.title);
     out = out.replace("{{authors}}", &paper.authors.join(", "));
-    out = out.replace(
-        "{{abstract}}",
-        paper.abstract_.as_deref().unwrap_or(""),
-    );
+    out = out.replace("{{abstract}}", paper.abstract_.as_deref().unwrap_or(""));
     out = out.replace("{{full_text}}", full_text);
     out = out.replace("{{language}}", language);
     out
@@ -224,7 +216,10 @@ impl From<&Skill> for SkillSummary {
 
 #[tauri::command]
 pub fn get_skills(app: tauri::AppHandle) -> Vec<SkillSummary> {
-    load_all_skills(&app).iter().map(SkillSummary::from).collect()
+    load_all_skills(&app)
+        .iter()
+        .map(SkillSummary::from)
+        .collect()
 }
 
 #[tauri::command]
@@ -260,24 +255,24 @@ pub async fn start_parse(
     // 1. Load paper + extract text
     let pool = state.db_pool.clone();
     let pid = paper_id.clone();
-    let paper = tokio::task::spawn_blocking(move || crate::library::db_get_paper_by_id(&pool, &pid))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("paper `{}` not found", paper_id))?;
+    let paper =
+        tokio::task::spawn_blocking(move || crate::library::db_get_paper_by_id(&pool, &pid))
+            .await
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("paper `{}` not found", paper_id))?;
 
     let full_text = match &paper.pdf_path {
-        Some(p) => crate::pdf_extract::extract_paper_text(&app, p)
-            .unwrap_or_else(|e| {
-                log::warn!("pdf extract failed, falling back to abstract: {}", e);
-                paper.abstract_.clone().unwrap_or_default()
-            }),
+        Some(p) => crate::pdf_extract::extract_paper_text(&app, p).unwrap_or_else(|e| {
+            log::warn!("pdf extract failed, falling back to abstract: {}", e);
+            paper.abstract_.clone().unwrap_or_default()
+        }),
         None => paper.abstract_.clone().unwrap_or_default(),
     };
 
     // 2. Load skill + render prompt
-    let skill = find_skill(&app, &skill_name)
-        .ok_or_else(|| format!("skill `{}` not found", skill_name))?;
+    let skill =
+        find_skill(&app, &skill_name).ok_or_else(|| format!("skill `{}` not found", skill_name))?;
 
     let prompt = render_prompt(&skill.prompt_template, &paper, &full_text, "中文");
     let messages = vec![Message {

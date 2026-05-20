@@ -11,9 +11,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use futures::StreamExt;
 
-use crate::ai_client::{
-    status_to_error, AiError, AiProvider, Message, ModelConfig, TokenStream,
-};
+use crate::ai_client::{status_to_error, AiError, AiProvider, Message, ModelConfig, TokenStream};
 
 const TEST_TIMEOUT: Duration = Duration::from_secs(15);
 const STREAM_TIMEOUT: Duration = Duration::from_secs(1800); // 30 min
@@ -85,9 +83,7 @@ impl AiProvider for AnthropicProvider {
     }
 }
 
-fn parse_anthropic_sse<S>(
-    byte_stream: S,
-) -> impl futures::Stream<Item = Result<String, AiError>>
+fn parse_anthropic_sse<S>(byte_stream: S) -> impl futures::Stream<Item = Result<String, AiError>>
 where
     S: futures::Stream<Item = Result<bytes::Bytes, reqwest::Error>> + Send + 'static + Unpin,
 {

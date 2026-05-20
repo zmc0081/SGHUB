@@ -18,7 +18,9 @@ use super::{load_builtin_skills, load_user_skills, OutputDimension};
 /// in `regex` (~3 MB of compile-time deps for one pattern).
 fn is_valid_name(name: &str) -> bool {
     let mut chars = name.chars();
-    let Some(first) = chars.next() else { return false };
+    let Some(first) = chars.next() else {
+        return false;
+    };
     if !first.is_ascii_lowercase() {
         return false;
     }
@@ -28,9 +30,13 @@ fn is_valid_name(name: &str) -> bool {
 /// Heuristic: template contains at least one `{{...}}` placeholder.
 /// Minijinja catches malformed templates downstream in `render_check`.
 fn has_template_var(template: &str) -> bool {
-    let Some(open) = template.find("{{") else { return false };
+    let Some(open) = template.find("{{") else {
+        return false;
+    };
     let after_open = &template[open + 2..];
-    let Some(close_rel) = after_open.find("}}") else { return false };
+    let Some(close_rel) = after_open.find("}}") else {
+        return false;
+    };
     close_rel > 0 // require at least one character between {{ and }}
 }
 
@@ -64,11 +70,7 @@ pub(crate) fn sanitize_llm_yaml(content: &str) -> String {
     //    line that looks like a YAML root mapping key.
     if let Some(start) = content.lines().position(is_yaml_start_line) {
         if start > 0 {
-            return content
-                .lines()
-                .skip(start)
-                .collect::<Vec<_>>()
-                .join("\n");
+            return content.lines().skip(start).collect::<Vec<_>>().join("\n");
         }
     }
 
@@ -197,8 +199,8 @@ fn parse_skill_frontmatter(content: &str) -> Option<String> {
     let mapping = value.as_mapping_mut()?;
 
     // Inject body as prompt_template if frontmatter doesn't have one
-    let has_prompt = mapping.contains_key(yk("prompt_template"))
-        || mapping.contains_key(yk("promptTemplate"));
+    let has_prompt =
+        mapping.contains_key(yk("prompt_template")) || mapping.contains_key(yk("promptTemplate"));
     if !has_prompt && !body.is_empty() {
         // If body has no placeholders, auto-wrap with paper context preamble
         let prompt = if body.contains("{{") {
@@ -218,8 +220,8 @@ fn parse_skill_frontmatter(content: &str) -> Option<String> {
     }
 
     // Default display_name from name (if missing)
-    let has_display = mapping.contains_key(yk("display_name"))
-        || mapping.contains_key(yk("displayName"));
+    let has_display =
+        mapping.contains_key(yk("display_name")) || mapping.contains_key(yk("displayName"));
     if !has_display {
         if let Some(serde_yaml::Value::String(name)) = mapping.get(yk("name")) {
             let display = humanize_name(name);
@@ -263,7 +265,9 @@ fn humanize_name(name: &str) -> String {
 /// Find the first ```yaml / ```yml / ``` code block and return its body.
 fn extract_first_code_fence(content: &str) -> Option<String> {
     for marker in ["```yaml", "```YAML", "```yml", "```YML", "```"] {
-        let Some(start) = content.find(marker) else { continue };
+        let Some(start) = content.find(marker) else {
+            continue;
+        };
         // Skip the opening marker AND its language tag line — body begins
         // after the first newline that follows the marker.
         let after_marker = start + marker.len();
@@ -500,11 +504,7 @@ pub fn upload_zip_to_dir(
         {
             continue; // silently skip non-skill entries (READMEs, scripts, etc.)
         }
-        let display_name = raw_name
-            .rsplit('/')
-            .next()
-            .unwrap_or(&raw_name)
-            .to_string();
+        let display_name = raw_name.rsplit('/').next().unwrap_or(&raw_name).to_string();
 
         let mut content = String::new();
         if let Err(e) = file.read_to_string(&mut content) {
@@ -542,7 +542,10 @@ pub fn upload_zip_to_dir(
 pub fn delete_skill_from_dir(user_dir: &Path, name: &str) -> Result<(), String> {
     let target = user_dir.join(format!("{}.yaml", name));
     if !target.exists() {
-        return Err(format!("未找到自定义 Skill `{}` (不能删除内置 Skill)", name));
+        return Err(format!(
+            "未找到自定义 Skill `{}` (不能删除内置 Skill)",
+            name
+        ));
     }
     std::fs::remove_file(&target).map_err(|e| format!("删除失败: {}", e))?;
     Ok(())
@@ -557,10 +560,7 @@ fn user_skills_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 
 fn current_existing_names(app: &tauri::AppHandle) -> HashSet<String> {
-    let mut names: HashSet<String> = load_builtin_skills()
-        .into_iter()
-        .map(|s| s.name)
-        .collect();
+    let mut names: HashSet<String> = load_builtin_skills().into_iter().map(|s| s.name).collect();
     for s in load_user_skills(app) {
         names.insert(s.name);
     }
@@ -596,10 +596,8 @@ pub async fn upload_skill_zip(
 ) -> Result<Vec<SkillUploadResult>, String> {
     use tauri::Emitter;
     let dir = user_skills_dir(&app)?;
-    let builtin_names: HashSet<String> = load_builtin_skills()
-        .into_iter()
-        .map(|s| s.name)
-        .collect();
+    let builtin_names: HashSet<String> =
+        load_builtin_skills().into_iter().map(|s| s.name).collect();
     let results = upload_zip_to_dir(&dir, &zip_bytes, &builtin_names)?;
     if results.iter().any(|r| r.success) {
         let _ = app.emit("skills:updated", "zip-batch");
@@ -636,8 +634,10 @@ pub async fn save_skill(
     let mut spec: SkillSpec = serde_yaml::from_str(&cleaned)
         .map_err(|e| vec![truncate_for_display(format!("YAML 解析失败: {}", e), 240)])?;
 
-    let builtin_names: HashSet<String> =
-        super::load_builtin_skills().into_iter().map(|s| s.name).collect();
+    let builtin_names: HashSet<String> = super::load_builtin_skills()
+        .into_iter()
+        .map(|s| s.name)
+        .collect();
     let is_builtin_orig = original_name
         .as_ref()
         .is_some_and(|o| builtin_names.contains(o));
@@ -676,8 +676,7 @@ pub async fn save_skill(
     }
 
     let target = dir.join(format!("{}.yaml", spec.name));
-    std::fs::write(&target, &cleaned)
-        .map_err(|e| vec![format!("写文件失败: {}", e)])?;
+    std::fs::write(&target, &cleaned).map_err(|e| vec![format!("写文件失败: {}", e)])?;
 
     let _ = app.emit("skills:updated", spec.name.clone());
     log::info!(
@@ -733,17 +732,18 @@ pub async fn test_skill_with_paper(
     use tauri::Emitter;
 
     let cleaned = normalize_skill_content(&yaml_content);
-    let spec: SkillSpec = serde_yaml::from_str(&cleaned)
-        .map_err(|e| format!("YAML 解析失败: {}", e))?;
+    let spec: SkillSpec =
+        serde_yaml::from_str(&cleaned).map_err(|e| format!("YAML 解析失败: {}", e))?;
     validate_skill(&spec).map_err(|errs| errs.join("; "))?;
 
     let pool = state.db_pool.clone();
     let pid = paper_id.clone();
-    let paper = tokio::task::spawn_blocking(move || crate::library::db_get_paper_by_id(&pool, &pid))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("paper `{}` not found", paper_id))?;
+    let paper =
+        tokio::task::spawn_blocking(move || crate::library::db_get_paper_by_id(&pool, &pid))
+            .await
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("paper `{}` not found", paper_id))?;
     let full_text = match &paper.pdf_path {
         Some(p) => crate::pdf_extract::extract_paper_text(&app, p)
             .unwrap_or_else(|_| paper.abstract_.clone().unwrap_or_default()),
@@ -788,13 +788,7 @@ pub async fn test_skill_with_paper(
         match chunk {
             Ok(text) => {
                 full_response.push_str(&text);
-                let _ = app.emit(
-                    "skill_test:token",
-                    TokenPayload {
-                        text,
-                        done: false,
-                    },
-                );
+                let _ = app.emit("skill_test:token", TokenPayload { text, done: false });
             }
             Err(e) => {
                 let _ = app.emit(
@@ -928,7 +922,11 @@ version: "0.1"
         for good in &["a", "abc", "a_b", "a-b", "a1", "a_1-b"] {
             let mut s = good_spec();
             s.name = (*good).into();
-            assert!(validate_skill(&s).is_ok(), "expected OK for name `{}`", good);
+            assert!(
+                validate_skill(&s).is_ok(),
+                "expected OK for name `{}`",
+                good
+            );
         }
     }
 
@@ -953,7 +951,10 @@ version: "0.1"
     fn empty_dimensions_fails() {
         let mut s = good_spec();
         s.output_dimensions.clear();
-        assert!(validate_skill(&s).unwrap_err().iter().any(|e| e.contains("output_dimensions")));
+        assert!(validate_skill(&s)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains("output_dimensions")));
     }
 
     #[test]
@@ -968,7 +969,10 @@ version: "0.1"
     fn dimension_missing_title_fails() {
         let mut s = good_spec();
         s.output_dimensions[0].title = "".into();
-        assert!(validate_skill(&s).unwrap_err().iter().any(|e| e.contains(".title")));
+        assert!(validate_skill(&s)
+            .unwrap_err()
+            .iter()
+            .any(|e| e.contains(".title")));
     }
 
     #[test]
@@ -979,7 +983,11 @@ version: "0.1"
         s.prompt_template = "no vars".into();
         s.output_dimensions.clear();
         let errs = validate_skill(&s).unwrap_err();
-        assert!(errs.len() >= 4, "should collect all 4+ failures, got {:?}", errs);
+        assert!(
+            errs.len() >= 4,
+            "should collect all 4+ failures, got {:?}",
+            errs
+        );
     }
 
     // ------------- upload_skill_to_dir ----------------
@@ -1060,9 +1068,15 @@ output_dimensions:
         let results = upload_zip_to_dir(tmp.path(), &zip, &HashSet::new()).unwrap();
         // readme.txt is filtered, so 2 entries
         assert_eq!(results.len(), 2);
-        let ok = results.iter().find(|r| r.filename.starts_with("alice")).unwrap();
+        let ok = results
+            .iter()
+            .find(|r| r.filename.starts_with("alice"))
+            .unwrap();
         assert!(ok.success);
-        let bad = results.iter().find(|r| r.filename.starts_with("bad")).unwrap();
+        let bad = results
+            .iter()
+            .find(|r| r.filename.starts_with("bad"))
+            .unwrap();
         assert!(!bad.success);
         assert!(!bad.errors.is_empty());
     }
@@ -1361,7 +1375,11 @@ recommendedModels: ["gpt-5"]
       title: X
 "#;
         let errs = upload_skill_to_dir(tmp.path(), arr, &HashSet::new()).unwrap_err();
-        assert!(errs[0].contains("列表"), "should detect array, got {:?}", errs);
+        assert!(
+            errs[0].contains("列表"),
+            "should detect array, got {:?}",
+            errs
+        );
         assert!(errs[0].contains("2 项"));
     }
 

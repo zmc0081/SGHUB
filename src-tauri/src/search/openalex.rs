@@ -88,8 +88,13 @@ fn strip_url_prefix(url: &str, prefix: &str) -> String {
 
 fn map_to_paper(w: OaWork) -> Option<Paper> {
     let title = w.title?;
-    let doi = w.doi.as_deref().map(|d| strip_url_prefix(d, "https://doi.org/"));
-    let oa_id = w.id.as_deref().map(|i| strip_url_prefix(i, "https://openalex.org/"));
+    let doi = w
+        .doi
+        .as_deref()
+        .map(|d| strip_url_prefix(d, "https://doi.org/"));
+    let oa_id =
+        w.id.as_deref()
+            .map(|i| strip_url_prefix(i, "https://openalex.org/"));
 
     let id = match (&oa_id, &doi) {
         (Some(i), _) => format!("p-openalex-{}", i),
@@ -106,7 +111,10 @@ fn map_to_paper(w: OaWork) -> Option<Paper> {
             .into_iter()
             .filter_map(|a| a.author.and_then(|x| x.display_name))
             .collect(),
-        abstract_: w.abstract_inverted_index.as_ref().and_then(rebuild_abstract),
+        abstract_: w
+            .abstract_inverted_index
+            .as_ref()
+            .and_then(rebuild_abstract),
         doi,
         source: "openalex".to_string(),
         source_id: oa_id,
@@ -172,7 +180,12 @@ mod tests {
     #[test]
     fn rebuilds_abstract_from_inverted_index() {
         let r: OaResponse = serde_json::from_str(SAMPLE).expect("json");
-        let p = r.results.into_iter().filter_map(map_to_paper).next().unwrap();
+        let p = r
+            .results
+            .into_iter()
+            .filter_map(map_to_paper)
+            .next()
+            .unwrap();
         assert_eq!(
             p.abstract_.as_deref(),
             Some("Despite growing interest in Open Access in publishing")
@@ -212,7 +225,12 @@ mod tests {
           }]
         }"#;
         let r: OaResponse = serde_json::from_str(json).expect("json");
-        let p = r.results.into_iter().filter_map(map_to_paper).next().unwrap();
+        let p = r
+            .results
+            .into_iter()
+            .filter_map(map_to_paper)
+            .next()
+            .unwrap();
         assert_eq!(p.published_at.as_deref(), Some("2020-01-01T00:00:00Z"));
         assert!(p.doi.is_none());
         assert!(p.abstract_.is_none());

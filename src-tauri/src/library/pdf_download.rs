@@ -79,7 +79,10 @@ fn emit_progress(app: &tauri::AppHandle, payload: &DownloadProgressPayload) {
 fn resolve_from_paper(paper: &crate::search::Paper) -> Option<String> {
     if let Some(doi) = paper.doi.as_deref().filter(|s| !s.is_empty()) {
         // doi.org redirect resolves to the publisher landing page
-        return Some(format!("https://doi.org/{}", doi.trim_start_matches("doi:")));
+        return Some(format!(
+            "https://doi.org/{}",
+            doi.trim_start_matches("doi:")
+        ));
     }
     if let Some(url) = paper.source_url.as_deref().filter(|s| !s.is_empty()) {
         return Some(url.to_string());
@@ -126,12 +129,11 @@ pub async fn resolve_paper_url(
     paper_id: String,
 ) -> Result<Option<String>, String> {
     let pool = state.db_pool.clone();
-    let paper = tokio::task::spawn_blocking(move || {
-        crate::library::db_get_paper_by_id(&pool, &paper_id)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())?;
+    let paper =
+        tokio::task::spawn_blocking(move || crate::library::db_get_paper_by_id(&pool, &paper_id))
+            .await
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
     Ok(paper.as_ref().and_then(resolve_from_paper))
 }
 
@@ -265,7 +267,9 @@ pub async fn download_paper_pdf(
     }
     let total = resp.content_length();
 
-    let mut file = tokio::fs::File::create(&tmp).await.map_err(|e| e.to_string())?;
+    let mut file = tokio::fs::File::create(&tmp)
+        .await
+        .map_err(|e| e.to_string())?;
     let mut received: u64 = 0;
     let mut last_percent: i32 = -1;
     let mut stream = resp.bytes_stream();
@@ -328,12 +332,10 @@ pub async fn download_paper_pdf(
     let pool2 = state.db_pool.clone();
     let pid_for_update = paper_id.clone();
     let dest_for_update = dest_str.clone();
-    tokio::task::spawn_blocking(move || {
-        db_set_pdf_path(&pool2, &pid_for_update, &dest_for_update)
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(|e| e.to_string())?;
+    tokio::task::spawn_blocking(move || db_set_pdf_path(&pool2, &pid_for_update, &dest_for_update))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
 
     clear_cancelled(&paper_id).await;
     emit_progress(

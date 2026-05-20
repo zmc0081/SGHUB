@@ -43,8 +43,7 @@ pub(crate) fn build_messages_for_api(
     }
 
     // 2. Past messages (ASC)
-    let history =
-        db_list_messages(pool, session_id, 500, None).map_err(|e| e.to_string())?;
+    let history = db_list_messages(pool, session_id, 500, None).map_err(|e| e.to_string())?;
     for m in history {
         messages.push(Message {
             role: m.role,
@@ -53,8 +52,7 @@ pub(crate) fn build_messages_for_api(
     }
 
     // 3. Current input + attachments
-    let attachments =
-        db_get_attachments(pool, attachment_ids).map_err(|e| e.to_string())?;
+    let attachments = db_get_attachments(pool, attachment_ids).map_err(|e| e.to_string())?;
     let composed_input = compose_user_input(current_input, &attachments);
     messages.push(Message {
         role: "user".into(),
