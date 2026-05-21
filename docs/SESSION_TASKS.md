@@ -1071,9 +1071,10 @@ git push --tags
 
 ---
 
-## M2.1.0 · 体验打磨与设置完善(Week 22-25)
+## M2.1.0 · 体验打磨与设置完善(Week 22-25)【已完成】
 
-> V2.1.0 在 V2.0.1 已发布的基础上,聚焦设置体系完善、多语言基础设施、Token 统计启用、以及一个有产品价值的 Skill 自然语言生成器。
+> 【版本说明】此版本原编号 V2.0.2,现正式发布为 **V2.1.0**,已开发完成并上线。
+> 内容:设置体系完善、多语言基础设施、Token 统计启用、Skill 自然语言生成器。
 > 配套文档:PRD V2.1.0 / 架构方案 V2.1.0 / 实施方案 V2.1.0。
 
 ### 在开始 Session 19 之前
@@ -1086,14 +1087,14 @@ git pull
 git checkout -b feature/v2.1.0
 ```
 
-所有 V2.1.0 的 Session 都在 `feature/v2.1.0` 分支上做,完成后再合并到 main 发布。
+所有该版本的 Session 都在 `feature/v2.1.0` 分支上做,完成后再合并到 main 发布。
 
 ---
 
 ### Session 19: 菜单顺序调整 + 移除自动备份
 
 ```
-读取 CLAUDE.md。本次任务是 V2.1.0 的快赢任务,改两个地方:
+读取 CLAUDE.md。本次任务是 V2.0.2 的快赢任务,改两个地方:
 
 任务一:左侧菜单顺序调整 + 新增 Skill 管理入口
 
@@ -1123,7 +1124,7 @@ git checkout -b feature/v2.1.0
 
 任务三:同步更新文档
 
-- 修改 docs/PRD V2.1.0 或 docs/changelog.md(如有)中关于"自动备份"的描述,删除相关条款
+- 修改 docs/PRD V2.0.2 或 docs/changelog.md(如有)中关于"自动备份"的描述,删除相关条款
 - 修改 CLAUDE.md 的"数据目录"章节,移除 backups/ 子目录(因为不再自动写入)
 
 最后运行 npm run build 与 cargo clippy -- -D warnings 确保通过。
@@ -1313,7 +1314,7 @@ git checkout -b feature/v2.1.0
 ### Session 22: 数据目录可配置 + 迁移逻辑
 
 ```
-读取 CLAUDE.md。本次任务实现数据目录可配置功能,这是 V2.1.0 最复杂的一项。
+读取 CLAUDE.md。本次任务实现数据目录可配置功能,这是 V2.0.2 最复杂的一项。
 关键设计:数据目录路径本身的配置不能存在数据目录里(否则循环依赖),必须存放在
 OS 标准配置目录(Windows: %APPDATA%\sghub-config\;macOS: ~/Library/Preferences/sghub/)。
 
@@ -1541,7 +1542,7 @@ OS 标准配置目录(Windows: %APPDATA%\sghub-config\;macOS: ~/Library/Preferen
 ### Session 24: Skill 自然语言生成器 ⭐
 
 ```
-读取 CLAUDE.md 与 skills/general_read.yaml。本次任务实现 V2.1.0 的核心新功能:
+读取 CLAUDE.md 与 skills/general_read.yaml。本次任务实现 V2.0.2 的核心新功能:
 用自然语言描述需求,自动生成符合 SGHUB Skill 规范的 YAML。
 参考 Claude.ai 的 Skills 构建体验(对话式 Skill 创建)。
 
@@ -1665,20 +1666,20 @@ OS 标准配置目录(Windows: %APPDATA%\sghub-config\;macOS: ~/Library/Preferen
 
 ---
 
-### V2.1.0 收尾:Beta + 发布
+### V2.0.2 收尾:Beta + 发布
 
 完成 Session 19-24 后,进入 Beta 与发布阶段:
 
-1. 合并 feature/v2.1.0 到 main:
+1. 合并 feature/v2.0.2 到 main:
 ```cmd
 git checkout main
-git merge --no-ff feature/v2.1.0
+git merge --no-ff feature/v2.0.2
 git push
 ```
 
 2. 打 Beta tag:
 ```cmd
-git tag v2.1.0-beta.1
+git tag v2.0.2-beta.1
 git push --tags
 ```
 
@@ -1691,7 +1692,7 @@ git push --tags
 
 5. 正式发布:
 ```cmd
-git tag v2.1.0
+git tag v2.0.2
 git push --tags
 ```
 
@@ -1748,18 +1749,512 @@ git push
 
 ---
 
-## V2.1.0 Session 速查
+## V2.1.0 Session 速查（原 V2.0.2,已完成上线）
+
+| Session | 主题 | 预估时长 |
+|---------|------|---------|
+| 19 | 菜单顺序调整 + 移除自动备份 | 0.5 天 |
+| 20 | 多语言基础设施(5 语言 + 跟随系统) | 1 周 |
+| 21 | 自动更新调度配置(开关 + 频率 + 时间) | 3 天 |
+| 22 | 数据目录可配置 + 迁移逻辑 | 1 周 |
+| 23 | Token 统计写入 + 近 7 天展示 | 0.5 周 |
+| 24 | Skill 自然语言生成器 | 1 周 |
+
+**总计**: ~4 周(已完成)
+
+---
+
+## M2.2.1 · UI 重构后的优化 + AI Store 模块(Week 26-29)
+
+> 【版本说明】V2.1.0(原 V2.0.2,Session 19-24)已发布并稳定;
+> V2.2.0 已上线 — UI 整体重构为 **SGHUB Capsule** 设计语言(深海军蓝 `#1F2E4D` 主按钮 +
+> 靛蓝紫 `#4F46E5` 次级 + 999px 胶囊主义 + 16px 大圆角柔阴影 + 紫蓝光晕氛围)。
+> 详见 `docs/ui-design/design-style-spec.md` 与 `docs/ui-design/3-specs/component-specs.md`。
+>
+> V2.2.1 是基于 V2.2.0 的优化迭代,包含:
+> 全局品牌与文案调整、侧边栏折叠、隐私协议、版权信息、Bug 修复,以及 AI Store 模块对接。
+>
+> **重要前提**:本版本所有 UI 改动**必须遵循 V2.2 SGHUB Capsule 设计规范**。
+> 每个 Session 开始时,Claude Code 必须读取下列三份文件确认设计约束:
+> 1. `CLAUDE.md` — 项目上下文、技术栈、目录结构
+> 2. `docs/ui-design/design-style-spec.md` — 5 大视觉支柱 + 完整 token 表 + 反模式 12 条
+> 3. `docs/ui-design/3-specs/component-specs.md` — 15 个组件 PropsAPI / states / a11y
+>
+> 严禁出现的反模式(违反任一条均需返工):
+> - 硬编码 `#XXXXXX` 色值(全部走 token,如 `bg-navy / text-fg-1 / shadow-card`)
+> - emoji 当图标(用 Lucide 替代,参见 `docs/ui-design/3-specs/icon-map.md`)
+> - `window.confirm/prompt/alert`(用 `confirmAsync/promptAsync` 替代)
+> - 单行元素非 999px 圆角(button / input / badge / chip 一律 `rounded-pill`)
+> - 卡片用 border 代替 shadow(必须 `shadow-card` 双层柔阴影)
+
+> **关键边界**:AI 中转服务是独立项目 **SG AI Store**(域名 sgaistore.com,版本 V1.0.0 起独立演进),
+> **不在 SGHUB 项目范围内**。SGHUB 客户端只作为消费方,通过 SG AI Store 的公开 API 同步商品、
+> 展示已购买模型的用量与余额。开发阶段先用 mock 数据。
+
+### 本次需求清单
+
+| 编号 | 需求 | 所属 Session |
+|------|------|-------------|
+| R1 | 产品名称统一调整为 "SG Hub" | Session 25 |
+| R2 | 去除"添加模型"按钮前的加号、"订阅+新建"按钮前的加号 | Session 25 |
+| R3 | "收藏夹"更名为"文献数据库" | Session 25 |
+| R4 | 全部 emoji 图标去除/隐藏,改用图标库或纯文字 | Session 25 |
+| R5 | Bug 修复:非默认模型解析失败 | Session 25 |
+| R6 | 左侧导航栏支持折叠/伸缩 | Session 26 |
+| R7 | 左侧导航栏底部新增版权信息 | Session 26 |
+| R8 | 设置-数据管理下新增"隐私协议"(内置中英文说明) | Session 27 |
+| R9 | AI Store 模块 - 商品展示 + 同步(模拟数据) | Session 28 |
+| R10 | SG AI Store 模型接入 + 余额展示 | Session 29 |
+
+### 在开始 Session 25 之前
+
+确认 V2.1.0 已发布并稳定,本地分支已同步:
+```cmd
+cd D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub
+git checkout main
+git pull
+git checkout -b feature/v2.2.1
+```
+
+⚠️ **每个 Session 开始时**:Claude Code 必须按本节开头(M2.2.1 preamble)列出的 3 份文件
+(CLAUDE.md / design-style-spec.md / component-specs.md)读取设计约束;后续 Session 25-29
+各自的开头还会列出当次任务需补充阅读的具体 spec 锚点。
+
+---
+
+### Session 25: Bug 修复 + 全局品牌与文案调整
+
+```
+读取 CLAUDE.md、docs/ui-design/design-style-spec.md、docs/ui-design/3-specs/icon-map.md。
+本次任务包含一个高优 Bug 修复和一组全局品牌/文案调整,所有 UI 改动严格遵循 V2.2
+SGHUB Capsule 设计规范(深海军蓝主按钮 + 999px 胶囊 + 16px 大圆角柔阴影 + Lucide 图标)。
+
+**强约束**:
+- R4 emoji 去除必须按 docs/ui-design/3-specs/icon-map.md Table A 的 Lucide 映射执行,
+  不允许保留任何 emoji 字符(`grep -rPE '[\\x{1F300}-\\x{1F9FF}]|[\\x{2600}-\\x{27BF}]' src/` 应为 0;
+  Skill icon 用户输入字段除外)
+- R1/R3 品牌文案修改不允许新增硬编码颜色或圆角,沿用现有 token 类名
+- 所有 i18n key 命名空间只增不改
+
+== 第一部分:Bug 修复(优先,可先单独发热修复) ==
+
+问题:AI 解析只在使用"默认模型"时成功,切换到非默认模型(GPT-5/DeepSeek/Ollama)
+时解析失败或无输出。
+
+排查与修复:
+1. 复现:配置 2+ 模型(Claude 默认,GPT-5 非默认),AI 解析切换到非默认模型,观察现象
+2. 代码审计(按可能性):
+   - skill_engine 的 start_parse:model_config_id 是否被覆盖为默认?
+   - ai_client/mod.rs 路由:provider 是否正确分发到 openai/anthropic/ollama?是否 hardcode Anthropic?
+   - ai_client/openai.rs 与 ollama.rs:SSE 解析、请求头是否正确?
+   - 前端 Parse 页:invoke 时是否传对 model_config_id?
+3. 测试矩阵(5 模型 × 3 场景 = AI解析/Chat/Skill测试):全部验证
+4. 写集成测试 src-tauri/tests/parse_with_all_providers.rs(用 wiremock 模拟三种 Provider)
+5. 错误信息改进:区分"Key 无效/超时/不支持流式/上下文过长",失败时显示模型名
+6. 日志增强:chat_stream 入口记录 provider/endpoint/model_id
+
+== 第二部分:全局品牌与文案调整 ==
+
+R1 - 产品名称统一为 "SG Hub":
+- 全局检索所有 "SGHUB" / "Sghub" / "sghub"(展示文案部分)替换为 "SG Hub"
+- 注意区分:
+  * 用户可见的展示文案 → 改为 "SG Hub"(带空格)
+  * 代码标识符 / 包名 / bundle identifier(com.sghub.app)/ 数据目录 / 域名 → 保持不变(不要改坏构建)
+  * 窗口标题、关于页、侧栏 Logo、README 标题 → "SG Hub"
+- tauri.conf.json 的 productName 改为 "SG Hub"(确认不影响已安装用户的数据目录路径)
+
+R3 - "收藏夹"更名为"文献数据库":
+- 全局检索 UI 文案中的"收藏夹" → "文献数据库"
+- 侧栏导航项、页面标题、相关提示文案、i18n 语言包(zh-CN/zh-TW/en-US/ja-JP/fr-FR)
+- 英文:"Favorites" → "Literature Database"(或 "Library")
+- 路由路径可保持 /library 不变(避免破坏跳转),仅改显示名
+
+R4 - 去除/隐藏所有 emoji 图标:
+- 重构后 UI 中的 emoji(如 🔍 📰 ⭐ 🧠 🤖 ⚙️ 💬 ✨ 🛒 等)全部移除
+- 替换策略(读 CLAUDE.md 确认重构后用的图标方案):
+  * 若已引入图标库(如 lucide-react / heroicons)→ 用对应的线性图标替换 emoji
+  * 若无图标库 → 移除 emoji,仅保留文字;或引入 lucide-react 统一替换
+- 涉及范围:侧栏导航、按钮、卡片标题、Toast、空状态插画、设置项
+- 保持视觉一致:所有图标统一用一套图标库,粗细/尺寸一致
+
+R2 - 去除按钮前的加号:
+- 模型配置页:"添加模型"按钮去掉前面的加号(+),只保留文字"添加模型"
+- 今日推送页:"订阅"/"新建"按钮去掉前面的加号
+- 注意:这里是去掉视觉上的 "+" 符号或 plus 图标,按钮功能不变
+
+== 验证 ==
+- Bug 修复:5×3 测试矩阵全部通过
+- 全局无 "SGHUB"(展示文案)、无"收藏夹"、无 emoji、无多余加号
+- cargo test + npm run build 通过
+- 五种语言包都已同步更新文案
+
+== 注意 ==
+本次涉及大量文案替换,务必区分"展示文案"与"代码标识符",
+不要把 bundle id、包名、数据目录路径、域名等技术标识符也改了导致构建失败。
+```
+
+验证:
+- AI 解析非默认模型修复,测试矩阵通过
+- 全局品牌统一为 "SG Hub",收藏夹改文献数据库,emoji 清除,加号去除
+- `git commit -m "feat: session 25 - bugfix + global rebrand to SG Hub, remove emoji/plus"`
+- 可先就 Bug 修复部分单独打 tag 发 v2.2.1-alpha 热修复
+
+---
+
+### Session 26: 左侧导航栏折叠/伸缩 + 版权信息
+
+```
+读取 CLAUDE.md、docs/ui-design/design-style-spec.md、docs/ui-design/3-specs/component-specs.md §A.2 Sidebar。
+所有 UI 改动严格遵循 V2.2 SGHUB Capsule 设计规范(侧栏 bg = `--sidebar-bg` 深海军蓝,active-bar
+= `--sidebar-active-bar` 靛紫,不是 V2.1 的芥黄)。
+本次任务让左侧导航栏支持折叠/伸缩,
+并在底部新增版权信息。
+
+R6 - 左侧导航栏折叠/伸缩:
+1. 在侧边栏组件(读 CLAUDE.md 确认重构后的文件路径,可能是 src/components/Sidebar.tsx
+   或重构后的新组件)实现两种状态:
+   - 展开态(默认):宽度约 220px,显示图标 + 文字
+   - 折叠态:宽度约 60px,只显示图标(文字隐藏),hover 时 tooltip 显示名称
+2. 折叠/展开切换:
+   - 在侧栏顶部或底部放一个折叠切换按钮(双箭头图标,用图标库,非 emoji)
+   - 点击平滑动画切换宽度(CSS transition,约 200ms)
+   - 折叠态下导航项居中显示图标
+3. 状态持久化:
+   - 折叠状态存入应用配置(AppConfig 新增 sidebar_collapsed: bool)
+   - 或存入前端持久层(注意:artifact 环境禁用 localStorage,但 Tauri 应用可用 Tauri Store
+     插件或写入 config.toml)→ 推荐写入 config.toml
+   - 下次启动恢复上次的折叠状态
+4. 响应式:
+   - 窗口宽度过小时(< 900px)可自动折叠
+   - 主内容区宽度随侧栏宽度自适应
+5. 折叠态下的细节:
+   - 用户菜单 / 版权信息在折叠态下的展示形态(可简化为图标或隐藏文字)
+   - 当前选中项的高亮在折叠态下仍然清晰
+
+R7 - 左侧导航栏底部版权信息:
+1. 在侧边栏最底部(所有导航项下方)固定展示版权信息:
+   - 文案:Copyright © Star Technology. All Rights Reserved
+   - 样式:小字号(11-12px),低饱和度颜色(次要文字色),居中或左对齐
+2. 折叠态下:
+   - 可简化为 "© Star Technology" 或只显示 "©" 图标
+   - 或在折叠态下隐藏,展开态才显示
+3. 位置:用 flex 布局让版权信息 sticky 在侧栏底部,不随导航列表滚动
+
+== 验证 ==
+- 侧栏可平滑折叠/展开,状态持久化(重启恢复)
+- 折叠态图标居中 + tooltip 正常
+- 底部版权信息正确显示
+- 主内容区随侧栏宽度自适应
+- cargo build + npm run build 通过
+
+== 注意 ==
+先读 CLAUDE.md 确认 UI 重构后侧栏的实际组件名与样式方案(可能用了新的 CSS 方案或组件库),
+基于最新结构修改,不要假设旧的目录结构。
+```
+
+验证:
+- 侧栏折叠/伸缩流畅,状态持久化
+- 版权信息正确展示
+- `git commit -m "feat: session 26 - collapsible sidebar + copyright"`
+
+---
+
+### Session 27: 设置增强 - 隐私协议页(中英文)
+
+```
+读取 CLAUDE.md、docs/ui-design/design-style-spec.md、docs/ui-design/3-specs/component-specs.md
+(§C.1 Buttons、§C.2 Inputs、§B.2 BaseModal — 如需弹窗展示协议长文则用 BaseModal 而非 alert)。
+所有 UI 改动严格遵循 V2.2 SGHUB Capsule 设计规范(`card-khx` + `text-h3` 标题 + `text-body` 正文,
+带语言切换按钮的 chip 用 `rounded-pill`)。
+本次任务在设置的"数据管理"下方
+新增一项"隐私协议",内置中英文隐私协议说明。
+
+R8 - 隐私协议:
+1. 在设置页(读 CLAUDE.md 确认重构后的 Settings 组件路径)的"数据管理"卡片下方,
+   新增一个"隐私协议"卡片/入口
+2. 交互形式(二选一,推荐 b):
+   a. 内联展开:点击"隐私协议"展开/折叠完整协议文本
+   b. 弹窗/独立页:点击打开一个隐私协议页面或 Modal,展示完整协议
+3. 中英文切换:
+   - 协议正文跟随应用当前语言(i18n)显示对应语言版本
+   - 至少提供中文(zh-CN)与英文(en-US)两个完整版本
+   - 顶部提供语言切换(中文 / English)按钮,方便用户对照
+4. 隐私协议内容(内置,需涵盖):
+   - 数据存储:所有文献、Skill、Chat 历史、PDF 均存储在用户本地,SG Hub 不上传
+   - BYOK 模式:用户配置自己的 API Key 时,请求直连模型提供商,不经过任何 SG Hub 服务器
+   - AI Store 模式:使用 SG AI Store 模型时,请求经 sgaistore.com 网关代理,
+     网关仅记录用量元数据(token 数/时间),不存储论文内容
+   - API Key 安全:存储在操作系统密钥链(Keychain/Credential Manager),不写明文
+   - 第三方服务:文献检索 API、AI 模型 API 的数据流向说明
+   - 用户权利:数据导出、删除、数据目录迁移
+   - 联系方式 / 更新日期
+5. 文案存储:
+   - 协议正文可以作为独立的 markdown/json 资源文件内置(如 src/assets/privacy/zh-CN.md、en-US.md)
+   - 也可放入 i18n 语言包(但协议较长,建议独立文件 + 渲染为富文本)
+   - 用 react-markdown 渲染,支持标题、列表、加粗
+
+== 验证 ==
+- 设置-数据管理下出现"隐私协议"入口
+- 点击可查看完整协议,中英文切换正常
+- 协议内容涵盖本地存储、BYOK、AI Store、Keychain 等关键点
+- npm run build 通过
+
+== 注意 ==
+隐私协议内容应与 SG Hub 实际的数据处理方式一致,不要写不实承诺。
+正式发布前建议由法务审阅协议文本。
+```
+
+验证:
+- 隐私协议入口与内容正确,中英文可切换
+- `git commit -m "feat: session 27 - privacy policy page"`
+
+---
+
+### Session 28: AI Store 模块 - 商品展示 + 同步(模拟数据)
+
+```
+读取 CLAUDE.md、docs/ui-design/design-style-spec.md、docs/ui-design/3-specs/component-specs.md。
+新页面所有 UI 严格遵循 V2.2 SGHUB Capsule 设计规范:
+- 商品卡片用 `card-khx`(16px 圆角 + `shadow-card` 双层柔阴影,**不能**改用 border-only)
+- Hero 区 / 空状态用 `<Stage>` 组件(`docs/ui-design/3-specs/component-specs.md §B.6`,紫蓝光晕氛围)
+- 主操作按钮用 `bg-navy`(`#1F2E4D`,SGHUB Capsule 唯一深色 CTA,**不能**用靛紫)
+- 价格/标签 chip 用 `rounded-pill` + `badge-khx-{update,improve,bug,new}` 4 语义色之一
+- 图标全部走 Lucide(参 `docs/ui-design/3-specs/icon-map.md`),provider 自绘图标用
+  `src/assets/icons/provider-*.svg`
+
+本次任务新增 AI Store 模块,
+展示来自 SG AI Store(sgaistore.com)的商品并实现同步。开发阶段用模拟数据。
+
+1. 侧栏新增 AI Store 入口(位置:模型配置与设置之间):
+   读 CLAUDE.md 确认重构后的导航组件,在导航列表中插入"AI Store"(用图标库图标,非 emoji)
+   位置在"模型配置"之后、"设置"之前。
+
+2. 路由:
+   - /store - AI Store 首页(商品列表)
+   - /store/product/:id - 商品详情
+
+3. API 契约(src/lib/sgAiStoreApi.ts)- 与 SG AI Store 的协作接口:
+   interface SgStoreProduct {
+     id: string;
+     name: Record<string,string>;        // i18n
+     description: Record<string,string>;
+     icon_url: string;
+     model_provider: string;
+     model_id: string;
+     billing_period: 'monthly' | 'yearly';
+     price_cny: number; price_usd: number;
+     token_quota: number;
+     features: Record<string,string[]>;
+     tags: string[]; popular: boolean;
+     purchase_url: string;
+   }
+   interface SgStoreBalance {
+     balance_cny: number; remaining_tokens: number;
+     subscription: { product_name: string; expires_at: string; auto_renew: boolean } | null;
+     usage_24h: { tokens_in: number; tokens_out: number; call_count: number };
+   }
+   - base URL 默认 https://sgaistore.com
+   - USE_MOCK_DATA 开关,开发阶段返回 mock
+
+4. 模拟数据(src/pages/store/mockData.ts):6 个商品
+   - Claude Opus 月度包(50M / ¥199)、Claude Opus 年度包(700M / ¥1999)
+   - Claude Sonnet 月度包(200M / ¥99)、GPT-5 月度包(100M / ¥159)
+   - DeepSeek V3 月度包(500M / ¥49)、全模型混合包(¥299)
+
+5. Rust 侧 - 商品同步(src-tauri/src/ai_store/):
+   a) products.rs:V00X migration 新增表 ai_store_products(字段对应 SgStoreProduct + synced_at)
+      - 本地缓存 + ETag,get_cached_products()/sync_products()
+   b) sse_listener.rs:SSE 连接 sgaistore.com/api/products/stream
+      - 监听 products-updated → sync_products();heartbeat 保活;断线指数退避重连
+      - emit 'ai_store:products_updated';mock 模式用定时器模拟
+   c) sync_strategy.rs:启动后 5 秒首同步 / 进入 /store 超 5 分钟再同步 / SSE 推送立即同步 / 离线降级
+
+6. Tauri Commands:ai_store_get_products / ai_store_sync_now / ai_store_get_sync_status
+
+7. AI Store 首页(src/pages/store/StoreHome.tsx):
+   - 标题区"AI Store"(无 emoji),副标题"无需申请 API Key,购买即用"
+   - 提示:"BYOK 用户继续可用 - AI Store 是可选服务"
+   - 右上角同步状态指示器(已同步/同步中/离线)+ 手动同步按钮
+   - 推荐区(popular 商品)+ 商品网格(按 provider 分组)
+   - 商品卡片:图标 + 名称 + 价格 + 配额 + 卖点 + "查看详情"
+   - 底部隐私 disclosure(使用 AI Store 模型时请求经 sgaistore.com 网关)
+   - 视觉风格遵循 UI 重构后的设计系统(读 CLAUDE.md),不使用 emoji
+
+8. 商品详情页(src/pages/store/ProductDetail.tsx):
+   - 左:大图 + 描述 + 完整卖点 + 配额参考 + FAQ
+   - 右 sticky:价格 + "立即购买"按钮 + 配额清单 + 条款链接
+
+9. 购买跳转:
+   - 点击"立即购买" → 确认对话框 → tauri-plugin-shell 打开 purchase_url
+   - 主窗口顶部非阻塞横幅:"已打开购买页 → 购买后前往模型配置接入 Key"
+
+10. 国际化:商品文案根据当前 i18n 语言读取
+
+== 验证 ==
+- AI Store 出现在侧栏(模型配置与设置之间),无 emoji
+- mock 商品正常展示;同步状态指示器工作;模拟 SSE 触发刷新
+- 购买跳转打开浏览器
+- cargo test + npm run build 通过
+```
+
+验证:
+- AI Store 模块完整,mock 数据展示正常
+- `git commit -m "feat: session 28 - ai store module with product sync"`
+
+---
+
+### Session 29: SG AI Store 模型接入 + 余额展示
+
+```
+读取 CLAUDE.md、docs/ui-design/design-style-spec.md、docs/ui-design/3-specs/component-specs.md。
+本次任务把 SG AI Store 接入模型配置中心,购买 Key 后可直接使用,并展示实时余额/用量。
+开发阶段余额查询用 mock 数据。
+
+所有 UI 严格遵循 V2.2 SGHUB Capsule 设计规范:
+- 模型卡片用 `card-khx`,**不能**自创视觉风格
+- 余额徽章用 `badge-khx-improve`(绿,充足)/`badge-khx-new`(橙黄,<20%)/
+  `badge-khx-bug`(红,<10%)/`badge-default`(灰,耗尽)4 种,**不能**新增第 5 色
+- "前往充值" 弹窗用 `confirmAsync({ variant: 'danger', ... })`,**不能**用 `window.confirm`
+- "余额不足" 引导横幅用 `bg-warning-bg text-warning-fg-strong border-warning-border`(token,非硬编码)
+- SG AI Store 标签图标用 Lucide `Store` 或自绘 SVG(放 `src/assets/icons/`),**不能**用 🏬 emoji
+- 引导接入 Key 的输入框 + 按钮组用 `input-khx` + `btn-khx-primary` 套路
+
+1. 模型配置中心新增 "SG AI Store" Provider 预设:
+   - 名称:SG AI Store(推荐:无需自己申请 API Key)
+   - 标签图标:Lucide `Store` 或自绘 SVG(`src/assets/icons/sg-ai-store.svg`)
+   - 预填:Provider=openai 兼容,Endpoint=https://sgaistore.com/v1
+   - 用户填:Model ID(从已购商品下拉)+ API Key(从 sgaistore.com 复制)
+   - 显示名自动生成:"{product} (SG AI Store)"
+
+2. 数据模型扩展(V00X migration):
+   ALTER TABLE model_configs ADD COLUMN is_sg_ai_store INTEGER NOT NULL DEFAULT 0;
+   ALTER TABLE model_configs ADD COLUMN balance_cny REAL;
+   ALTER TABLE model_configs ADD COLUMN remaining_tokens INTEGER;
+   ALTER TABLE model_configs ADD COLUMN subscription_expires_at TEXT;
+   ALTER TABLE model_configs ADD COLUMN balance_synced_at TEXT;
+   - endpoint 含 "sgaistore.com" 时自动标记 is_sg_ai_store=1
+
+3. Rust 侧 - 余额查询(src-tauri/src/ai_store/billing.rs):
+   - ai_store_get_balance(model_config_id):从 keychain 取 Key →
+     GET https://sgaistore.com/api/billing/balance, Bearer xxx → 更新本地余额字段
+     (开发阶段用 mock 返回)
+   - ai_store_refresh_all_balances()
+   - 自动刷新:启动后 10 秒 / 进入模型配置页 / AI 调用完成后 / 每小时
+
+4. 模型卡片增强(读 CLAUDE.md 确认重构后的 Models 页结构):
+   SG AI Store 模型卡片额外显示:
+   - 顶部标签:SG AI Store(图标库图标,非 emoji)
+   - 余额徽章(右上角):绿(充足)/橙(<20%)/红(<10%)/灰(耗尽)
+   - 订阅到期时间
+   - 24h 用量小条:"今日 ¥1.23 · 12 次调用"
+   - 操作按钮:余额详情(打开 sgaistore.com/dashboard)/ 充值(sgaistore.com/topup)
+
+5. 余额不足拦截(src-tauri/src/ai_client/mod.rs):
+   - 若 is_sg_ai_store=1 且 balance_cny < 1.0 或 remaining_tokens < 1000:
+     * 返回 InsufficientBalance 错误
+     * 前端弹窗:"余额不足,前往充值后继续使用" [前往充值] [换个模型] [取消]
+     * "前往充值" → 打开 sgaistore.com/topup?key=sk-xxx
+
+6. 引导接入 Key:
+   - 购买后回 SG Hub,点击横幅 → 模型配置页
+   - 顶部引导卡片(若无 SG AI Store 模型):
+     "刚在 SG AI Store 完成购买?粘贴 API Key 立即使用:[输入框] [添加并测试]"
+   - 粘贴 Key 后:验证有效性 → 推断 model_provider/model_id → 创建 ModelConfig(Key 存 keychain)
+     → Toast "模型已添加,余额 ¥{X}"
+
+7. 隐私提示:
+   - 首次使用 SG AI Store 模型前一次性弹窗:
+     "你正在使用 SG AI Store 模型。请求会经 sgaistore.com 网关转发,
+      网关不存储论文内容,仅记录用量元数据。[我已知晓] [取消]"
+   - 设置页隐私区新增开关:"Chat/AI 解析中禁用 SG AI Store 模型"
+
+8. 测试场景:
+   a) 完整闭环:AI Store 浏览 → 跳转购买(浏览器)→ 回 SG Hub 接入 Key → Chat 使用
+   b) 余额变化:聊天后余额徽章实时更新
+   c) 余额耗尽:触发拦截,引导充值
+   d) 隐私豁免:设置开启后 Chat 下拉隐藏 AI Store 模型
+   e) 离线:展示缓存余额 + 离线提示
+
+== 验证 ==
+- 完整闭环可用(mock 数据)
+- 余额徽章颜色阈值正确,余额不足引导流畅
+- cargo test 通过
+```
+
+验证:
+- 完整闭环可用,余额展示正确
+- `git commit -m "feat: session 29 - sg ai store integration with balance"`
+
+---
+
+### V2.2.1 收尾:Beta + 发布
+
+完成 Session 25-29 后:
+
+1. 合并 feature/v2.2.1 到 main:
+```cmd
+git checkout main
+git merge --no-ff feature/v2.2.1
+git push
+```
+
+2. 打 Beta tag → GitHub Releases prerelease → 邀请 V2.1.0 用户测试
+
+3. Beta 期重点:
+   - Bug 修复回归(非默认模型解析)
+   - 品牌文案是否全部统一(无遗漏的 SGHUB / 收藏夹 / emoji)
+   - 侧栏折叠在不同窗口尺寸下的表现
+   - 隐私协议中英文展示
+   - AI Store 同步与余额(mock 数据下)
+
+4. 等 SG AI Store(sgaistore.com)上线后,把 mock 切换为真实 API 联调,通过后发正式版:
+```cmd
+git tag v2.2.1
+git push --tags
+```
+
+5. 公告:品牌升级 SG Hub + UI 优化(侧栏折叠等)+ Bug 修复 + 新增 AI Store 模块 + 隐私协议
+
+---
+
+## V2.2.1 Session 速查
 
 | Session | 主题 | 对应需求 | 预估时长 |
 |---------|------|---------|---------|
-| 19 | 菜单顺序调整 + 移除自动备份 | R4 + R6(快赢) | 0.5 天 |
-| 20 | 多语言基础设施(5 语言 + 跟随系统) | R3 | 1 周 |
-| 21 | 自动更新调度配置(开关 + 频率 + 时间) | R2 | 3 天 |
-| 22 | 数据目录可配置 + 迁移逻辑 | R1 | 1 周 |
-| 23 | Token 统计写入 + 近 7 天展示 | R5 | 0.5 周 |
-| 24 | Skill 自然语言生成器 ⭐ | R7 | 1 周 |
+| 25 | Bug 修复 + 全局品牌与文案调整 | R1/R2/R3/R4/R5 | 1 周 |
+| 26 | 左侧导航栏折叠/伸缩 + 版权信息 | R6/R7 | 0.5 周 |
+| 27 | 设置增强 - 隐私协议页(中英文) | R8 | 0.5 周 |
+| 28 | AI Store 模块 - 商品展示 + 同步(模拟数据) | R9 | 1 周 |
+| 29 | SG AI Store 模型接入 + 余额展示 | R10 | 0.5-1 周 |
 
-**总计**: ~4 周(与实施方案 V2.1.0 一致)
+**总计**: 约 3.5-4 周
+
+**需求映射**:
+| 编号 | 需求 |
+|------|------|
+| R1 | 产品名称统一为 "SG Hub" |
+| R2 | 去除"添加模型"/"订阅·新建"按钮前的加号 |
+| R3 | "收藏夹" 更名为 "文献数据库" |
+| R4 | 去除/隐藏全部 emoji 图标(改用图标库或文字) |
+| R5 | Bug 修复:非默认模型解析失败 |
+| R6 | 左侧导航栏支持折叠/伸缩 |
+| R7 | 导航栏底部版权:Copyright © Star Technology. All Rights Reserved |
+| R8 | 设置-数据管理下新增"隐私协议"(中英文) |
+| R9 | AI Store 模块 - 商品展示 + 同步 |
+| R10 | SG AI Store 模型接入 + 余额展示 |
+
+**核心边界与关键提醒**:
+- **UI 已重构**:每个 Session 开始前,Claude Code 必须先读 CLAUDE.md 确认重构后的最新结构
+- AI 中转服务是**完全独立项目 SG AI Store**(sgaistore.com,V1.0.0 起独立演进),不在 SGHUB 范围
+- SGHUB 客户端只作为消费方对接 SG AI Store 公开 API,开发阶段用 mock 数据
+- AI Store 模块位于侧栏"模型配置"与"设置"之间
+- 品牌文案区分:展示文案改 "SG Hub";代码标识符/包名/bundle id/数据目录/域名保持不变
+
+**两个项目的协作契约(API)**:
+- `GET https://sgaistore.com/api/products.json` - 商品列表(带 ETag)
+- `GET https://sgaistore.com/api/products/stream` - SSE 商品变更推送
+- `GET https://sgaistore.com/api/billing/balance` - 余额/用量查询(API Key 鉴权)
+- `https://sgaistore.com/v1` - OpenAI 兼容模型调用网关
 
 ---
 
@@ -1769,4 +2264,6 @@ git push
 |------|------------|------|------|
 | V2.0.0 | 1-12 | 桌面客户端核心功能基线 | 已发布 |
 | V2.0.1 | 13-18 | Chat + Skill 编辑 + 跨模块跳转 | 已发布 |
-| V2.1.0 | 19-24 | 设置完善 + 国际化 + Skill 智能生成 | 开发中 |
+| V2.1.0 | 19-24 | 设置完善 + 国际化 + Skill 智能生成(原 V2.0.2) | 已发布 |
+| V2.2.1 | 25-29 | UI 优化(改名 SG Hub/去 emoji/折叠侧栏/隐私协议)+ Bug 修复 + AI Store 模块 | 规划中 |
+
