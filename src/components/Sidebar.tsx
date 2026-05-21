@@ -116,11 +116,11 @@ export default function Sidebar() {
     <aside className="w-sidebar bg-sidebar-bg text-sidebar-fg flex flex-col overflow-hidden">
       <Link
         to="/"
-        aria-label="SGHUB home"
+        aria-label="SG Hub home"
         className="px-5 pt-5 pb-6 block focus:outline-none"
       >
         <div className="text-xl font-bold text-sidebar-fg-active tracking-wide-brand">
-          SGHUB
+          SG Hub
         </div>
         <div className="text-micro text-sidebar-fg/60 mt-1 tracking-wide">
           v2.2.0

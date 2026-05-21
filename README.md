@@ -1,8 +1,10 @@
-# SGHUB
+# SG Hub
 
 > AI 驱动的学术文献管理桌面应用 — 多源聚合检索 / 关键词订阅 / AI 结构化精读 / Skill 编排 / BYOK 多模型
 >
 > **AI-powered academic literature manager for researchers.** Open source, local-first, BYOK.
+>
+> 项目代号:`SGHUB`(GitHub 仓库名、包名、bundle id 等技术标识符保留),展示名统一为 **SG Hub**。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-v2.1.0-1F3864)](src-tauri/tauri.conf.json)
@@ -58,8 +60,8 @@
 
 前往 [Releases](https://github.com/zmc0081/SGHUB/releases/latest):
 
-- **Windows 10/11** — `SGHUB_2.1.0_x64-setup.exe`(NSIS 安装器)
-- **macOS 12+** — `SGHUB_2.1.0_universal.dmg`(Intel & Apple Silicon 通用)
+- **Windows 10/11** — `SG Hub_2.2.x_x64-setup.exe`(NSIS 安装器)
+- **macOS 12+** — `SG Hub_2.2.x_universal.dmg`(Intel & Apple Silicon 通用)
 
 > macOS 首次运行如提示「无法验证开发者」,右键 → 打开 → 允许即可。
 
@@ -71,7 +73,7 @@
 
 ## 🤖 模型配置(BYOK)
 
-SGHUB 不内置任何 AI 服务,需自带 Key。入口:**🤖 模型配置 → 添加模型**。
+SG Hub 不内置任何 AI 服务,需自带 Key。入口:**模型配置 → 添加模型**。
 
 | 提供商 | 默认 Endpoint | 获取 Key | 备注 |
 |---|---|---|---|
@@ -161,13 +163,13 @@ com.sghub.app/
 
 ### 自定义路径(NEW)
 
-`⚙️ 设置 → 数据存储位置 → 🔄 修改路径` 触发 3 步向导:
+`设置 → 数据存储位置 → 修改路径` 触发 3 步向导:
 
-1. **选目录** — 即时校验(空 / 已有 SGHUB 数据 / 禁用路径如系统根)
+1. **选目录** — 即时校验(空 / 已有 SG Hub 数据 / 禁用路径如系统根)
 2. **选模式** —
    - 把现有数据迁移过去
    - 在新路径从零开始(旧数据保留)
-   - 直接接管目标路径上已有的 SGHUB 数据
+   - 直接接管目标路径上已有的 SG Hub 数据
 3. **摘要确认** — 显示旧→新+模式,警示「迁移期间请勿关闭」
 
 迁移过程:
@@ -256,7 +258,7 @@ SG_Hub/
 
 ## 🌐 国际化(i18n)
 
-SGHUB 默认跟随系统语言;也可在「设置 → 语言」手动切换,无需重启。
+SG Hub 默认跟随系统语言;也可在「设置 → 语言」手动切换,无需重启。
 
 | Code  | Language     | Status                              |
 | ----- | ------------ | ----------------------------------- |
@@ -296,4 +298,4 @@ OS locale 如 `zh-TW` / `zh-HK` 解析为 zh-CN;其他语言解析为 en-US。
 
 ## License
 
-[MIT](LICENSE) © 2026 SGHUB Contributors
+[MIT](LICENSE) © 2026 SG Hub Contributors

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "SGHUB",
+  "productName": "SG Hub",
   "version": "2.1.0",
   "identifier": "com.sghub.app",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "SGHUB",
+        "title": "SG Hub",
         "width": 1280,
         "height": 800,
         "minWidth": 960,

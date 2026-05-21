@@ -61,7 +61,7 @@ export default function Titlebar() {
         data-tauri-drag-region
         className="flex-1 text-center text-meta font-medium tracking-wide-brand text-sidebar-fg-active"
       >
-        SGHUB
+        SG Hub
       </div>
 
       <div className="flex h-full" data-tauri-drag-region="false">

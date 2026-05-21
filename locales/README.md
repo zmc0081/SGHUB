@@ -1,4 +1,4 @@
-# SGHUB Locales
+# SG Hub Locales
 
 App-wide translation source files. The runtime loads these JSON files at
 startup; the active language is decided in this order:
