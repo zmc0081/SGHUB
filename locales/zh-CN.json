@@ -40,7 +40,9 @@
     "skills": "Skill 管理",
     "models": "模型配置",
     "settings": "设置",
-    "badge_new": "新"
+    "badge_new": "新",
+    "collapse": "折叠侧栏",
+    "expand": "展开侧栏"
   },
   "search": {
     "title": "文献检索",

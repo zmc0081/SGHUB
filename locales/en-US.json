@@ -40,7 +40,9 @@
     "skills": "Skills",
     "models": "Models",
     "settings": "Settings",
-    "badge_new": "NEW"
+    "badge_new": "NEW",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar"
   },
   "search": {
     "title": "Literature search",
