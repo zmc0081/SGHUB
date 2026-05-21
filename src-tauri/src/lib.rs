@@ -1,6 +1,7 @@
 use tauri::Manager;
 
 pub mod ai_client;
+pub mod ai_store;
 pub mod chat;
 pub mod config;
 pub mod db;
@@ -70,6 +71,13 @@ pub fn run() {
                     log::warn!("updater scheduler init failed: {}", e);
                 }
             });
+
+            // V2.2.1 Session 28 — AI Store catalog sync + SSE listener.
+            // Both spawn long-lived tokio tasks; both are mock-only in
+            // V2.2.1 (USE_MOCK_DATA = true in ai_store::sync_strategy)
+            // so they never hit the network.
+            ai_store::sync_strategy::start_scheduler(app.handle().clone());
+            ai_store::sse_listener::spawn(app.handle().clone());
 
             Ok(())
         })
@@ -169,6 +177,13 @@ pub fn run() {
             chat::upload_chat_attachment,
             chat::reference_paper_as_attachment,
             chat::send_chat_message,
+            // V2.2.1 Session 28 — AI Store (use full path: tauri::command
+            // macros expose a hidden __cmd__ companion at the function's
+            // original module path, which a `pub use` re-export doesn't
+            // carry along.)
+            ai_store::commands::ai_store_get_products,
+            ai_store::commands::ai_store_sync_now,
+            ai_store::commands::ai_store_get_sync_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

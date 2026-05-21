@@ -13,6 +13,7 @@ import {
   Settings,
   Sparkles,
   Star,
+  Store,
 } from "lucide-react";
 import { api } from "../lib/tauri";
 import { useT } from "../hooks/useT";
@@ -40,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/library", icon: Star, labelKey: "sidebar.library", badge: null },
   { to: "/skills", icon: Sparkles, labelKey: "sidebar.skills", badge: null },
   { to: "/models", icon: Bot, labelKey: "sidebar.models", badge: null },
+  { to: "/store", icon: Store, labelKey: "sidebar.store", badge: null },
   { to: "/settings", icon: Settings, labelKey: "sidebar.settings", badge: null },
 ];
 

@@ -886,6 +886,20 @@ export const api = {
 
   reExtractPaperMetadata: (paperId: string) =>
     invoke<PartialMetadata>("re_extract_paper_metadata", { paperId }),
+
+  // ── AI Store (Session 28, V2.2.1) ─────────────────────────────
+  // Only invoked when USE_MOCK_DATA=false in sgAiStoreApi.ts.
+  aiStoreGetProducts: () =>
+    invoke<import("./sgAiStoreApi").SgStoreProduct[]>("ai_store_get_products"),
+
+  aiStoreSyncNow: () =>
+    invoke<{
+      products: import("./sgAiStoreApi").SgStoreProduct[];
+      status: import("./sgAiStoreApi").SyncStatus;
+    }>("ai_store_sync_now"),
+
+  aiStoreGetSyncStatus: () =>
+    invoke<import("./sgAiStoreApi").SyncStatus>("ai_store_get_sync_status"),
 };
 
 // ============================================================

@@ -16,6 +16,8 @@ import Skills from "./pages/Skills";
 import SkillEditor from "./components/SkillEditor";
 import SkillGenerator from "./pages/SkillGenerator";
 import Chat from "./pages/Chat";
+import StoreHome from "./pages/store/StoreHome";
+import ProductDetail from "./pages/store/ProductDetail";
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -133,6 +135,22 @@ const settingsRoute = createRoute({
   component: Settings,
 });
 
+// AI Store (V2.2.1 Session 28)
+const storeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/store",
+  component: StoreHome,
+});
+
+const storeProductRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/store/product/$productId",
+  component: function StoreProductPage() {
+    const { productId } = storeProductRoute.useParams();
+    return <ProductDetail productId={productId} />;
+  },
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   searchRoute,
@@ -146,6 +164,8 @@ const routeTree = rootRoute.addChildren([
   skillGenerateRoute,
   skillEditRoute,
   skillCopyRoute,
+  storeRoute,
+  storeProductRoute,
   settingsRoute,
 ]);
 
