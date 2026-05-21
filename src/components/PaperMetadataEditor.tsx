@@ -241,7 +241,7 @@ export function PaperMetadataEditor({
               onClick={addAuthor}
               className="w-full px-input-x py-input-y rounded-pill border border-dashed border-border-default text-caption text-fg-2 hover:text-indigo hover:border-indigo-muted transition-colors duration-fast ease-khx"
             >
-              + {t("paper_metadata_editor.add_author")}
+              {t("paper_metadata_editor.add_author")}
             </button>
           </div>
         </div>

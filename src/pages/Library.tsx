@@ -16,7 +16,6 @@ import {
   Download,
   FolderClosed,
   Pencil,
-  Plus,
   Trash2,
   X,
 } from "lucide-react";
@@ -254,7 +253,6 @@ function TagCloud({ tags, onChange }: { tags: Tag[]; onChange: () => void }) {
           onClick={newTag}
           className="inline-flex items-center gap-1 text-indigo hover:text-indigo-hover normal-case tracking-normal text-meta transition-colors duration-fast ease-khx"
         >
-          <Icon icon={Plus} size="xs" />
           <span>{t("library.new_tag_btn")}</span>
         </button>
       </div>
@@ -587,7 +585,6 @@ export default function Library() {
                 onClick={newRootFolder}
                 className="inline-flex items-center gap-1 text-indigo hover:text-indigo-hover normal-case tracking-normal transition-colors duration-fast ease-khx"
               >
-                <Icon icon={Plus} size="xs" />
                 <span>{t("library.new_folder_btn")}</span>
               </button>
             </div>

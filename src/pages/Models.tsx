@@ -14,7 +14,6 @@ import {
   Check,
   Loader2,
   Pencil,
-  Plus,
   RefreshCw,
   Star,
   TestTube,
@@ -820,7 +819,6 @@ export default function Models() {
               onClick={() => setShowAddForm(true)}
               className="self-start inline-flex items-center gap-1.5 px-btn-x py-btn-y rounded-pill border border-dashed border-border-default text-caption text-fg-1 hover:border-indigo hover:text-indigo hover:bg-indigo-soft transition-colors duration-fast ease-khx"
             >
-              <Icon icon={Plus} size="sm" />
               <span>{t("models.add_model_btn")}</span>
             </button>
           )}

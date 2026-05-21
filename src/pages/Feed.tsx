@@ -7,7 +7,6 @@ import {
   Pause,
   Pencil,
   Play,
-  Plus,
   RefreshCw,
   Trash2,
 } from "lucide-react";
@@ -511,7 +510,6 @@ export default function Feed() {
               }}
               className="inline-flex items-center gap-1 text-indigo hover:text-indigo-hover transition-colors duration-fast ease-khx normal-case tracking-normal"
             >
-              <Icon icon={Plus} size="xs" />
               <span>{t("feed.new_button")}</span>
             </button>
           </div>
