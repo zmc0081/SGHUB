@@ -31,8 +31,13 @@ const MOCK_TICK: Duration = Duration::from_secs(15 * 60);
 /// Spawn the SSE listener task (mock-only in V2.2.1).
 ///
 /// Returns immediately; the task lives for the lifetime of the app.
+///
+/// Uses `tauri::async_runtime::spawn` (not `tokio::spawn`) so the
+/// task lands on Tauri's tokio runtime — `tokio::spawn` panics if
+/// called from outside a reactor, which is the case in the Tauri
+/// `setup` hook.
 pub fn spawn(app: AppHandle) {
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         log::info!("ai_store::sse_listener: starting in MOCK mode (tick {:?})", MOCK_TICK);
 
         // First synthetic event after one tick — give the periodic

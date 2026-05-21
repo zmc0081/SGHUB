@@ -40,8 +40,14 @@ const INITIAL_DELAY: Duration = Duration::from_secs(5);
 const PERIODIC_INTERVAL: Duration = Duration::from_secs(5 * 60);
 
 /// Spawn the long-lived scheduler task. Returns immediately.
+///
+/// Uses `tauri::async_runtime::spawn` rather than `tokio::spawn`
+/// because this is called from the Tauri `setup` hook, which runs
+/// outside any tokio reactor context. The async_runtime wrapper
+/// drops us onto Tauri's tokio runtime; inside the task `tokio::time`
+/// etc. work normally.
 pub fn start_scheduler(app: AppHandle) {
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         log::info!(
             "ai_store::sync_strategy: scheduler online (initial {:?}, periodic {:?})",
             INITIAL_DELAY,
