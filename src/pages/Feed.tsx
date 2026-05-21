@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  BellPlus,
   Check,
   Loader2,
   Pause,
@@ -508,8 +509,9 @@ export default function Feed() {
                 setShowAddForm(true);
                 setEditingSub(null);
               }}
-              className="inline-flex items-center gap-1 text-indigo hover:text-indigo-hover transition-colors duration-fast ease-khx normal-case tracking-normal"
+              className="inline-flex items-center gap-1.5 px-btn-x-sm py-btn-y-sm rounded-pill border border-border-default bg-card text-fg-1 text-meta font-medium normal-case tracking-normal hover:border-navy hover:text-navy transition-colors duration-fast ease-khx"
             >
+              <Icon icon={BellPlus} size="xs" />
               <span>{t("feed.new_button")}</span>
             </button>
           </div>
