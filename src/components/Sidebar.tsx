@@ -240,25 +240,31 @@ export default function Sidebar() {
       </nav>
 
       {/* Collapse / expand toggle. Bottom-of-sidebar so it's out of the
-          way but still discoverable. */}
+          way but still discoverable. Expanded mode wears the same
+          `pl-5 pr-4 gap-3` layout as the nav rows above so the icon
+          column lines up; collapsed mode centers the lone icon. */}
       <button
         type="button"
         onClick={toggleCollapsed}
         aria-label={toggleLabel}
         title={toggleLabel}
-        className="h-10 flex items-center justify-center text-sidebar-fg hover:text-sidebar-fg-hover hover:bg-white/[0.05] border-t border-white/[0.04] transition-colors duration-fast ease-khx"
+        className={`flex items-center h-10 text-caption text-sidebar-fg hover:text-sidebar-fg-hover hover:bg-white/[0.05] border-t border-white/[0.04] transition-colors duration-fast ease-khx ${
+          collapsed ? "justify-center px-0" : "pl-5 pr-4 gap-3"
+        }`}
       >
         <Icon icon={collapsed ? PanelLeftOpen : PanelLeftClose} size={18} />
+        {!collapsed && <span className="flex-1 text-left">{toggleLabel}</span>}
       </button>
 
       {/* R7 — copyright footer. The flex layout already keeps it stuck
           to the bottom (the nav above has flex-1). Brand statement is
           NOT localized — industry convention (cf. Adobe / Microsoft
           desktop footers stay in English). Collapsed mode shrinks to
-          a single © glyph so the 60px column stays readable. */}
+          a single © glyph (centered for the 60px column); expanded
+          mode is left-aligned at pl-5 to match the brand + nav column. */}
       <div
-        className={`text-micro text-sidebar-fg/40 border-t border-white/[0.04] text-center ${
-          collapsed ? "py-2" : "px-3 py-3"
+        className={`text-micro text-sidebar-fg/40 border-t border-white/[0.04] ${
+          collapsed ? "py-2 text-center" : "px-5 py-3 text-left leading-snug"
         }`}
       >
         {collapsed ? "©" : "Copyright © Star Technology. All Rights Reserved"}
