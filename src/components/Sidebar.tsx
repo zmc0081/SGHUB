@@ -239,21 +239,21 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Collapse / expand toggle. Bottom-of-sidebar so it's out of the
-          way but still discoverable. Expanded mode wears the same
-          `pl-5 pr-4 gap-3` layout as the nav rows above so the icon
-          column lines up; collapsed mode centers the lone icon. */}
+      {/* Collapse / expand toggle. Bottom-of-sidebar so it's out of
+          the way but still discoverable. Icon-only in both states —
+          the action is so universal that the glyph alone reads as
+          "collapse / expand". The aria-label + title attributes still
+          carry the localized text for screen readers and hover. */}
       <button
         type="button"
         onClick={toggleCollapsed}
         aria-label={toggleLabel}
         title={toggleLabel}
         className={`flex items-center h-10 text-caption text-sidebar-fg hover:text-sidebar-fg-hover hover:bg-white/[0.05] border-t border-white/[0.04] transition-colors duration-fast ease-khx ${
-          collapsed ? "justify-center px-0" : "pl-5 pr-4 gap-3"
+          collapsed ? "justify-center px-0" : "pl-5 pr-4"
         }`}
       >
         <Icon icon={collapsed ? PanelLeftOpen : PanelLeftClose} size={18} />
-        {!collapsed && <span className="flex-1 text-left">{toggleLabel}</span>}
       </button>
 
       {/* R7 — copyright footer. The flex layout already keeps it stuck
