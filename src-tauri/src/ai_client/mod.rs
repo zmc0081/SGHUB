@@ -614,16 +614,37 @@ pub async fn ai_chat_stream(
     };
 
     // 3. Dispatch
-    let provider = provider_for(&config.provider, api_key).map_err(|e| e.to_string())?;
+    let provider = provider_for(&config.provider, api_key)
+        .map_err(|e| format!("model `{}`: {}", config.name, e))?;
 
     // 4. Estimate input tokens
     let tokens_in: i64 = messages.iter().map(|m| estimate_tokens(&m.content)).sum();
+
+    // V2.2.1 — log the dispatch so non-default-model bugs surface in logs.
+    log::info!(
+        "ai_chat_stream: model_config_id={} provider={} endpoint={} model_id={} name={} max_tokens={} tokens_in≈{}",
+        model_id,
+        config.provider,
+        config.endpoint,
+        config.model_id,
+        config.name,
+        config.max_tokens,
+        tokens_in,
+    );
 
     // 5. Start the stream
     let mut stream = provider
         .chat_stream(messages, &config)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            log::error!(
+                "ai_chat_stream: chat_stream failed before first token (model={}, provider={}): {}",
+                config.name,
+                config.provider,
+                e
+            );
+            format!("model `{}` ({}): {}", config.name, config.provider, e)
+        })?;
 
     // 6. Drain + emit
     let mut full_text = String::new();
@@ -636,14 +657,21 @@ pub async fn ai_chat_stream(
                 let _ = app.emit("ai:token", TokenPayload { text, done: false });
             }
             Err(e) => {
+                log::error!(
+                    "ai_chat_stream: stream error mid-flight (model={}, provider={}, tokens_out≈{}): {}",
+                    config.name,
+                    config.provider,
+                    tokens_out,
+                    e
+                );
                 let _ = app.emit(
                     "ai:token",
                     TokenPayload {
-                        text: format!("\n[ERROR: {}]\n", e),
+                        text: format!("\n[ERROR: model `{}` — {}]\n", config.name, e),
                         done: true,
                     },
                 );
-                return Err(e.to_string());
+                return Err(format!("model `{}` ({}): {}", config.name, config.provider, e));
             }
         }
     }

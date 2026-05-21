@@ -299,15 +299,39 @@ pub async fn start_parse(
         }
     };
 
-    let provider = provider_for(&config.provider, api_key).map_err(|e| e.to_string())?;
+    let provider = provider_for(&config.provider, api_key)
+        .map_err(|e| format!("model `{}`: {}", config.name, e))?;
 
     let tokens_in: i64 = messages.iter().map(|m| estimate_tokens(&m.content)).sum();
+
+    // V2.2.1 — log the dispatch so non-default-model bugs surface in logs.
+    // (Never log api_key — keychain values stay opaque.)
+    log::info!(
+        "start_parse: paper={} skill={} model_config_id={} provider={} endpoint={} model_id={} name={} max_tokens={} tokens_in≈{}",
+        paper_id,
+        skill_name,
+        model_config_id,
+        config.provider,
+        config.endpoint,
+        config.model_id,
+        config.name,
+        config.max_tokens,
+        tokens_in,
+    );
 
     // 4. Stream tokens, emit parse:token events
     let mut stream = provider
         .chat_stream(messages, &config)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            log::error!(
+                "start_parse: chat_stream failed before first token (model={}, provider={}): {}",
+                config.name,
+                config.provider,
+                e
+            );
+            format!("model `{}` ({}): {}", config.name, config.provider, e)
+        })?;
 
     let mut full_response = String::new();
     let mut tokens_out: i64 = 0;
@@ -319,14 +343,21 @@ pub async fn start_parse(
                 let _ = app.emit("parse:token", TokenPayload { text, done: false });
             }
             Err(e) => {
+                log::error!(
+                    "start_parse: stream error mid-flight (model={}, provider={}, tokens_out≈{}): {}",
+                    config.name,
+                    config.provider,
+                    tokens_out,
+                    e
+                );
                 let _ = app.emit(
                     "parse:token",
                     TokenPayload {
-                        text: format!("\n[ERROR: {}]\n", e),
+                        text: format!("\n[ERROR: model `{}` — {}]\n", config.name, e),
                         done: true,
                     },
                 );
-                return Err(e.to_string());
+                return Err(format!("model `{}` ({}): {}", config.name, config.provider, e));
             }
         }
     }

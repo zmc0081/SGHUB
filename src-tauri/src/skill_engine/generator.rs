@@ -169,7 +169,19 @@ async fn run_chat(
         }
     };
 
-    let provider = provider_for(&config.provider, api_key).map_err(|e| e.to_string())?;
+    let provider = provider_for(&config.provider, api_key)
+        .map_err(|e| format!("model `{}`: {}", config.name, e))?;
+
+    // V2.2.1 — log dispatch so non-default-model bugs surface in logs.
+    log::info!(
+        "skill_gen (attempt {}): provider={} endpoint={} model_id={} name={}",
+        attempt,
+        config.provider,
+        config.endpoint,
+        config.model_id,
+        config.name,
+    );
+
     let messages = vec![Message {
         role: "user".into(),
         content: prompt,
@@ -177,7 +189,15 @@ async fn run_chat(
     let mut stream = provider
         .chat_stream(messages, &config)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            log::error!(
+                "skill_gen: chat_stream failed (model={}, provider={}): {}",
+                config.name,
+                config.provider,
+                e
+            );
+            format!("model `{}` ({}): {}", config.name, config.provider, e)
+        })?;
 
     let mut full = String::new();
     while let Some(chunk) = stream.next().await {

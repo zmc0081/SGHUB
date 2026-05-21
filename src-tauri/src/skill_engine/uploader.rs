@@ -775,13 +775,33 @@ pub async fn test_skill_with_paper(
         }
     };
 
-    let provider = provider_for(&config.provider, api_key).map_err(|e| e.to_string())?;
+    let provider = provider_for(&config.provider, api_key)
+        .map_err(|e| format!("model `{}`: {}", config.name, e))?;
+
+    // V2.2.1 — log dispatch so non-default-model bugs surface in logs.
+    log::info!(
+        "test_skill_with_paper: skill={} paper={} provider={} endpoint={} model_id={} name={}",
+        spec.name,
+        paper_id,
+        config.provider,
+        config.endpoint,
+        config.model_id,
+        config.name,
+    );
 
     let started = Instant::now();
     let mut stream = provider
         .chat_stream(messages, &config)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            log::error!(
+                "skill_test_run: chat_stream failed (model={}, provider={}): {}",
+                config.name,
+                config.provider,
+                e
+            );
+            format!("model `{}` ({}): {}", config.name, config.provider, e)
+        })?;
 
     let mut full_response = String::new();
     while let Some(chunk) = stream.next().await {
