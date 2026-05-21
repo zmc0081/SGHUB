@@ -508,7 +508,13 @@
     "updater_section_desc": "启用后将按设定的时间自动检查 GitHub Releases",
     "data_wizard_step_x": "第 {{current}} / {{total}} 步",
     "data_wizard_running_header": "执行中",
-    "data_wizard_done_header": "完成"
+    "data_wizard_done_header": "完成",
+    "privacy_section": "隐私协议",
+    "privacy_section_desc": "了解 SG Hub 如何处理你的数据 —— 本地存储、API Key、AI 模型调用、文献检索等数据流向。",
+    "privacy_open_btn": "查看协议",
+    "privacy_title": "隐私协议",
+    "privacy_subtitle": "可以独立切换中英文阅读 —— 不影响应用主语言设置。",
+    "privacy_language_label": "阅读语言:"
   },
   "errors": {
     "network": "网络错误,请检查连接后重试",

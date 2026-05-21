@@ -508,7 +508,13 @@
     "updater_section_desc": "When enabled, SG Hub checks GitHub Releases on the schedule below.",
     "data_wizard_step_x": "Step {{current}} / {{total}}",
     "data_wizard_running_header": "Running",
-    "data_wizard_done_header": "Done"
+    "data_wizard_done_header": "Done",
+    "privacy_section": "Privacy policy",
+    "privacy_section_desc": "How SG Hub handles your data — local storage, API keys, model calls, literature search, and every other data flow.",
+    "privacy_open_btn": "Read policy",
+    "privacy_title": "Privacy Policy",
+    "privacy_subtitle": "You can switch the reading language independently — this does not change your app language.",
+    "privacy_language_label": "Reading language:"
   },
   "errors": {
     "network": "Network error — please check your connection and retry",
