@@ -79,6 +79,12 @@ pub fn run() {
             ai_store::sync_strategy::start_scheduler(app.handle().clone());
             ai_store::sse_listener::spawn(app.handle().clone());
 
+            // V2.2.1 Session 29 — SG AI Store balance auto-refresh.
+            // 10s boot then hourly. Mock-only: build_mock_snapshot
+            // draws a small synthetic usage on each refresh so the
+            // Models card balance subtly drifts down over time.
+            ai_store::billing::start_auto_refresh(app.handle().clone());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -184,6 +190,9 @@ pub fn run() {
             ai_store::commands::ai_store_get_products,
             ai_store::commands::ai_store_sync_now,
             ai_store::commands::ai_store_get_sync_status,
+            // V2.2.1 Session 29 — SG AI Store billing
+            ai_store::billing::ai_store_get_balance,
+            ai_store::billing::ai_store_refresh_all_balances,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

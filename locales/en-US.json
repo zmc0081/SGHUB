@@ -28,6 +28,7 @@
     "open_in_browser": "Open in browser",
     "open_folder": "Open folder",
     "create": "Create",
+    "date_locale": "en-US",
     "discard": "Discard",
     "remove": "Remove"
   },
@@ -330,7 +331,29 @@
     "form_price_unit": "$/1M tokens",
     "form_price_hint": "Used for cost estimation. Check the provider's website for current pricing. 0 disables cost tracking for this model.",
     "row_usage_7d": "Last 7d: {{calls}} calls · {{tokens}} tokens · ${{cost}}",
-    "confirm_delete_title": "Delete model"
+    "confirm_delete_title": "Delete model",
+    "sg_ai_store": "SG AI Store",
+    "balance_unknown": "Balance unknown",
+    "balance_unknown_title": "Balance hasn't been fetched yet — click Refresh to query the gateway",
+    "balance_tier_green": "Healthy balance",
+    "balance_tier_amber": "Balance low (< ¥20)",
+    "balance_tier_red": "Balance critical (< ¥2)",
+    "balance_tier_gray": "Balance exhausted",
+    "sg_expires_on": "Expires {{date}}",
+    "sg_usage_24h": "Today ¥{{cost}} · {{calls}} calls",
+    "sg_refresh_balance": "Refresh balance",
+    "sg_refresh_balance_title": "Query SG AI Store for the latest balance now",
+    "sg_dashboard": "Balance details",
+    "sg_top_up": "Top up",
+    "balance_refreshed": "Balance updated: ¥{{balance}}",
+    "sg_onboarding_title": "Just purchased from SG AI Store?",
+    "sg_onboarding_desc": "Paste your API key, pick your pack, and start using it in Chat / AI Parse right away.",
+    "sg_onboarding_key_placeholder": "SG AI Store API key (sk-…)",
+    "sg_onboarding_pick_product": "Pick your pack",
+    "sg_onboarding_add_btn": "Add & check balance",
+    "sg_onboarding_adding": "Adding…",
+    "sg_onboarding_added": "Connected to SG AI Store · balance ¥{{balance}}",
+    "sg_onboarding_added_no_balance": "Model added — balance will refresh shortly"
   },
   "skill_gen": {
     "title": "Create a Skill with AI",
@@ -681,5 +704,14 @@
     "confirm_buy_yes": "Open in browser",
     "toast_browser_opened": "Browser opened",
     "toast_browser_opened_desc": "After purchase, return to Models to paste your API key."
+  },
+  "balance_dialog": {
+    "title": "SG AI Store balance too low",
+    "subtitle": "Top up your account, or switch to another model for now.",
+    "subtitle_with_model": "Model \"{{model}}\" is out of credit. Top up, or switch to a different model.",
+    "body": "Your SG AI Store balance has dropped below the minimum needed to keep making calls (¥1 / 1000 tokens). \"Top up\" opens the sgaistore.com recharge page in your browser; you can also keep working by switching to a model you've configured with your own API key.",
+    "cancel": "Cancel",
+    "switch_model": "Switch model",
+    "top_up": "Top up"
   }
 }

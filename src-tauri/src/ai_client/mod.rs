@@ -34,6 +34,24 @@ pub struct ModelConfig {
     /// USD per 1,000,000 output tokens.
     #[serde(default)]
     pub output_price_per_1m_tokens: f64,
+
+    // ── V2.2.1 Session 29 — SG AI Store columns (V006 migration) ──
+    /// 1 iff this model routes through the SG AI Store gateway.
+    /// Auto-set when endpoint contains "sgaistore.com".
+    #[serde(default)]
+    pub is_sg_ai_store: bool,
+    /// Last-known CNY balance from the gateway. None = never queried.
+    #[serde(default)]
+    pub balance_cny: Option<f64>,
+    /// Last-known token allowance.
+    #[serde(default)]
+    pub remaining_tokens: Option<i64>,
+    /// ISO 8601 timestamp — when the current SG AI Store pack expires.
+    #[serde(default)]
+    pub subscription_expires_at: Option<String>,
+    /// ISO 8601 timestamp — when balance fields were last refreshed.
+    #[serde(default)]
+    pub balance_synced_at: Option<String>,
 }
 
 /// Form-style payload from the frontend. `api_key` is optional: present means
@@ -98,6 +116,15 @@ pub enum AiError {
     UnknownProvider(String),
     #[error("流中断: {0}")]
     Stream(String),
+    /// V2.2.1 Session 29 — SG AI Store balance check failed pre-flight.
+    /// Frontend pattern-matches the error message to show the
+    /// recharge dialog, so the prefix `SG AI Store 余额不足` must stay
+    /// stable across releases.
+    #[error("SG AI Store 余额不足: balance_cny={balance_cny:?} remaining_tokens={remaining_tokens:?}")]
+    InsufficientBalance {
+        balance_cny: Option<f64>,
+        remaining_tokens: Option<i64>,
+    },
 }
 
 impl From<reqwest::Error> for AiError {
@@ -208,6 +235,21 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             input_price_per_1m_tokens: Some(0.0),
             output_price_per_1m_tokens: Some(0.0),
         },
+        // V2.2.1 Session 29 — SG AI Store preset. Endpoint substring
+        // auto-tags this row as is_sg_ai_store=1 on insert, which in
+        // turn turns on the balance badge + recharge interception.
+        // model_id is "" so the user picks from a dropdown of their
+        // purchased SKUs in the frontend add-form.
+        ModelConfigInput {
+            name: "SG AI Store".into(),
+            provider: "openai".into(),
+            endpoint: "https://sgaistore.com/v1".into(),
+            model_id: String::new(),
+            max_tokens: 128000,
+            api_key: None,
+            input_price_per_1m_tokens: Some(0.0),
+            output_price_per_1m_tokens: Some(0.0),
+        },
     ]
 }
 
@@ -234,12 +276,85 @@ fn row_to_config(row: &rusqlite::Row) -> rusqlite::Result<ModelConfig> {
         // V004 — pricing fields (NOT NULL DEFAULT 0.0, so always present).
         input_price_per_1m_tokens: row.get(10)?,
         output_price_per_1m_tokens: row.get(11)?,
+        // V006 (V2.2.1 Session 29) — SG AI Store columns. All except
+        // is_sg_ai_store are nullable; serde_default keeps older JSON
+        // round-trips clean.
+        is_sg_ai_store: row.get::<_, i64>(12)? == 1,
+        balance_cny: row.get(13)?,
+        remaining_tokens: row.get(14)?,
+        subscription_expires_at: row.get(15)?,
+        balance_synced_at: row.get(16)?,
     })
 }
 
 const SELECT_COLS: &str = "id, name, provider, endpoint, model_id, max_tokens, \
                            is_default, keychain_ref, created_at, updated_at, \
-                           input_price_per_1m_tokens, output_price_per_1m_tokens";
+                           input_price_per_1m_tokens, output_price_per_1m_tokens, \
+                           is_sg_ai_store, balance_cny, remaining_tokens, \
+                           subscription_expires_at, balance_synced_at";
+
+/// V2.2.1 Session 29 — endpoint substring check used to auto-tag
+/// SG AI Store models. Keep the matcher loose (just "sgaistore.com")
+/// so corporate users with their own subdomain (e.g.
+/// `gateway.sgaistore.com`) still benefit from the balance UI.
+pub(crate) fn is_sg_ai_store_endpoint(endpoint: &str) -> bool {
+    endpoint.contains("sgaistore.com")
+}
+
+/// V2.2.1 Session 29 — gate AI calls when a SG AI Store model is
+/// known to be out of money / tokens. Called by `ai_chat_stream`,
+/// `start_parse`, and the Chat streaming command right after the
+/// ModelConfig lookup. Returns `Ok(())` for:
+///   - non-SG-AI-Store models (always)
+///   - SG AI Store models whose balance fields are `None` (never
+///     queried) — we don't block on unknown state, the call will
+///     surface a 402 from the gateway if it really is out
+///
+/// Thresholds (CNY 1.0 / 1000 tokens) match the user spec.
+pub(crate) fn pre_flight_balance_check(cfg: &ModelConfig) -> Result<(), AiError> {
+    if !cfg.is_sg_ai_store {
+        return Ok(());
+    }
+    let low_money = cfg.balance_cny.map(|b| b < 1.0).unwrap_or(false);
+    let low_tokens = cfg.remaining_tokens.map(|t| t < 1000).unwrap_or(false);
+    if low_money || low_tokens {
+        return Err(AiError::InsufficientBalance {
+            balance_cny: cfg.balance_cny,
+            remaining_tokens: cfg.remaining_tokens,
+        });
+    }
+    Ok(())
+}
+
+/// V2.2.1 Session 29 — persist the latest balance fetch. Called by
+/// `ai_store::billing` after a successful gateway query (or after a
+/// mock cycle in V2.2.1).
+pub(crate) fn write_balance(
+    pool: &crate::db::DbPool,
+    id: &str,
+    balance_cny: Option<f64>,
+    remaining_tokens: Option<i64>,
+    subscription_expires_at: Option<&str>,
+    synced_at: &str,
+) -> rusqlite::Result<()> {
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    conn.execute(
+        "UPDATE model_configs \
+         SET balance_cny = ?1, remaining_tokens = ?2, \
+             subscription_expires_at = ?3, balance_synced_at = ?4 \
+         WHERE id = ?5",
+        params![
+            balance_cny,
+            remaining_tokens,
+            subscription_expires_at,
+            synced_at,
+            id,
+        ],
+    )?;
+    Ok(())
+}
 
 pub(crate) fn list_all(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<ModelConfig>> {
     let conn = pool
@@ -269,11 +384,15 @@ fn insert(pool: &crate::db::DbPool, cfg: &ModelConfig) -> rusqlite::Result<()> {
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    // V006: is_sg_ai_store added here so the column reflects the
+    // endpoint's identity from the very first row. balance_*/expires_at
+    // stay NULL until ai_store::billing fills them in.
     conn.execute(
         "INSERT INTO model_configs \
          (id, name, provider, endpoint, model_id, max_tokens, is_default, keychain_ref, \
-          created_at, updated_at, input_price_per_1m_tokens, output_price_per_1m_tokens) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+          created_at, updated_at, input_price_per_1m_tokens, output_price_per_1m_tokens, \
+          is_sg_ai_store) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
         params![
             cfg.id,
             cfg.name,
@@ -287,6 +406,7 @@ fn insert(pool: &crate::db::DbPool, cfg: &ModelConfig) -> rusqlite::Result<()> {
             cfg.updated_at,
             cfg.input_price_per_1m_tokens,
             cfg.output_price_per_1m_tokens,
+            cfg.is_sg_ai_store as i64,
         ],
     )?;
     Ok(())
@@ -393,6 +513,7 @@ pub async fn add_model_config(
     let id = uuid::Uuid::now_v7().to_string();
     let now = now_iso();
     let has_key = input.api_key.is_some();
+    let is_sg_ai_store = is_sg_ai_store_endpoint(&input.endpoint);
     let cfg = ModelConfig {
         id: id.clone(),
         name: input.name.clone(),
@@ -406,6 +527,11 @@ pub async fn add_model_config(
         updated_at: now,
         input_price_per_1m_tokens: input.input_price_per_1m_tokens.unwrap_or(0.0),
         output_price_per_1m_tokens: input.output_price_per_1m_tokens.unwrap_or(0.0),
+        is_sg_ai_store,
+        balance_cny: None,
+        remaining_tokens: None,
+        subscription_expires_at: None,
+        balance_synced_at: None,
     };
 
     let pool = state.db_pool.clone();
@@ -456,6 +582,24 @@ pub async fn update_model_config(
             keychain::set_api_key(&id, &key).map_err(|e| e.to_string())?;
         }
     }
+
+    // V2.2.1 Session 29 — if the endpoint changed, recompute the
+    // is_sg_ai_store tag. Balance columns are owned by ai_store::billing
+    // (we never touch them here).
+    let new_sg = is_sg_ai_store_endpoint(&input.endpoint);
+    let pool_for_sg = state.db_pool.clone();
+    let id_for_sg = id.clone();
+    let _ = tokio::task::spawn_blocking(move || -> rusqlite::Result<()> {
+        let conn = pool_for_sg
+            .get()
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        conn.execute(
+            "UPDATE model_configs SET is_sg_ai_store = ?1 WHERE id = ?2",
+            params![new_sg as i64, id_for_sg],
+        )?;
+        Ok(())
+    })
+    .await;
 
     let pool = state.db_pool.clone();
     let id_for_get = id.clone();
@@ -613,6 +757,12 @@ pub async fn ai_chat_stream(
         }
     };
 
+    // V2.2.1 Session 29 — gate SG AI Store models when balance is
+    // known to be exhausted, so the frontend can show the recharge
+    // dialog instead of letting the request fail with a less-helpful
+    // gateway 402.
+    pre_flight_balance_check(&config).map_err(|e| e.to_string())?;
+
     // 3. Dispatch
     let provider = provider_for(&config.provider, api_key)
         .map_err(|e| format!("model `{}`: {}", config.name, e))?;
@@ -744,7 +894,61 @@ mod tests {
             updated_at: now_iso(),
             input_price_per_1m_tokens: input.input_price_per_1m_tokens.unwrap_or(0.0),
             output_price_per_1m_tokens: input.output_price_per_1m_tokens.unwrap_or(0.0),
+            is_sg_ai_store: is_sg_ai_store_endpoint(&input.endpoint),
+            balance_cny: None,
+            remaining_tokens: None,
+            subscription_expires_at: None,
+            balance_synced_at: None,
         }
+    }
+
+    #[test]
+    fn is_sg_ai_store_endpoint_recognizes_subdomains() {
+        assert!(is_sg_ai_store_endpoint("https://sgaistore.com/v1"));
+        assert!(is_sg_ai_store_endpoint("https://gateway.sgaistore.com/v1"));
+        assert!(is_sg_ai_store_endpoint("https://sgaistore.com"));
+        assert!(!is_sg_ai_store_endpoint("https://api.anthropic.com"));
+        assert!(!is_sg_ai_store_endpoint("https://api.openai.com/v1"));
+        assert!(!is_sg_ai_store_endpoint(""));
+    }
+
+    #[test]
+    fn insert_carries_is_sg_ai_store_flag() {
+        let (_tmp, pool) = fresh();
+        let mut sg_input = input("SG Claude", "openai");
+        sg_input.endpoint = "https://sgaistore.com/v1".into();
+        let cfg = build_cfg("sg-1", &sg_input);
+        insert(&pool, &cfg).unwrap();
+        let got = get_one(&pool, "sg-1").unwrap().unwrap();
+        assert!(got.is_sg_ai_store);
+        assert!(got.balance_cny.is_none());
+    }
+
+    #[test]
+    fn write_balance_updates_only_balance_fields() {
+        let (_tmp, pool) = fresh();
+        let mut sg_input = input("SG Claude", "openai");
+        sg_input.endpoint = "https://sgaistore.com/v1".into();
+        insert(&pool, &build_cfg("sg-2", &sg_input)).unwrap();
+
+        write_balance(
+            &pool,
+            "sg-2",
+            Some(12.34),
+            Some(987_654),
+            Some("2026-06-21T00:00:00Z"),
+            "2026-05-21T00:00:00Z",
+        )
+        .unwrap();
+
+        let got = get_one(&pool, "sg-2").unwrap().unwrap();
+        assert_eq!(got.balance_cny, Some(12.34));
+        assert_eq!(got.remaining_tokens, Some(987_654));
+        assert_eq!(got.subscription_expires_at.as_deref(), Some("2026-06-21T00:00:00Z"));
+        assert_eq!(got.balance_synced_at.as_deref(), Some("2026-05-21T00:00:00Z"));
+        // Sanity: untouched fields stay untouched.
+        assert_eq!(got.name, "SG Claude");
+        assert!(got.is_sg_ai_store);
     }
 
     #[test]
@@ -811,14 +1015,19 @@ mod tests {
     }
 
     #[test]
-    fn presets_are_four_with_distinct_providers() {
+    fn presets_are_five_with_distinct_providers() {
         let p = get_model_presets();
-        assert_eq!(p.len(), 4);
+        // V2.2.1 Session 29: 5th preset added — SG AI Store
+        // (openai-compatible endpoint, distinguishes via the
+        // sgaistore.com substring, not via a new provider kind).
+        assert_eq!(p.len(), 5);
         let providers: std::collections::HashSet<_> =
             p.iter().map(|x| x.provider.clone()).collect();
-        // anthropic + openai (twice for GPT-5 and DeepSeek) + ollama = 3 unique
+        // anthropic + openai (GPT-5, DeepSeek, SG AI Store) + ollama = 3 unique
         assert!(providers.contains("anthropic"));
         assert!(providers.contains("openai"));
         assert!(providers.contains("ollama"));
+        // SG AI Store preset detected by endpoint, not provider field.
+        assert!(p.iter().any(|x| x.endpoint.contains("sgaistore.com")));
     }
 }

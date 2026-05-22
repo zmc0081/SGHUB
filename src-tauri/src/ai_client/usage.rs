@@ -376,6 +376,11 @@ mod tests {
             updated_at: "2026-01-01T00:00:00Z".into(),
             input_price_per_1m_tokens: ip,
             output_price_per_1m_tokens: op,
+            is_sg_ai_store: false,
+            balance_cny: None,
+            remaining_tokens: None,
+            subscription_expires_at: None,
+            balance_synced_at: None,
         }
     }
 

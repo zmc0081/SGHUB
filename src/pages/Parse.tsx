@@ -27,6 +27,10 @@ import { PaperPicker } from "../components/PaperPicker";
 import { PaperMetadataEditor } from "../components/PaperMetadataEditor";
 import { Icon } from "../components/Icon";
 import { Stage } from "../components/Stage";
+import {
+  InsufficientBalanceDialog,
+  isInsufficientBalanceError,
+} from "../components/InsufficientBalanceDialog";
 import { useT } from "../hooks/useT";
 
 /**
@@ -167,6 +171,14 @@ export default function Parse() {
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [finishedAt, setFinishedAt] = useState<number | null>(null);
   const [tokensOut, setTokensOut] = useState(0);
+
+  // V2.2.1 Session 29 — pop the recharge dialog on SG AI Store balance gate.
+  const [insufficientOpen, setInsufficientOpen] = useState(false);
+  useEffect(() => {
+    if (error && isInsufficientBalanceError(error)) {
+      setInsufficientOpen(true);
+    }
+  }, [error]);
 
   const [uploadProgress, setUploadProgress] =
     useState<UploadProgressPayload | null>(null);
@@ -829,6 +841,14 @@ export default function Parse() {
           }}
         />
       )}
+      <InsufficientBalanceDialog
+        open={insufficientOpen}
+        onClose={() => {
+          setInsufficientOpen(false);
+          setError(null);
+        }}
+        onSwitchModel={() => setError(null)}
+      />
     </div>
   );
 }

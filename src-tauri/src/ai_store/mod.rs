@@ -27,6 +27,7 @@
 //! tauri dev` never reaches the wire. Flip to `false` once the real
 //! endpoint is up and you want to exercise the network path.
 
+pub mod billing;
 pub mod commands;
 pub mod products;
 pub mod sse_listener;

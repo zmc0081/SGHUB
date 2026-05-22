@@ -28,6 +28,7 @@
     "open_in_browser": "在浏览器中打开",
     "open_folder": "打开目录",
     "create": "创建",
+    "date_locale": "zh-CN",
     "discard": "丢弃",
     "remove": "移除"
   },
@@ -330,7 +331,29 @@
     "form_price_unit": "$/1M tokens",
     "form_price_hint": "用于成本估算,可在模型提供商官网查询定价。0 表示不计算成本。",
     "row_usage_7d": "近 7 天:{{calls}} 次 · {{tokens}} tokens · ${{cost}}",
-    "confirm_delete_title": "删除模型"
+    "confirm_delete_title": "删除模型",
+    "sg_ai_store": "SG AI Store",
+    "balance_unknown": "余额未知",
+    "balance_unknown_title": "尚未查询过余额,点「刷新」获取实时数据",
+    "balance_tier_green": "余额充足",
+    "balance_tier_amber": "余额偏低(< ¥20)",
+    "balance_tier_red": "余额不足(< ¥2)",
+    "balance_tier_gray": "余额已耗尽",
+    "sg_expires_on": "到期:{{date}}",
+    "sg_usage_24h": "今日 ¥{{cost}} · {{calls}} 次调用",
+    "sg_refresh_balance": "刷新余额",
+    "sg_refresh_balance_title": "立即从 SG AI Store 查询最新余额",
+    "sg_dashboard": "余额详情",
+    "sg_top_up": "充值",
+    "balance_refreshed": "余额已更新:¥{{balance}}",
+    "sg_onboarding_title": "刚在 SG AI Store 完成购买?",
+    "sg_onboarding_desc": "粘贴你的 API Key,选择购买的套餐,即可立即在 Chat / AI 解析中使用。",
+    "sg_onboarding_key_placeholder": "SG AI Store API Key(sk-…)",
+    "sg_onboarding_pick_product": "选择已购买的套餐",
+    "sg_onboarding_add_btn": "添加并查询余额",
+    "sg_onboarding_adding": "添加中…",
+    "sg_onboarding_added": "已接入 SG AI Store,当前余额 ¥{{balance}}",
+    "sg_onboarding_added_no_balance": "模型已添加,余额稍后自动更新"
   },
   "skill_gen": {
     "title": "用 AI 创建 Skill",
@@ -681,5 +704,14 @@
     "confirm_buy_yes": "打开购买页",
     "toast_browser_opened": "已打开购买页",
     "toast_browser_opened_desc": "购买完成后,回到「模型配置」接入 API Key。"
+  },
+  "balance_dialog": {
+    "title": "SG AI Store 余额不足",
+    "subtitle": "请前往充值,或暂时切换到其他模型继续使用。",
+    "subtitle_with_model": "模型「{{model}}」余额不足。请前往充值,或暂时切换到其他模型。",
+    "body": "你的 SG AI Store 余额已低于继续调用的最小阈值(¥1 / 1000 tokens)。点击「前往充值」会在浏览器中打开 sgaistore.com 的充值页;也可以选择切换到自有 Key 的模型继续使用。",
+    "cancel": "取消",
+    "switch_model": "换个模型",
+    "top_up": "前往充值"
   }
 }

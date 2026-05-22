@@ -76,6 +76,34 @@ export interface ModelConfig {
   /** USD per 1,000,000 input tokens. 0 = not priced (no cost tracking). */
   input_price_per_1m_tokens: number;
   output_price_per_1m_tokens: number;
+
+  // V2.2.1 Session 29 — SG AI Store columns (V006 migration).
+  /** Auto-set to true when endpoint contains "sgaistore.com". */
+  is_sg_ai_store: boolean;
+  /** Last-known CNY balance. null = never queried. */
+  balance_cny: number | null;
+  /** Last-known token allowance. null = never queried. */
+  remaining_tokens: number | null;
+  /** ISO 8601 — when current SG AI Store pack expires. */
+  subscription_expires_at: string | null;
+  /** ISO 8601 — when balance was last refreshed. */
+  balance_synced_at: string | null;
+}
+
+/** Returned by ai_store_get_balance. */
+export interface SgStoreBalanceSnapshot {
+  balance_cny: number;
+  remaining_tokens: number;
+  subscription: {
+    product_name: string;
+    expires_at: string;
+    auto_renew: boolean;
+  } | null;
+  usage_24h: {
+    tokens_in: number;
+    tokens_out: number;
+    call_count: number;
+  };
 }
 
 export interface ModelConfigInput {
@@ -900,6 +928,13 @@ export const api = {
 
   aiStoreGetSyncStatus: () =>
     invoke<import("./sgAiStoreApi").SyncStatus>("ai_store_get_sync_status"),
+
+  // ── AI Store balance (Session 29) ───────────────────────────────
+  aiStoreGetBalance: (modelConfigId: string) =>
+    invoke<SgStoreBalanceSnapshot>("ai_store_get_balance", { modelConfigId }),
+
+  aiStoreRefreshAllBalances: () =>
+    invoke<number>("ai_store_refresh_all_balances"),
 };
 
 // ============================================================

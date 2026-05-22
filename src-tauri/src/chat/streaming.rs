@@ -229,6 +229,9 @@ pub async fn send_chat_message(
     .map_err(|e| e.to_string())?
     .map_err(|e| e.to_string())?;
 
+    // V2.2.1 Session 29 — SG AI Store balance pre-flight check.
+    crate::ai_client::pre_flight_balance_check(&config).map_err(|e| e.to_string())?;
+
     // 6. Open the stream
     let provider = provider_for(&config.provider, api_key)
         .map_err(|e| format!("model `{}`: {}", config.name, e))?;

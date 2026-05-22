@@ -1,5 +1,5 @@
 // i18n: 本组件文案已国际化 (V2.1.0)
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { MessageSquare, X } from "lucide-react";
 import EmptyChatArt from "../assets/illustrations/empty-chat.svg?react";
@@ -10,6 +10,10 @@ import { InputArea } from "../components/chat/InputArea";
 import { SessionList } from "../components/chat/SessionList";
 import { Icon } from "../components/Icon";
 import { Stage } from "../components/Stage";
+import {
+  InsufficientBalanceDialog,
+  isInsufficientBalanceError,
+} from "../components/InsufficientBalanceDialog";
 import { useT } from "../hooks/useT";
 
 export default function Chat() {
@@ -25,6 +29,15 @@ export default function Chat() {
     lastError,
     setError,
   } = useChatStore();
+
+  // V2.2.1 Session 29 — auto-pop recharge dialog when the AI call
+  // is gated by SG AI Store balance pre-flight.
+  const [insufficientOpen, setInsufficientOpen] = useState(false);
+  useEffect(() => {
+    if (lastError && isInsufficientBalanceError(lastError)) {
+      setInsufficientOpen(true);
+    }
+  }, [lastError]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
@@ -196,6 +209,18 @@ export default function Chat() {
 
         <InputArea />
       </div>
+      <InsufficientBalanceDialog
+        open={insufficientOpen}
+        onClose={() => {
+          setInsufficientOpen(false);
+          setError(null);
+        }}
+        onSwitchModel={() => {
+          // No deep-link to focus the model picker yet — just clear
+          // the error so the InputArea remains usable.
+          setError(null);
+        }}
+      />
     </div>
   );
 }

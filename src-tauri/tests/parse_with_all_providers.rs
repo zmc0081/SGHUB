@@ -45,6 +45,12 @@ fn cfg(provider: &str, endpoint: &str, model_id: &str, is_default: bool) -> Mode
         updated_at: String::new(),
         input_price_per_1m_tokens: 0.0,
         output_price_per_1m_tokens: 0.0,
+        // V006 (Session 29) — defaults for non-SG-AI-Store providers.
+        is_sg_ai_store: false,
+        balance_cny: None,
+        remaining_tokens: None,
+        subscription_expires_at: None,
+        balance_synced_at: None,
     }
 }
 
