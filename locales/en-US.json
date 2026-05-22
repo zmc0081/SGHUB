@@ -321,7 +321,7 @@
     "stat_rebuild": "Rebuild stats",
     "stat_rebuild_title": "Synthesise history from chat_messages + ai_parse_results (for users upgrading from older versions)",
     "stat_rebuild_done": "Rebuilt {{count}} rows",
-    "stat_chart_title": "Token usage — last 7 days",
+    "stat_chart_title": "Token usage",
     "stat_chart_tooltip_calls": "{{count}} call(s)",
     "stat_chart_tooltip_in": "In {{tokens}}",
     "stat_chart_tooltip_out": "Out {{tokens}}",

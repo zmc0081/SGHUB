@@ -337,6 +337,10 @@ function UsageChart({ stats: initialStats }: { stats: UsageStats7Days }) {
       <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
         <div className="text-meta text-fg-2">
           {t("models.stat_chart_title")}
+          <span className="mx-1.5 text-fg-3">·</span>
+          {mode === "7d" && t("models.chart_range_7d")}
+          {mode === "30d" && t("models.chart_range_30d")}
+          {mode === "custom" && `${customFrom} — ${customTo}`}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {(["7d", "30d", "custom"] as const).map((m) => {
@@ -381,7 +385,13 @@ function UsageChart({ stats: initialStats }: { stats: UsageStats7Days }) {
           )}
         </div>
       </div>
-      <div style={{ width: "100%", height: 160 }}>
+      {/* V2.2.1 QA: suppress the browser default focus outline that
+          recharts' inner <svg> picks up on click — it rendered as a
+          black 2px border around the whole chart. */}
+      <div
+        style={{ width: "100%", height: 160 }}
+        className="outline-none [&_*]:outline-none [&_svg]:focus-visible:outline-none"
+      >
         <ResponsiveContainer>
           <AreaChart
             data={data}
