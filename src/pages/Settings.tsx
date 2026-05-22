@@ -89,9 +89,6 @@ export default function Settings() {
         <h1 className="text-h2 font-semibold text-fg-1">
           {t("settings.title")}
         </h1>
-        <p className="text-meta text-fg-2 mt-1 font-mono">
-          ~/.sghub/config.toml
-        </p>
       </header>
 
       {loading && (
@@ -216,13 +213,10 @@ function PrivacyCard() {
             >
               {t("settings.privacy_section")}
             </h2>
-            <p className="text-meta text-fg-2 mt-1 leading-relaxed">
-              {t("settings.privacy_section_desc")}
-            </p>
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="mt-4 inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill border border-border-default bg-card text-fg-1 text-caption font-medium hover:border-navy hover:text-navy transition-colors duration-fast ease-khx"
+              className="mt-3 inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill border border-border-default bg-card text-fg-1 text-caption font-medium hover:border-navy hover:text-navy transition-colors duration-fast ease-khx"
             >
               <span>{t("settings.privacy_open_btn")}</span>
             </button>

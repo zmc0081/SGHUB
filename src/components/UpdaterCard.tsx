@@ -237,9 +237,6 @@ export function UpdaterCard({ initial, onChange }: Props) {
           <h2 className="text-h3 font-semibold text-fg-1">
             {t("settings.updater_section")}
           </h2>
-          <p className="text-caption text-fg-2 mt-1">
-            {t("settings.updater_section_desc")}
-          </p>
         </div>
         <Toggle
           checked={cfg.enabled}

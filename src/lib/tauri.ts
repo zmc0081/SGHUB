@@ -929,6 +929,10 @@ export const api = {
   aiStoreGetSyncStatus: () =>
     invoke<import("./sgAiStoreApi").SyncStatus>("ai_store_get_sync_status"),
 
+  // ── Usage stats N-day variant (V2.2.1 fix) ──────────────────────
+  getUsageStatsNDays: (days: number) =>
+    invoke<UsageStats7Days>("get_usage_stats_n_days", { days }),
+
   // ── AI Store balance (Session 29) ───────────────────────────────
   aiStoreGetBalance: (modelConfigId: string) =>
     invoke<SgStoreBalanceSnapshot>("ai_store_get_balance", { modelConfigId }),

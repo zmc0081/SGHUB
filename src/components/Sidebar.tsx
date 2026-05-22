@@ -16,6 +16,7 @@ import {
   Store,
 } from "lucide-react";
 import { api } from "../lib/tauri";
+import { APP_VERSION } from "../lib/version";
 import { useT } from "../hooks/useT";
 import { Icon } from "./Icon";
 
@@ -212,8 +213,8 @@ export default function Sidebar() {
         }
       >
         {collapsed ? (
-          <div className="w-7 h-7 rounded-md bg-white/10 flex items-center justify-center text-sidebar-fg-active text-meta font-bold tracking-wide-brand">
-            S
+          <div className="w-8 h-8 rounded-md bg-white/10 flex items-center justify-center text-sidebar-fg-active text-meta font-bold tracking-wide-brand">
+            SG
           </div>
         ) : (
           <>
@@ -221,7 +222,7 @@ export default function Sidebar() {
               SG Hub
             </div>
             <div className="text-micro text-sidebar-fg/60 mt-1 tracking-wide">
-              v2.2.0
+              v{APP_VERSION}
             </div>
           </>
         )}

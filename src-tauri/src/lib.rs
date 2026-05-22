@@ -171,6 +171,7 @@ pub fn run() {
             ai_client::test_model_connection,
             ai_client::ai_chat_stream,
             ai_client::usage::get_usage_stats_7days,
+            ai_client::usage::get_usage_stats_n_days,
             ai_client::usage::rebuild_usage_stats,
             chat::create_chat_session,
             chat::list_chat_sessions,

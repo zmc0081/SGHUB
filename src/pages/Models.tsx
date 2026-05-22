@@ -1,8 +1,9 @@
 // i18n: 本组件文案已国际化 (V2.1.0)
 import { useCallback, useEffect, useState, ComponentType } from "react";
 import {
-  Bar,
-  BarChart,
+  Area,
+  AreaChart,
+  CartesianGrid,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -237,9 +238,89 @@ function StatsCards({
   );
 }
 
-function UsageBarChart({ stats }: { stats: UsageStats7Days }) {
+// V2.2.1 fix — chart with range toggle (7d / 30d / custom) and a
+// smooth filled area-line. Fetches its own data when range changes;
+// the StatsCards above still reflect the 7-day rollup so the headline
+// totals stay anchored.
+type RangeMode = "7d" | "30d" | "custom";
+
+interface ChartPoint {
+  label: string;
+  full: string;
+  in: number;
+  out: number;
+  total: number;
+  calls: number;
+  cost: number;
+}
+
+function daysBetween(fromIso: string, toIso: string): number {
+  try {
+    const from = new Date(fromIso + "T00:00:00Z").getTime();
+    const to = new Date(toIso + "T00:00:00Z").getTime();
+    const diff = Math.floor((to - from) / 86_400_000) + 1;
+    return Math.max(1, Math.min(90, diff));
+  } catch {
+    return 7;
+  }
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function daysAgoIso(days: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Spread the X-axis labels so they don't overlap. Returns the
+ *  recharts `interval` prop value (skip count). */
+function tickInterval(n: number): number {
+  if (n <= 7) return 0; // every label
+  if (n <= 14) return 1;
+  if (n <= 30) return 3;
+  if (n <= 60) return 6;
+  return 9;
+}
+
+function UsageChart({ stats: initialStats }: { stats: UsageStats7Days }) {
   const t = useT();
-  const data = stats.daily_breakdown.map((d) => ({
+  const [mode, setMode] = useState<RangeMode>("7d");
+  const [customFrom, setCustomFrom] = useState<string>(daysAgoIso(30));
+  const [customTo, setCustomTo] = useState<string>(todayIso());
+  const [stats, setStats] = useState<UsageStats7Days>(initialStats);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setStats(initialStats);
+  }, [initialStats]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (mode === "7d") {
+      setStats(initialStats);
+      return;
+    }
+    const n =
+      mode === "30d" ? 30 : daysBetween(customFrom, customTo);
+    setLoading(true);
+    api
+      .getUsageStatsNDays(n)
+      .then((s) => {
+        if (!cancelled) setStats(s);
+      })
+      .catch((e) => console.warn("getUsageStatsNDays failed", e))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, customFrom, customTo, initialStats]);
+
+  const data: ChartPoint[] = stats.daily_breakdown.map((d) => ({
     label: d.date.slice(5).replace("-", "/"),
     full: d.date,
     in: d.tokens_in,
@@ -248,19 +329,78 @@ function UsageBarChart({ stats }: { stats: UsageStats7Days }) {
     calls: d.call_count,
     cost: d.cost_est,
   }));
+
+  const interval = tickInterval(data.length);
+
   return (
     <div className="bg-card rounded-card shadow-card p-5 mt-4">
-      <div className="text-meta text-fg-2 mb-2">
-        {t("models.stat_chart_title")}
+      <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+        <div className="text-meta text-fg-2">
+          {t("models.stat_chart_title")}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {(["7d", "30d", "custom"] as const).map((m) => {
+            const active = mode === m;
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={`px-2.5 py-0.5 rounded-pill text-meta font-medium transition-colors duration-fast ease-khx ${
+                  active
+                    ? "bg-navy text-fg-inverse"
+                    : "bg-navy-faint text-fg-2 hover:bg-navy-soft hover:text-fg-1"
+                }`}
+              >
+                {t("models.chart_range_" + m)}
+              </button>
+            );
+          })}
+          {mode === "custom" && (
+            <div className="flex items-center gap-1.5 text-meta">
+              <input
+                type="date"
+                value={customFrom}
+                max={customTo}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="px-2 py-0.5 rounded-pill border border-border-default bg-card text-fg-1 text-meta focus:outline-none focus:border-border-focus tabular-nums"
+              />
+              <span className="text-fg-3">—</span>
+              <input
+                type="date"
+                value={customTo}
+                min={customFrom}
+                max={todayIso()}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="px-2 py-0.5 rounded-pill border border-border-default bg-card text-fg-1 text-meta focus:outline-none focus:border-border-focus tabular-nums"
+              />
+            </div>
+          )}
+          {loading && (
+            <Icon icon={Loader2} size="xs" className="animate-spin text-fg-3" />
+          )}
+        </div>
       </div>
-      <div style={{ width: "100%", height: 140 }}>
+      <div style={{ width: "100%", height: 160 }}>
         <ResponsiveContainer>
-          <BarChart
+          <AreaChart
             data={data}
             margin={{ top: 6, right: 12, bottom: 0, left: 0 }}
           >
+            <defs>
+              <linearGradient id="usageFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--indigo)" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="var(--indigo)" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="var(--border-subtle)"
+              vertical={false}
+            />
             <XAxis
               dataKey="label"
+              interval={interval}
               tick={{ fontSize: 10, fill: "var(--text-3)" }}
               stroke="var(--border-default)"
             />
@@ -271,7 +411,7 @@ function UsageBarChart({ stats }: { stats: UsageStats7Days }) {
               width={36}
             />
             <Tooltip
-              cursor={{ fill: "var(--navy-faint)" }}
+              cursor={{ stroke: "var(--navy-muted)", strokeWidth: 1 }}
               content={({
                 active,
                 payload,
@@ -283,7 +423,7 @@ function UsageBarChart({ stats }: { stats: UsageStats7Days }) {
                   return null;
                 }
                 const p = (
-                  payload as Array<{ payload: (typeof data)[number] }>
+                  payload as Array<{ payload: ChartPoint }>
                 )[0].payload;
                 return (
                   <div className="bg-card rounded-card-sm shadow-nav border border-border-default px-3 py-2 text-meta">
@@ -309,13 +449,25 @@ function UsageBarChart({ stats }: { stats: UsageStats7Days }) {
                 );
               }}
             />
-            <Bar dataKey="total" fill="var(--indigo)" radius={[3, 3, 0, 0]} />
-          </BarChart>
+            <Area
+              type="monotone"
+              dataKey="total"
+              stroke="var(--indigo)"
+              strokeWidth={2}
+              fill="url(#usageFill)"
+              dot={{ r: 2, fill: "var(--indigo)", stroke: "var(--bg-card)", strokeWidth: 1 }}
+              activeDot={{ r: 4 }}
+            />
+          </AreaChart>
         </ResponsiveContainer>
       </div>
     </div>
   );
 }
+
+// Alias kept so callsites in Models() compile without rewiring;
+// removed once the rename ripples through.
+const UsageBarChart = UsageChart;
 
 function ModelRow({
   model,

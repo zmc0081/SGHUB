@@ -333,9 +333,11 @@ function ResultCard({
     SOURCE_BADGE[paper.source] ?? "bg-badge-default-bg text-badge-default-fg";
   return (
     <article
-      className={`rounded-card bg-card shadow-card p-5 transition-shadow duration-base ease-khx ${
-        result.is_read ? "opacity-70" : "hover:shadow-card-hover"
-      }`}
+      // V2.2.1 fix: dropped the `opacity-70` dim on read articles
+      // — it read visually as a "blurry layer" bug. The read state
+      // is still distinct via the absence of the blue unread dot
+      // and the "标已读" button.
+      className="rounded-card bg-card shadow-card p-5 transition-shadow duration-base ease-khx hover:shadow-card-hover"
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
