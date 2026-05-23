@@ -1,11 +1,12 @@
 //! Orchestrates AI Store catalog refresh.
 //!
 //! Triggers (mock + production both honor these):
-//!   - boot:        5s after `start_scheduler` is called
-//!   - periodic:    every 5 minutes after a successful sync
-//!   - sse-pushed:  immediate refresh when the SSE listener sees
-//!                  `products-updated`
-//!   - manual:      `ai_store_sync_now` Tauri command
+//!
+//! - boot — 5s after `start_scheduler` is called
+//! - periodic — every 5 minutes after a successful sync
+//! - sse-pushed — immediate refresh when the SSE listener sees
+//!   `products-updated`
+//! - manual — `ai_store_sync_now` Tauri command
 //!
 //! Offline degradation: if a sync fails, the last-good catalog stays
 //! visible in the UI; the sync_meta `next_sync_at` shifts back by the

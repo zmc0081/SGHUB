@@ -5,16 +5,15 @@
 //! listener) sees the same shape it will see in production.
 //!
 //! Production path (commented out, behind `USE_MOCK_DATA`):
-//!   1. open GET `{base}/api/products/stream` with `Accept: text/event-stream`
-//!   2. parse named events:
-//!         event: products-updated
-//!         data: {"etag":"..."}
-//!         event: heartbeat
-//!         data: {}
-//!   3. on `products-updated` → call sync_strategy::sync_now
-//!   4. on disconnect → exponential backoff (1s → 2s → 4s → … capped at 60s)
-//!   5. heartbeat watchdog: if no heartbeat in 90s, drop the connection
-//!      and reconnect.
+//!
+//! 1. open GET `{base}/api/products/stream` with
+//!    `Accept: text/event-stream`
+//! 2. parse named events — `event: products-updated` / `event: heartbeat`
+//!    each followed by a `data:` JSON line
+//! 3. on `products-updated` → call sync_strategy::sync_now
+//! 4. on disconnect → exponential backoff (1s → 2s → 4s → … capped at 60s)
+//! 5. heartbeat watchdog: if no heartbeat in 90s, drop the connection
+//!    and reconnect.
 
 use std::time::Duration;
 

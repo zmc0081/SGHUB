@@ -100,7 +100,7 @@ fn build_mock_snapshot(id: &str, product_name: String) -> BalanceSnapshot {
     let mut state = MOCK_STATE.lock().expect("MOCK_STATE poisoned");
     let entry = state.entry(id.to_string()).or_insert_with(|| fresh_mock(id));
     drain_mock(entry);
-    let snap = BalanceSnapshot {
+    BalanceSnapshot {
         balance_cny: entry.balance_cny,
         remaining_tokens: entry.remaining_tokens,
         subscription: Some(SubscriptionInfo {
@@ -114,8 +114,7 @@ fn build_mock_snapshot(id: &str, product_name: String) -> BalanceSnapshot {
             tokens_out: ((seed_from_id(id) % 40_000) + 2_000) as i64,
             call_count: ((seed_from_id(id) % 25) + 1) as i64,
         },
-    };
-    snap
+    }
 }
 
 /// Query the gateway (or mock) for one model's balance, and write the
