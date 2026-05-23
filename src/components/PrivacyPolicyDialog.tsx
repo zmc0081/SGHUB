@@ -11,9 +11,7 @@ import remarkGfm from "remark-gfm";
 import { useTranslation } from "react-i18next";
 import { BaseModal } from "./BaseModal";
 
-// eslint-disable-next-line import/no-unresolved
 import zhContent from "../assets/privacy/zh-CN.md?raw";
-// eslint-disable-next-line import/no-unresolved
 import enContent from "../assets/privacy/en-US.md?raw";
 
 type Lang = "zh-CN" | "en-US";
