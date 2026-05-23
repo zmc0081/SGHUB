@@ -1,7 +1,8 @@
 // i18n: 本组件文案已国际化 (V2.1.0)
+// V2.2.1 — added Privacy policy section below DataDirCard (Session 27)
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, ChevronDown } from "lucide-react";
+import { AlertTriangle, ChevronDown, Shield } from "lucide-react";
 import { api, type AppConfig, type UpdaterConfig } from "../lib/tauri";
 import {
   SUPPORTED_LANGUAGES,
@@ -11,6 +12,7 @@ import {
 } from "../i18n";
 import { UpdaterCard } from "../components/UpdaterCard";
 import { DataDirCard } from "../components/DataDirCard";
+import { PrivacyPolicyDialog } from "../components/PrivacyPolicyDialog";
 import { Icon } from "../components/Icon";
 import { Skeleton } from "../components/Skeleton";
 
@@ -87,9 +89,6 @@ export default function Settings() {
         <h1 className="text-h2 font-semibold text-fg-1">
           {t("settings.title")}
         </h1>
-        <p className="text-meta text-fg-2 mt-1 font-mono">
-          ~/.sghub/config.toml
-        </p>
       </header>
 
       {loading && (
@@ -180,7 +179,52 @@ export default function Settings() {
       <div className="mt-4">
         <DataDirCard />
       </div>
+
+      <div className="mt-4">
+        <PrivacyCard />
+      </div>
     </main>
+  );
+}
+
+/**
+ * Privacy-policy entry card. Sits below DataDirCard so it reads as
+ * "data lives here → here's how it's handled". The actual policy text
+ * is rendered in a dialog (PrivacyPolicyDialog) so a user can also
+ * compare zh/en side-by-side without leaving Settings.
+ */
+function PrivacyCard() {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <section
+        aria-labelledby="settings-privacy-heading"
+        className="bg-card rounded-card shadow-card p-6"
+      >
+        <div className="flex items-start gap-4">
+          <div className="w-11 h-11 rounded-icon bg-indigo-soft text-indigo flex items-center justify-center flex-shrink-0">
+            <Icon icon={Shield} size="lg" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2
+              id="settings-privacy-heading"
+              className="text-h3 font-semibold text-fg-1"
+            >
+              {t("settings.privacy_section")}
+            </h2>
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="mt-3 inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill border border-border-default bg-card text-fg-1 text-caption font-medium hover:border-navy hover:text-navy transition-colors duration-fast ease-khx"
+            >
+              <span>{t("settings.privacy_open_btn")}</span>
+            </button>
+          </div>
+        </div>
+      </section>
+      <PrivacyPolicyDialog open={open} onClose={() => setOpen(false)} />
+    </>
   );
 }
 

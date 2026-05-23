@@ -154,8 +154,25 @@ function MessageImpl({ message, streaming, onRegenerate }: Props) {
               )}
             </div>
           ) : streaming ? (
-            <span className="text-caption text-fg-3 animate-pulse">
-              {t("chat.msg_generating")}
+            // V2.2.1 fix: pre-token "thinking" indicator. Bouncing dots
+            // make it visually obvious that the model is busy reasoning
+            // (vs. the input bubble just rendering empty).
+            <span className="inline-flex items-center gap-1.5 text-caption text-fg-3">
+              <span>{t("chat.msg_generating")}</span>
+              <span className="inline-flex gap-0.5" aria-hidden="true">
+                <span
+                  className="w-1 h-1 rounded-full bg-fg-3 animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <span
+                  className="w-1 h-1 rounded-full bg-fg-3 animate-bounce"
+                  style={{ animationDelay: "120ms" }}
+                />
+                <span
+                  className="w-1 h-1 rounded-full bg-fg-3 animate-bounce"
+                  style={{ animationDelay: "240ms" }}
+                />
+              </span>
             </span>
           ) : (
             <span className="text-meta text-fg-3 italic">

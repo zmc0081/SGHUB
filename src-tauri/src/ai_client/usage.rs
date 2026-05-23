@@ -237,6 +237,145 @@ pub fn query_usage_stats_7days(pool: &crate::db::DbPool) -> rusqlite::Result<Usa
 }
 
 // ============================================================
+// V2.2.1 fix — N-day variant for the chart's 7d/30d/custom toggle.
+// Same shape as UsageStats7Days; the `daily_breakdown` vec length
+// equals the requested window so the frontend can render a smooth
+// line chart without holes.
+// ============================================================
+
+/// Generalized version of `rollup_7days`. `days` is clamped to
+/// 1..=90 — anything outside is coerced into that range, since wider
+/// windows would blow the chart's pixel budget and shorter ones make
+/// the toggle a no-op.
+pub fn rollup_n_days(
+    raw: Vec<RawUsageRow>,
+    names: &std::collections::HashMap<String, String>,
+    today_yyyymmdd: &str,
+    days: u32,
+) -> UsageStats7Days {
+    use std::collections::BTreeMap;
+    let days = days.clamp(1, 90) as i64;
+
+    let mut by_date: BTreeMap<String, (i64, i64, i64, f64)> = BTreeMap::new();
+    let mut by_model: std::collections::HashMap<String, (i64, i64, i64, f64)> =
+        std::collections::HashMap::new();
+
+    let mut total_in: i64 = 0;
+    let mut total_out: i64 = 0;
+    let mut total_calls: i64 = 0;
+    let mut total_cost: f64 = 0.0;
+
+    for (date, mid, tin, tout, calls, cost) in raw {
+        let d = by_date.entry(date).or_insert((0, 0, 0, 0.0));
+        d.0 += tin;
+        d.1 += tout;
+        d.2 += calls;
+        d.3 += cost;
+        let m = by_model.entry(mid).or_insert((0, 0, 0, 0.0));
+        m.0 += tin;
+        m.1 += tout;
+        m.2 += calls;
+        m.3 += cost;
+        total_in += tin;
+        total_out += tout;
+        total_calls += calls;
+        total_cost += cost;
+    }
+
+    let mut daily_breakdown = Vec::with_capacity(days as usize);
+    if let Ok(today) = chrono::NaiveDate::parse_from_str(today_yyyymmdd, "%Y-%m-%d") {
+        for back in (0..days).rev() {
+            let date = (today - chrono::Duration::days(back))
+                .format("%Y-%m-%d")
+                .to_string();
+            let (tin, tout, calls, cost) = by_date.get(&date).copied().unwrap_or((0, 0, 0, 0.0));
+            daily_breakdown.push(DailyUsage {
+                date,
+                tokens_in: tin,
+                tokens_out: tout,
+                call_count: calls,
+                cost_est: cost,
+            });
+        }
+    } else {
+        for (date, (tin, tout, calls, cost)) in by_date.iter() {
+            daily_breakdown.push(DailyUsage {
+                date: date.clone(),
+                tokens_in: *tin,
+                tokens_out: *tout,
+                call_count: *calls,
+                cost_est: *cost,
+            });
+        }
+    }
+
+    let mut by_model_vec: Vec<ModelUsage> = by_model
+        .into_iter()
+        .map(|(mid, (tin, tout, calls, cost))| ModelUsage {
+            model_name: names.get(&mid).cloned().unwrap_or_else(|| mid.clone()),
+            model_config_id: mid,
+            tokens_in: tin,
+            tokens_out: tout,
+            call_count: calls,
+            cost_est: cost,
+        })
+        .collect();
+    by_model_vec.sort_by_key(|m| std::cmp::Reverse(m.call_count));
+
+    UsageStats7Days {
+        total_tokens_in: total_in,
+        total_tokens_out: total_out,
+        total_call_count: total_calls,
+        total_cost_est: total_cost,
+        daily_breakdown,
+        by_model: by_model_vec,
+    }
+}
+
+fn query_n_day_rows(
+    pool: &crate::db::DbPool,
+    days: u32,
+) -> rusqlite::Result<Vec<RawUsageRow>> {
+    let days = days.clamp(1, 90) as i64;
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    // `-N+1 days` keeps the window inclusive of today (e.g. 7 days =
+    // today + 6 prior days, matching the 7-day query above).
+    let mut stmt = conn.prepare(
+        "SELECT date, model_config_id, \
+                tokens_in_total, tokens_out_total, call_count, cost_est_total \
+         FROM usage_stats \
+         WHERE date >= date('now', ?1) \
+         ORDER BY date ASC",
+    )?;
+    let offset = format!("-{} days", days - 1);
+    let rows = stmt
+        .query_map([offset.as_str()], |r| {
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, i64>(2)?,
+                r.get::<_, i64>(3)?,
+                r.get::<_, i64>(4)?,
+                r.get::<_, f64>(5)?,
+            ))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
+pub fn query_usage_stats_n_days(
+    pool: &crate::db::DbPool,
+    days: u32,
+) -> rusqlite::Result<UsageStats7Days> {
+    let rows = query_n_day_rows(pool, days)?;
+    let names = model_names(pool)?;
+    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    Ok(rollup_n_days(rows, &names, &today, days))
+}
+
+// ============================================================
 // Backfill from chat_messages + ai_parse_results
 // ============================================================
 
@@ -342,6 +481,20 @@ pub async fn get_usage_stats_7days(
         .map_err(|e| e.to_string())
 }
 
+/// V2.2.1 fix — N-day variant for the Models chart's 7d/30d/custom toggle.
+/// `days` is clamped to 1..=90 server-side.
+#[tauri::command]
+pub async fn get_usage_stats_n_days(
+    state: tauri::State<'_, AppState>,
+    days: u32,
+) -> Result<UsageStats7Days, String> {
+    let pool = state.db_pool.clone();
+    tokio::task::spawn_blocking(move || query_usage_stats_n_days(&pool, days))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub async fn rebuild_usage_stats(state: tauri::State<'_, AppState>) -> Result<i64, String> {
     let pool = state.db_pool.clone();
@@ -376,6 +529,11 @@ mod tests {
             updated_at: "2026-01-01T00:00:00Z".into(),
             input_price_per_1m_tokens: ip,
             output_price_per_1m_tokens: op,
+            is_sg_ai_store: false,
+            balance_cny: None,
+            remaining_tokens: None,
+            subscription_expires_at: None,
+            balance_synced_at: None,
         }
     }
 

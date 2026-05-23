@@ -2,12 +2,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  BellPlus,
   Check,
   Loader2,
   Pause,
   Pencil,
   Play,
-  Plus,
   RefreshCw,
   Trash2,
 } from "lucide-react";
@@ -333,9 +333,11 @@ function ResultCard({
     SOURCE_BADGE[paper.source] ?? "bg-badge-default-bg text-badge-default-fg";
   return (
     <article
-      className={`rounded-card bg-card shadow-card p-5 transition-shadow duration-base ease-khx ${
-        result.is_read ? "opacity-70" : "hover:shadow-card-hover"
-      }`}
+      // V2.2.1 fix: dropped the `opacity-70` dim on read articles
+      // — it read visually as a "blurry layer" bug. The read state
+      // is still distinct via the absence of the blue unread dot
+      // and the "标已读" button.
+      className="rounded-card bg-card shadow-card p-5 transition-shadow duration-base ease-khx hover:shadow-card-hover"
     >
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -509,9 +511,9 @@ export default function Feed() {
                 setShowAddForm(true);
                 setEditingSub(null);
               }}
-              className="inline-flex items-center gap-1 text-indigo hover:text-indigo-hover transition-colors duration-fast ease-khx normal-case tracking-normal"
+              className="inline-flex items-center gap-1.5 px-btn-x-sm py-btn-y-sm rounded-pill border border-border-default bg-card text-fg-1 text-meta font-medium normal-case tracking-normal hover:border-navy hover:text-navy transition-colors duration-fast ease-khx"
             >
-              <Icon icon={Plus} size="xs" />
+              <Icon icon={BellPlus} size="xs" />
               <span>{t("feed.new_button")}</span>
             </button>
           </div>

@@ -229,12 +229,33 @@ pub async fn send_chat_message(
     .map_err(|e| e.to_string())?
     .map_err(|e| e.to_string())?;
 
+    // V2.2.1 Session 29 — SG AI Store balance pre-flight check.
+    crate::ai_client::pre_flight_balance_check(&config).map_err(|e| e.to_string())?;
+
     // 6. Open the stream
-    let provider = provider_for(&config.provider, api_key).map_err(|e| e.to_string())?;
+    let provider = provider_for(&config.provider, api_key)
+        .map_err(|e| format!("model `{}`: {}", config.name, e))?;
+    // V2.2.1 — log dispatch so non-default-model bugs surface in logs.
+    log::info!(
+        "chat_stream: session={} provider={} endpoint={} model_id={} name={}",
+        session_id,
+        config.provider,
+        config.endpoint,
+        config.model_id,
+        config.name,
+    );
     let stream_result = provider
         .chat_stream(messages, &config)
         .await
-        .map_err(|e| e.to_string());
+        .map_err(|e| {
+            log::error!(
+                "chat_stream failed before first token (model={}, provider={}): {}",
+                config.name,
+                config.provider,
+                e
+            );
+            format!("model `{}` ({}): {}", config.name, config.provider, e)
+        });
 
     let mut stream = match stream_result {
         Ok(s) => s,

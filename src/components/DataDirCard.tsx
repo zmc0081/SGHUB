@@ -93,9 +93,6 @@ export function DataDirCard() {
           <h2 className="text-h3 font-semibold text-fg-1">
             {t("settings.data_section")}
           </h2>
-          <p className="text-caption text-fg-2 mt-1">
-            {t("settings.data_section_desc")}
-          </p>
         </div>
         {info?.is_custom && (
           <span className="shrink-0 rounded-pill px-2 py-0.5 text-micro font-medium bg-badge-new-bg text-badge-new-fg">

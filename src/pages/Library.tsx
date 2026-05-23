@@ -15,8 +15,9 @@ import {
   ChevronRight,
   Download,
   FolderClosed,
+  FolderPlus,
   Pencil,
-  Plus,
+  Tags,
   Trash2,
   X,
 } from "lucide-react";
@@ -252,9 +253,9 @@ function TagCloud({ tags, onChange }: { tags: Tag[]; onChange: () => void }) {
         <button
           type="button"
           onClick={newTag}
-          className="inline-flex items-center gap-1 text-indigo hover:text-indigo-hover normal-case tracking-normal text-meta transition-colors duration-fast ease-khx"
+          className="inline-flex items-center gap-1.5 px-btn-x-sm py-btn-y-sm rounded-pill border border-border-default bg-card text-fg-1 text-meta font-medium normal-case tracking-normal hover:border-navy hover:text-navy transition-colors duration-fast ease-khx"
         >
-          <Icon icon={Plus} size="xs" />
+          <Icon icon={Tags} size="xs" />
           <span>{t("library.new_tag_btn")}</span>
         </button>
       </div>
@@ -325,7 +326,11 @@ function PaperRow({
     <article
       ref={setNodeRef}
       style={style}
-      className={`group bg-card rounded-card shadow-card flex overflow-hidden transition-shadow duration-base ease-khx ${
+      // V2.2.1 fix: dropped `overflow-hidden` so the FavoriteButton
+      // popover inside PaperActions can escape the card boundary.
+      // The left-edge read-status bar now carries `rounded-l-card`
+      // itself to keep the card's rounded left corners clean.
+      className={`group bg-card rounded-card shadow-card flex transition-shadow duration-base ease-khx ${
         isDragging
           ? "shadow-card-hover opacity-60"
           : "hover:shadow-card-hover"
@@ -340,7 +345,7 @@ function PaperRow({
           ),
         })}
         aria-label={t("library.aria_toggle_status")}
-        className={`w-read-bar self-stretch shrink-0 cursor-pointer transition-opacity duration-fast ease-khx hover:opacity-75 ${
+        className={`w-read-bar self-stretch shrink-0 cursor-pointer rounded-l-card transition-opacity duration-fast ease-khx hover:opacity-75 ${
           READ_STATUS_BAR[paper.read_status] ?? "bg-read-unread"
         }`}
       />
@@ -585,9 +590,9 @@ export default function Library() {
               <button
                 type="button"
                 onClick={newRootFolder}
-                className="inline-flex items-center gap-1 text-indigo hover:text-indigo-hover normal-case tracking-normal transition-colors duration-fast ease-khx"
+                className="inline-flex items-center gap-1.5 px-btn-x-sm py-btn-y-sm rounded-pill border border-border-default bg-card text-fg-1 text-meta font-medium normal-case tracking-normal hover:border-navy hover:text-navy transition-colors duration-fast ease-khx"
               >
-                <Icon icon={Plus} size="xs" />
+                <Icon icon={FolderPlus} size="xs" />
                 <span>{t("library.new_folder_btn")}</span>
               </button>
             </div>

@@ -1,6 +1,7 @@
 use tauri::Manager;
 
 pub mod ai_client;
+pub mod ai_store;
 pub mod chat;
 pub mod config;
 pub mod db;
@@ -70,6 +71,19 @@ pub fn run() {
                     log::warn!("updater scheduler init failed: {}", e);
                 }
             });
+
+            // V2.2.1 Session 28 — AI Store catalog sync + SSE listener.
+            // Both spawn long-lived tokio tasks; both are mock-only in
+            // V2.2.1 (USE_MOCK_DATA = true in ai_store::sync_strategy)
+            // so they never hit the network.
+            ai_store::sync_strategy::start_scheduler(app.handle().clone());
+            ai_store::sse_listener::spawn(app.handle().clone());
+
+            // V2.2.1 Session 29 — SG AI Store balance auto-refresh.
+            // 10s boot then hourly. Mock-only: build_mock_snapshot
+            // draws a small synthetic usage on each refresh so the
+            // Models card balance subtly drifts down over time.
+            ai_store::billing::start_auto_refresh(app.handle().clone());
 
             Ok(())
         })
@@ -157,6 +171,7 @@ pub fn run() {
             ai_client::test_model_connection,
             ai_client::ai_chat_stream,
             ai_client::usage::get_usage_stats_7days,
+            ai_client::usage::get_usage_stats_n_days,
             ai_client::usage::rebuild_usage_stats,
             chat::create_chat_session,
             chat::list_chat_sessions,
@@ -169,6 +184,16 @@ pub fn run() {
             chat::upload_chat_attachment,
             chat::reference_paper_as_attachment,
             chat::send_chat_message,
+            // V2.2.1 Session 28 — AI Store (use full path: tauri::command
+            // macros expose a hidden __cmd__ companion at the function's
+            // original module path, which a `pub use` re-export doesn't
+            // carry along.)
+            ai_store::commands::ai_store_get_products,
+            ai_store::commands::ai_store_sync_now,
+            ai_store::commands::ai_store_get_sync_status,
+            // V2.2.1 Session 29 — SG AI Store billing
+            ai_store::billing::ai_store_get_balance,
+            ai_store::billing::ai_store_refresh_all_balances,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

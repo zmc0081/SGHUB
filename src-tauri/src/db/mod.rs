@@ -298,9 +298,13 @@ mod tests {
     fn get_status_returns_all_user_tables() {
         let (_tmp, pool) = fresh_pool();
         let status = get_status(&pool).expect("status");
-        // V001: 10 base tables + V002: subscription_papers
-        // + V003: chat_sessions + chat_messages + chat_attachments = 14
-        assert_eq!(status.table_count, 14);
+        // V001: 10 base tables
+        // V002: + subscription_papers
+        // V003: + chat_sessions + chat_messages + chat_attachments
+        // V004: (column-only, no new tables)
+        // V005: + ai_store_products + ai_store_sync_meta
+        // Total: 10 + 1 + 3 + 0 + 2 = 16
+        assert_eq!(status.table_count, 16);
 
         let folders = status.tables.iter().find(|t| t.name == "folders").unwrap();
         assert_eq!(folders.row_count, 1);
