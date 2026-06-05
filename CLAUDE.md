@@ -209,6 +209,30 @@ app.emit("ai:token", TokenPayload { text, done: false })?;
 5. Windows 10 21H2+ 和 macOS 12+ 必须支持
 6. 路径处理必须跨平台兼容(Path / PathBuf,不硬编码分隔符)
 
+## Logo 资源(V2.2.2)
+
+应用 Logo = **文件夹(左上凸耳 tab) + 竖向金色书签(从文件夹体顶边垂下,底部燕尾缺口)**(folder with upper-left tab + vertical gold bookmark hanging from the body-top edge),源自 "SG Hub logo design 应用版" 设计稿(竖版/正向参考)。配色:靛蓝(app token `--navy` #1F2E4D;独立桌面图标按设计稿用 #14213D)、学院金 `--brand-gold` #C9A24C、纸面 #F2EBD8。几何与精确路径见 `docs/ui-design/3-specs/logo-asset-spec.md` 表 3;绘制顺序**先书签(fill)后文件夹(stroke)**,使文件夹体顶边压在书签顶端(书签如从顶边垂下)。
+
+### 桌面图标(src-tauri/icons/)
+- **母源**:`src-tauri/icons/app-icon.svg`(1024×1024,靛蓝 squircle + 纸色描边 + 金旗;含硬编码 hex —— 故意放在 `src-tauri/` 下,不受 "src/ 禁 hex" 约束)
+- **重生成全规格**:`npx tauri icon src-tauri/icons/app-icon.svg -o src-tauri/icons`
+  - 产出 32/64/128/128@2x PNG + `icon.ico` + `icon.icns` + `Square*Logo`/`StoreLogo`(Win 磁贴)
+  - **不要手动逐张做图标**
+  - 新版 CLI 还会生成 `icons/ios`、`icons/android`;本项目只目标 Win/macOS,生成后删除这两个目录
+  - `tauri.conf.json` 的 `bundle.icon` 指向 `icons/{32x32,128x128,128x128@2x}.png` + `icon.{icns,ico}`
+  - 图标在**构建期嵌入**:改图标后必须 `cargo tauri build` 才能在窗口/任务栏/安装包看到,dev 模式看不到
+
+### 应用内 UI Logo
+- 唯一源:`src/components/BrandLogo.tsx`(**不要**用静态 svg —— 金色 hex 会触发 "src/ 禁 hex" PR 阻塞规则)
+  - `<LogoMark size className />` —— 仅 mark;描边 `currentColor`(继承父级文字色)+ 旗帜 `fill-brand-gold` token
+  - `<LogoLockup className />` —— mark + 衬线 "SG Hub"(`font-serif`)+ "Academic AI" 副标
+- **主题适配靠 currentColor**:侧栏 / 标题栏两个主题下恒为深色底,描边自动取白(`text-sidebar-fg-active`);因此**不需要 dark/light 两份文件**
+- 出现位置(共 3 处):
+  - 侧栏展开态 → `<LogoLockup />`(`Sidebar.tsx`)
+  - 侧栏折叠态 → `<LogoMark size={30} />`(同上)
+  - 自定义标题栏 → `<LogoMark size={18} />`(`Titlebar.tsx`)
+- mark 几何路径在 `BrandLogo.tsx` 与 `app-icon.svg` 各存一份,**改形态时两边同步**
+
 ## 开发环境
 
 - 操作系统: Windows

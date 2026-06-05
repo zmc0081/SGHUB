@@ -20,6 +20,9 @@
   --indigo-light:   #E0E5FF;
   --indigo-muted:   #C8D0FF;
 
+  /* ── Brand: gold (V2.2.2 logo accent) ── */
+  --brand-gold:     #C9A24C;
+
   /* ── Text ── */
   --text-1:         #1F2E4D;
   --text-2:         #5C6B88;
@@ -147,6 +150,9 @@
   --indigo-soft:    #1F1F33;
   --indigo-light:   #2A2A4D;
   --indigo-muted:   #3D3D66;
+
+  /* ── Brand: gold (V2.2.2 logo accent) ── */
+  --brand-gold:     #C9A24C;
 
   /* ── Text ── */
   --text-1:         #E8E8EC;

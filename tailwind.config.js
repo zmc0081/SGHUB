@@ -20,6 +20,9 @@ export default {
         "indigo-light": "var(--indigo-light)",
         "indigo-muted": "var(--indigo-muted)",
 
+        // ──── Brand: gold (V2.2.2 logo accent) ────
+        "brand-gold": "var(--brand-gold)",
+
         // ──── Text ────
         "fg-1": "var(--text-1)",
         "fg-2": "var(--text-2)",
@@ -148,6 +151,16 @@ export default {
           "SF Mono",
           "Consolas",
           "monospace",
+        ],
+        // V2.2.2 — brand wordmark (logo lockup). Source Serif 4 is the
+        // design-spec face; Georgia/Times provide the serif fallback
+        // until/unless the webfont is bundled.
+        serif: [
+          "Source Serif 4",
+          "Source Serif Pro",
+          "Georgia",
+          "Times New Roman",
+          "serif",
         ],
       },
 
