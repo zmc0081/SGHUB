@@ -47,15 +47,9 @@ export default function Titlebar() {
       data-tauri-drag-region
       className="h-titlebar flex items-center select-none bg-titlebar-bg text-titlebar-fg z-titlebar"
     >
-      <div
-        data-tauri-drag-region
-        className="w-14 flex items-center justify-center"
-      >
-        <div
-          className="w-5 h-5 rounded-icon bg-indigo"
-          aria-hidden="true"
-        />
-      </div>
+      {/* Left spacer (drag region). Logo removed per design — kept as a
+          w-14 spacer so the centered title doesn't shift. */}
+      <div data-tauri-drag-region className="w-14" />
 
       <div
         data-tauri-drag-region

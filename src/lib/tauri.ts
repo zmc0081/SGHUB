@@ -517,6 +517,28 @@ export interface PaperSearchResult {
   rank: number;
 }
 
+// ── Local-PDF management (V2.2.2) ────────────────────────────────
+
+/** Disk usage of the uploaded-PDF store (`<data>/pdfs/uploaded/`). */
+export interface StorageUsage {
+  file_count: number;
+  total_bytes: number;
+}
+
+/** Result of removing PDFs no longer referenced by any paper. */
+export interface OrphanCleanupResult {
+  removed_count: number;
+  freed_bytes: number;
+}
+
+/** A candidate file byte-identical to an already-imported PDF. */
+export interface DuplicateInfo {
+  /** The candidate path the user is trying to import. */
+  file_path: string;
+  existing_paper_id: string;
+  existing_title: string;
+}
+
 // ============================================================
 // API — typed wrappers around invoke().
 // Tauri converts JS camelCase keys → Rust snake_case automatically.
@@ -914,6 +936,29 @@ export const api = {
 
   reExtractPaperMetadata: (paperId: string) =>
     invoke<PartialMetadata>("re_extract_paper_metadata", { paperId }),
+
+  // ── Local-PDF management (V2.2.2) ──────────────────────────────
+
+  /** Delete a paper. `deleteFile` also removes the local PDF copy when
+   *  the paper is a local upload we own. */
+  deletePaper: (paperId: string, deleteFile: boolean) =>
+    invoke<void>("delete_paper", { paperId, deleteFile }),
+
+  /** Batch delete; resolves with the count successfully removed. */
+  deletePapersBatch: (paperIds: string[], deleteFiles: boolean) =>
+    invoke<number>("delete_papers_batch", { paperIds, deleteFiles }),
+
+  /** Current disk usage of the uploaded-PDF store. */
+  getUploadedPdfsSize: () =>
+    invoke<StorageUsage>("get_uploaded_pdfs_size"),
+
+  /** Remove uploaded PDFs not referenced by any paper row. */
+  cleanupOrphanPdfs: () =>
+    invoke<OrphanCleanupResult>("cleanup_orphan_pdfs"),
+
+  /** Find candidate files byte-identical to already-imported PDFs. */
+  checkDuplicatePdfs: (filePaths: string[]) =>
+    invoke<DuplicateInfo[]>("check_duplicate_pdfs", { filePaths }),
 
   // ── AI Store (Session 28, V2.2.1) ─────────────────────────────
   // Only invoked when USE_MOCK_DATA=false in sgAiStoreApi.ts.

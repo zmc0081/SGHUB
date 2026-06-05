@@ -1766,26 +1766,12 @@ git push
 
 ## M2.2.1 · UI 重构后的优化 + AI Store 模块(Week 26-29)
 
-> 【版本说明】V2.1.0(原 V2.0.2,Session 19-24)已发布并稳定;
-> V2.2.0 已上线 — UI 整体重构为 **SGHUB Capsule** 设计语言(深海军蓝 `#1F2E4D` 主按钮 +
-> 靛蓝紫 `#4F46E5` 次级 + 999px 胶囊主义 + 16px 大圆角柔阴影 + 紫蓝光晕氛围)。
-> 详见 `docs/ui-design/design-style-spec.md` 与 `docs/ui-design/3-specs/component-specs.md`。
->
-> V2.2.1 是基于 V2.2.0 的优化迭代,包含:
+> 【版本说明】V2.1.0(原 V2.0.2,Session 19-24)已开发完成上线。
+> V2.2.1 是基于 **UI 已重构** 的基础上的优化迭代,包含:
 > 全局品牌与文案调整、侧边栏折叠、隐私协议、版权信息、Bug 修复,以及 AI Store 模块对接。
 >
-> **重要前提**:本版本所有 UI 改动**必须遵循 V2.2 SGHUB Capsule 设计规范**。
-> 每个 Session 开始时,Claude Code 必须读取下列三份文件确认设计约束:
-> 1. `CLAUDE.md` — 项目上下文、技术栈、目录结构
-> 2. `docs/ui-design/design-style-spec.md` — 5 大视觉支柱 + 完整 token 表 + 反模式 12 条
-> 3. `docs/ui-design/3-specs/component-specs.md` — 15 个组件 PropsAPI / states / a11y
->
-> 严禁出现的反模式(违反任一条均需返工):
-> - 硬编码 `#XXXXXX` 色值(全部走 token,如 `bg-navy / text-fg-1 / shadow-card`)
-> - emoji 当图标(用 Lucide 替代,参见 `docs/ui-design/3-specs/icon-map.md`)
-> - `window.confirm/prompt/alert`(用 `confirmAsync/promptAsync` 替代)
-> - 单行元素非 999px 圆角(button / input / badge / chip 一律 `rounded-pill`)
-> - 卡片用 border 代替 shadow(必须 `shadow-card` 双层柔阴影)
+> **重要前提**:本版本开发前,UI 已经过重构,Claude Code 执行任务前必须先读取最新的 CLAUDE.md
+> 了解重构后的组件结构、目录组织与设计系统,再动手修改。
 
 > **关键边界**:AI 中转服务是独立项目 **SG AI Store**(域名 sgaistore.com,版本 V1.0.0 起独立演进),
 > **不在 SGHUB 项目范围内**。SGHUB 客户端只作为消费方,通过 SG AI Store 的公开 API 同步商品、
@@ -1816,25 +1802,16 @@ git pull
 git checkout -b feature/v2.2.1
 ```
 
-⚠️ **每个 Session 开始时**:Claude Code 必须按本节开头(M2.2.1 preamble)列出的 3 份文件
-(CLAUDE.md / design-style-spec.md / component-specs.md)读取设计约束;后续 Session 25-29
-各自的开头还会列出当次任务需补充阅读的具体 spec 锚点。
+⚠️ **每个 Session 开始时,Claude Code 必须先读取 CLAUDE.md**,确认 UI 重构后的最新结构
+(组件路径、设计系统、命名约定可能已变化),再进行修改,避免基于过时的目录结构操作。
 
 ---
 
 ### Session 25: Bug 修复 + 全局品牌与文案调整
 
 ```
-读取 CLAUDE.md、docs/ui-design/design-style-spec.md、docs/ui-design/3-specs/icon-map.md。
-本次任务包含一个高优 Bug 修复和一组全局品牌/文案调整,所有 UI 改动严格遵循 V2.2
-SGHUB Capsule 设计规范(深海军蓝主按钮 + 999px 胶囊 + 16px 大圆角柔阴影 + Lucide 图标)。
-
-**强约束**:
-- R4 emoji 去除必须按 docs/ui-design/3-specs/icon-map.md Table A 的 Lucide 映射执行,
-  不允许保留任何 emoji 字符(`grep -rPE '[\\x{1F300}-\\x{1F9FF}]|[\\x{2600}-\\x{27BF}]' src/` 应为 0;
-  Skill icon 用户输入字段除外)
-- R1/R3 品牌文案修改不允许新增硬编码颜色或圆角,沿用现有 token 类名
-- 所有 i18n key 命名空间只增不改
+读取 CLAUDE.md 了解 UI 重构后的最新项目结构。本次任务包含一个高优 Bug 修复
+和一组全局品牌/文案调整。
 
 == 第一部分:Bug 修复(优先,可先单独发热修复) ==
 
@@ -1904,10 +1881,7 @@ R2 - 去除按钮前的加号:
 ### Session 26: 左侧导航栏折叠/伸缩 + 版权信息
 
 ```
-读取 CLAUDE.md、docs/ui-design/design-style-spec.md、docs/ui-design/3-specs/component-specs.md §A.2 Sidebar。
-所有 UI 改动严格遵循 V2.2 SGHUB Capsule 设计规范(侧栏 bg = `--sidebar-bg` 深海军蓝,active-bar
-= `--sidebar-active-bar` 靛紫,不是 V2.1 的芥黄)。
-本次任务让左侧导航栏支持折叠/伸缩,
+读取 CLAUDE.md 了解 UI 重构后的侧边栏组件结构。本次任务让左侧导航栏支持折叠/伸缩,
 并在底部新增版权信息。
 
 R6 - 左侧导航栏折叠/伸缩:
@@ -1962,11 +1936,7 @@ R7 - 左侧导航栏底部版权信息:
 ### Session 27: 设置增强 - 隐私协议页(中英文)
 
 ```
-读取 CLAUDE.md、docs/ui-design/design-style-spec.md、docs/ui-design/3-specs/component-specs.md
-(§C.1 Buttons、§C.2 Inputs、§B.2 BaseModal — 如需弹窗展示协议长文则用 BaseModal 而非 alert)。
-所有 UI 改动严格遵循 V2.2 SGHUB Capsule 设计规范(`card-khx` + `text-h3` 标题 + `text-body` 正文,
-带语言切换按钮的 chip 用 `rounded-pill`)。
-本次任务在设置的"数据管理"下方
+读取 CLAUDE.md 了解 UI 重构后的设置页结构。本次任务在设置的"数据管理"下方
 新增一项"隐私协议",内置中英文隐私协议说明。
 
 R8 - 隐私协议:
@@ -2013,16 +1983,7 @@ R8 - 隐私协议:
 ### Session 28: AI Store 模块 - 商品展示 + 同步(模拟数据)
 
 ```
-读取 CLAUDE.md、docs/ui-design/design-style-spec.md、docs/ui-design/3-specs/component-specs.md。
-新页面所有 UI 严格遵循 V2.2 SGHUB Capsule 设计规范:
-- 商品卡片用 `card-khx`(16px 圆角 + `shadow-card` 双层柔阴影,**不能**改用 border-only)
-- Hero 区 / 空状态用 `<Stage>` 组件(`docs/ui-design/3-specs/component-specs.md §B.6`,紫蓝光晕氛围)
-- 主操作按钮用 `bg-navy`(`#1F2E4D`,SGHUB Capsule 唯一深色 CTA,**不能**用靛紫)
-- 价格/标签 chip 用 `rounded-pill` + `badge-khx-{update,improve,bug,new}` 4 语义色之一
-- 图标全部走 Lucide(参 `docs/ui-design/3-specs/icon-map.md`),provider 自绘图标用
-  `src/assets/icons/provider-*.svg`
-
-本次任务新增 AI Store 模块,
+读取 CLAUDE.md 了解 UI 重构后的项目结构与导航方案。本次任务新增 AI Store 模块,
 展示来自 SG AI Store(sgaistore.com)的商品并实现同步。开发阶段用模拟数据。
 
 1. 侧栏新增 AI Store 入口(位置:模型配置与设置之间):
@@ -2106,22 +2067,11 @@ R8 - 隐私协议:
 ### Session 29: SG AI Store 模型接入 + 余额展示
 
 ```
-读取 CLAUDE.md、docs/ui-design/design-style-spec.md、docs/ui-design/3-specs/component-specs.md。
-本次任务把 SG AI Store 接入模型配置中心,购买 Key 后可直接使用,并展示实时余额/用量。
-开发阶段余额查询用 mock 数据。
-
-所有 UI 严格遵循 V2.2 SGHUB Capsule 设计规范:
-- 模型卡片用 `card-khx`,**不能**自创视觉风格
-- 余额徽章用 `badge-khx-improve`(绿,充足)/`badge-khx-new`(橙黄,<20%)/
-  `badge-khx-bug`(红,<10%)/`badge-default`(灰,耗尽)4 种,**不能**新增第 5 色
-- "前往充值" 弹窗用 `confirmAsync({ variant: 'danger', ... })`,**不能**用 `window.confirm`
-- "余额不足" 引导横幅用 `bg-warning-bg text-warning-fg-strong border-warning-border`(token,非硬编码)
-- SG AI Store 标签图标用 Lucide `Store` 或自绘 SVG(放 `src/assets/icons/`),**不能**用 🏬 emoji
-- 引导接入 Key 的输入框 + 按钮组用 `input-khx` + `btn-khx-primary` 套路
+读取 CLAUDE.md。本次任务把 SG AI Store 接入模型配置中心,购买 Key 后可直接使用,
+并展示实时余额/用量。开发阶段余额查询用 mock 数据。
 
 1. 模型配置中心新增 "SG AI Store" Provider 预设:
-   - 名称:SG AI Store(推荐:无需自己申请 API Key)
-   - 标签图标:Lucide `Store` 或自绘 SVG(`src/assets/icons/sg-ai-store.svg`)
+   - 名称:SG AI Store(推荐:无需自己申请 API Key)(图标用图标库,非 emoji)
    - 预填:Provider=openai 兼容,Endpoint=https://sgaistore.com/v1
    - 用户填:Model ID(从已购商品下拉)+ API Key(从 sgaistore.com 复制)
    - 显示名自动生成:"{product} (SG AI Store)"
@@ -2258,6 +2208,261 @@ git push --tags
 
 ---
 
+---
+
+## M2.2.2 · Logo 更换 + 文献数据库本地 PDF 管理(Week 30-31)
+
+> V2.2.2 是基于 V2.2.1 的小迭代,包含两项:更换为新设计的 Logo,
+> 以及在"文献数据库"模块支持本地 PDF 上传与集中管理。
+>
+> **开工前必读 CLAUDE.md 的"UI 设计规范(强约束)"**:本版本任何 UI 改动都受 7 条硬规则约束
+> (禁用 V2.1 旧 token、禁用 emoji 当图标全用 Lucide、禁用 window.confirm/prompt/alert、
+> 禁用 transition-all、禁止硬编码颜色、双主题 WCAG AA、不改基础设施)。
+> 提交前必须通过 PR 自查 6 条 grep。
+>
+> **复用提示**:本地 PDF 上传的后端能力(元数据提取、批量上传、FTS 索引)在 V2.0.1 的 Session 18
+> 已经实现(upload_local_papers_batch / extract_pdf_metadata / search_local_papers)。
+> 本次主要是在"文献数据库"(Library.tsx)模块新增**管理导向的上传入口**,复用已有后端,不要重写。
+
+### 本次需求清单
+
+| 编号 | 需求 | 所属 Session |
+|------|------|-------------|
+| R1 | 更换 Logo 为新设计版本 | Session 30 |
+| R2 | 文献数据库支持本地 PDF 上传与集中管理 | Session 31 |
+
+### 在开始 Session 30 之前
+
+确认 V2.2.1 已发布并稳定,本地分支已同步:
+```cmd
+cd D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub
+git checkout main
+git pull
+git checkout -b feature/v2.2.2
+```
+
+⚠️ **每个 Session 开始时,Claude Code 必须先读取 CLAUDE.md**,重点确认:
+- "UI 设计规范(强约束)"章节的 7 条硬规则与 PR 自查 6 条
+- "Logo 资源(V2.2.2)"章节(资源路径与生成方式)
+- "文献数据库本地 PDF 管理(V2.2.2)"章节(后端 Command 与数据约定)
+- "侧边栏导航(V2.2.1)"章节(Logo 在折叠态/展开态的用法)
+
+⚠️ **新 Logo 文件需由你提供**:把设计好的 Logo 文件准备好(建议 1024x1024 透明 PNG 作为源图)。
+
+---
+
+### Session 30: 更换 Logo 为新设计版本
+
+```
+读取 CLAUDE.md,重点看"Logo 资源(V2.2.2)"与"侧边栏导航(V2.2.1)"两节,
+以及 UI 设计规范的硬规则。本次任务把应用 Logo 替换为新设计的版本。
+
+== 准备:新 Logo 文件 ==
+开始前把新设计的 Logo 准备好。需要两类资源:
+
+1. 应用图标源图:1024x1024 PNG(透明背景),用于自动生成全部规格
+2. 应用内 UI Logo(SVG 优先,适配亮/暗主题):
+   - logo.svg          主 Logo(展开态侧栏、关于页等)
+   - logo-dark.svg     暗色主题版(若 Logo 单色)
+   - logo-light.svg    亮色主题版
+   - logo-mark.svg     折叠态侧栏用的小图标/标记版
+
+== 任务步骤 ==
+
+1. 替换应用图标(src-tauri/icons/):
+   - 把 1024x1024 源图放到临时位置
+   - 运行 `npm run tauri icon <源图路径>` 自动生成全部规格:
+     32x32.png / 128x128.png / 128x128@2x.png / icon.icns / icon.ico 等
+   - 确认 tauri.conf.json 的 bundle.icon 指向 src-tauri/icons/ 下的图标
+   - 不要手动逐张制作图标
+
+2. 替换应用内 UI Logo(src/assets/):
+   - 用新的 logo.svg / logo-dark.svg / logo-light.svg / logo-mark.svg 替换旧资源
+   - 按 CLAUDE.md"侧边栏导航"约定:
+     * 侧栏展开态用 logo.svg
+     * 侧栏折叠态用 logo-mark.svg(小图标版)
+   - 检查所有 Logo 出现位置并替换:
+     * 侧栏顶部(展开态 + 折叠态)
+     * 关于页 / 设置-关于
+     * 首次启动 / 引导页(如有)
+     * 登录页(如有)
+     * AI Store 页头(如有)
+
+3. 主题适配:
+   - 亮色主题用深色 Logo,暗色主题用浅色 Logo(若 Logo 为单色)
+   - 主题切换时 Logo 同步切换
+   - 适配尺寸,确保不变形、不模糊
+
+4. 遵守 UI 硬规则:
+   - 不引入硬编码颜色(#XXXXXX 仅允许在 src/styles/index.css)
+   - 若 Logo 容器有过渡动画,用 motion token(duration-fast/base/slow ease-khx),
+     不用 transition-all
+   - 不动基础设施(router 路由 / stores shape / tauri.ts 签名)
+
+5. 清理:
+   - 删除旧 Logo 资源文件,确认无任何地方仍引用旧 Logo
+   - grep 全局确认旧 Logo 文件名已无引用
+
+== 验证 ==
+- 构建后:窗口图标、任务栏、安装包图标均为新 Logo
+- 应用内所有 Logo 位置已更新,亮/暗主题下都清晰
+- 折叠态侧栏 logo-mark 正常显示
+- PR 自查 6 条 grep 全过(尤其无硬编码颜色、无 transition-all)
+- cargo tauri build 成功,安装包图标正确
+- npm run build + eslint 0 warning
+
+== 注意 ==
+- Logo 文件由用户提供;用 tauri icon 命令自动生成规格
+- 图标在构建期嵌入,改完必须重新完整构建(cargo tauri build),dev 模式可能看不到变化
+```
+
+验证:
+- 窗口/任务栏/安装包图标 = 新 Logo
+- 应用内所有 Logo 位置已更新,主题适配正常,折叠态正常
+- PR 自查 6 条全过
+- `git commit -m "feat: session 30 - replace logo with new design"`
+
+---
+
+### Session 31: 文献数据库支持本地 PDF 上传与集中管理
+
+```
+读取 CLAUDE.md,重点看"文献数据库本地 PDF 管理(V2.2.2)"节(后端 Command 与数据约定)
+以及 UI 设计规范硬规则。本次任务在文献数据库(Library.tsx)新增本地 PDF 上传入口,
+实现本地文件的集中管理。
+
+== 复用提示(CLAUDE.md 已列明)==
+后端能力 V2.0.1 Session 18 已实现,本次复用,不要重写:
+- upload_local_paper(file_path) / upload_local_papers_batch(file_paths)
+- extract_pdf_metadata(元数据提取链,lopdf + 启发式)
+- update_paper_metadata(元数据补全)
+- search_local_papers(FTS5 检索)
+- papers 表 source='local' / uploaded_at 字段已存在
+- 本地 PDF 存储:{数据目录}/data/pdfs/uploaded/{uuid}.pdf
+若上述能力缺失或不完整,先补齐后端,再做前端入口。
+
+== 任务范围 ==
+
+1. 文献数据库页面新增上传入口(src/pages/Library.tsx):
+   - 顶部工具栏新增"上传 PDF"按钮:
+     * 图标用 Lucide(查 docs/ui-design/3-specs/icon-map.md 选合适的图标,如 Upload / FilePlus)
+     * 不用 emoji
+   - 支持两种上传方式:
+     a. 点击按钮 → tauri-plugin-dialog 打开文件选择器,多选 PDF
+     b. 拖拽上传:文献列表区域作为拖放区,拖入 PDF 触发上传
+       (用 Tauri 的 file-drop 事件,适配 Tauri 2 capabilities 权限声明)
+
+2. 上传到指定文件夹:
+   - 默认上传到当前选中的文件夹(用户正在某文件夹视图下时)
+   - 或弹出文件夹选择(用 promptAsync/已规范的对话框组件,不用 window.prompt)
+   - 上传后文献自动加入该文件夹(folder_papers 关联)
+   - 未选文件夹默认进"未分类"
+
+3. 上传流程与进度:
+   - 调用 upload_local_papers_batch(已有后端)
+   - 进度反馈用已规范的进度组件 + useToast,监听 "upload:progress" 事件:
+     * 当前文件名 / 进度百分比 / 总数(N/M)
+   - 完成 Toast:"成功导入 N 篇文献"(失败的单独列出)
+   - 禁止用 window.alert,统一用 useToast
+
+4. 元数据处理:
+   - 复用 extract_pdf_metadata;置信度低(needs_user_review)的文献上传后标记"待完善"角标
+   - 提供批量补全入口:筛选"待完善",逐个或批量编辑(复用 PaperMetadataEditor 组件,若已建)
+
+5. 本地文献的展示(遵循设计系统):
+   - source='local' 的文献来源徽章显示"本地"(Lucide 图标 + 文字,非 emoji)
+   - 卡片操作:打开 PDF / AI 精读 / 移动文件夹 / 编辑元数据 / 删除
+   - "打开 PDF":tauri-plugin-shell 打开本地 PDF(pdf_path)
+   - 删除:用 confirmAsync 二次确认,询问是否同时删除本地 PDF 副本(data/pdfs/uploaded/ 下)
+
+6. 集中管理能力:
+   - 本地上传与在线检索/推送文献统一在文献数据库管理
+   - 支持:文件夹归类、标签、阅读状态、FTS 全文检索(复用已有能力)
+   - 批量操作:批量移动、批量打标签、批量删除
+   - 筛选:按来源(全部 / 本地 / arXiv / PubMed / OpenAlex / Semantic Scholar)
+
+7. 存储管理:
+   - 在设置-数据管理 或 文献数据库页,显示本地 PDF 占用空间
+   - 提供"清理未关联的 PDF 文件"(孤儿文件清理),操作前 confirmAsync 确认
+
+8. 边界处理:
+   - 重复上传检测:同一 PDF(文件 hash 或 标题+大小)已存在时,提示"该文献可能已存在",
+     用 confirmAsync 让用户选"仍然导入"或"跳过"
+   - 非 PDF 文件:拒绝并 useToast 提示
+   - 损坏的 PDF:提取失败仍允许导入(标题用文件名),标记待完善
+   - 超大文件(>100MB):提示并拒绝
+
+== 遵守 UI 硬规则 ==
+- 图标全用 Lucide(查 icon-map.md),禁用 emoji
+- 对话框/确认/提示用 confirmAsync / promptAsync / useToast,禁用 window.*
+- 颜色只用 token,不硬编码;动画用 motion token,不用 transition-all
+- 不改 router 路由 / stores shape / tauri.ts 签名 / i18next 命名空间(只增不改)
+- 新增文案补充到 i18n 五语言包(zh-CN/zh-TW/en-US/ja-JP/fr-FR)
+
+== 验证 ==
+- 文献数据库可通过按钮和拖拽上传 PDF,上传到指定文件夹,进度清晰
+- 本地与在线文献统一管理(归类/标签/检索/批量)
+- 打开 PDF、删除(含本地文件)、重复检测、孤儿清理均正常
+- PR 自查 6 条 grep 全过
+- cargo test + npm run build + eslint 0 warning
+
+== 注意 ==
+- 后端能力优先复用 Session 18;本次重点是文献数据库的管理入口与集中管理体验
+- 严格遵守 CLAUDE.md 的 UI 设计规范硬规则,提交前跑 PR 自查 6 条
+```
+
+验证:
+- 文献数据库支持 PDF 上传(按钮 + 拖拽),集中管理体验完整
+- 严格符合 UI 设计规范(无 emoji、无 window.*、无硬编码色、无 transition-all)
+- `git commit -m "feat: session 31 - local pdf upload in literature database"`
+
+---
+
+### V2.2.2 收尾:Beta + 发布
+
+完成 Session 30-31 后:
+
+1. 合并 feature/v2.2.2 到 main:
+```cmd
+git checkout main
+git merge --no-ff feature/v2.2.2
+git push
+```
+
+2. 打 Beta tag → GitHub Releases prerelease → 邀请 V2.2.1 用户测试
+
+3. Beta 期重点:
+   - 新 Logo 在各平台(Windows/macOS)、各位置(窗口/任务栏/应用内/折叠态)、亮暗主题的显示
+   - 本地 PDF 上传的稳定性(大文件、多文件、拖拽、重复检测)
+   - 元数据提取质量与待完善流程
+   - UI 设计规范合规(PR 自查 6 条)
+
+4. 正式发布:
+```cmd
+git tag v2.2.2
+git push --tags
+```
+
+5. 公告:全新 Logo + 文献数据库支持本地 PDF 上传与集中管理
+
+---
+
+## V2.2.2 Session 速查
+
+| Session | 主题 | 对应需求 | 预估时长 |
+|---------|------|---------|---------|
+| 30 | 更换 Logo 为新设计版本 | R1 | 0.5 周 |
+| 31 | 文献数据库支持本地 PDF 上传与集中管理 | R2 | 1 周 |
+
+**总计**: 约 1.5 周
+
+**关键提醒**:
+- 新 Logo 文件由用户提供,用 `npm run tauri icon` 自动生成全部规格;改完需重新完整构建
+- 本地 PDF 上传后端能力复用 V2.0.1 Session 18,本次只做文献数据库模块的管理入口
+- 严格遵守 CLAUDE.md 的 UI 设计规范 7 条硬规则,提交前必过 PR 自查 6 条 grep
+- 每个 Session 开始前先读 CLAUDE.md 确认最新结构与约束
+
+
 ## 所有版本 Session 对照
 
 | 版本 | Session 范围 | 主题 | 状态 |
@@ -2266,4 +2471,5 @@ git push --tags
 | V2.0.1 | 13-18 | Chat + Skill 编辑 + 跨模块跳转 | 已发布 |
 | V2.1.0 | 19-24 | 设置完善 + 国际化 + Skill 智能生成(原 V2.0.2) | 已发布 |
 | V2.2.1 | 25-29 | UI 优化(改名 SG Hub/去 emoji/折叠侧栏/隐私协议)+ Bug 修复 + AI Store 模块 | 规划中 |
+| V2.2.2 | 30-31 | 更换 Logo + 文献数据库本地 PDF 上传与集中管理 | 规划中 |
 

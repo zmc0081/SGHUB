@@ -16,9 +16,9 @@ import {
   Store,
 } from "lucide-react";
 import { api } from "../lib/tauri";
-import { APP_VERSION } from "../lib/version";
 import { useT } from "../hooks/useT";
 import { Icon } from "./Icon";
+import { LogoMark, LogoLockup } from "./BrandLogo";
 
 type BadgeKind = "new" | "unread" | null;
 
@@ -213,18 +213,9 @@ export default function Sidebar() {
         }
       >
         {collapsed ? (
-          <div className="w-8 h-8 rounded-md bg-white/10 flex items-center justify-center text-sidebar-fg-active text-meta font-bold tracking-wide-brand">
-            SG
-          </div>
+          <LogoMark size={30} className="text-sidebar-fg-active" />
         ) : (
-          <>
-            <div className="text-xl font-bold text-sidebar-fg-active tracking-wide-brand">
-              SG Hub
-            </div>
-            <div className="text-micro text-sidebar-fg/60 mt-1 tracking-wide">
-              v{APP_VERSION}
-            </div>
-          </>
+          <LogoLockup />
         )}
       </Link>
 

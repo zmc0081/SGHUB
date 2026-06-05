@@ -36,6 +36,11 @@ src-tauri/WixTools/
 *.code-workspace
 
 # ============================================================
+# Claude Code — local agent session/config, never commit
+# ============================================================
+.claude/
+
+# ============================================================
 # IDE — JetBrains (CLion / WebStorm / IntelliJ / RustRover)
 # ============================================================
 .idea/
