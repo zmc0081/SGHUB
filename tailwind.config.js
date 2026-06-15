@@ -89,6 +89,15 @@ export default {
         "src-openalex-fg": "var(--src-openalex-fg)",
         "src-local": "var(--src-local)",
         "src-local-fg": "var(--src-local-fg)",
+        // V2.2.3 — new sources
+        "src-crossref": "var(--src-crossref)",
+        "src-crossref-fg": "var(--src-crossref-fg)",
+        "src-core": "var(--src-core)",
+        "src-core-fg": "var(--src-core-fg)",
+        "src-dblp": "var(--src-dblp)",
+        "src-dblp-fg": "var(--src-dblp-fg)",
+        "src-doaj": "var(--src-doaj)",
+        "src-doaj-fg": "var(--src-doaj-fg)",
 
         // ──── Read status (Library card bar) ────
         "read-unread": "var(--read-unread)",

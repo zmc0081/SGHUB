@@ -33,6 +33,18 @@ pub struct AppConfig {
     /// V2.1.0 — fine-grained auto-updater schedule.
     #[serde(default = "UpdaterConfig::default")]
     pub updater: UpdaterConfig,
+    /// V2.2.3 — Crossref "polite pool" contact e-mail. Empty = use the
+    /// built-in project contact (`search::CROSSREF_MAILTO`). The CORE API key
+    /// is NOT stored here — it lives in the OS keychain (see
+    /// `search::set_core_api_key`) and config only ever holds references.
+    #[serde(default)]
+    pub crossref_mailto: String,
+    /// V2.2.3 — enabled search sources. Empty = all sources enabled. The
+    /// Search-page dropdown is the live selector today; this field is
+    /// forward-compat for a per-source settings toggle once config
+    /// persistence lands (currently a stub).
+    #[serde(default)]
+    pub enabled_sources: Vec<String>,
 }
 
 /// Auto-updater scheduling configuration (V2.1.0).
@@ -84,6 +96,8 @@ fn mock_app_config() -> AppConfig {
         default_model_id: Some("model-claude-opus-4-7".into()),
         log_level: "info".into(),
         updater: UpdaterConfig::default(),
+        crossref_mailto: String::new(),
+        enabled_sources: Vec::new(),
     }
 }
 

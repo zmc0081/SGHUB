@@ -95,6 +95,18 @@ fn parse_entry(entry: roxmltree::Node) -> Option<Paper> {
         .and_then(|n| n.text())
         .map(|s| s.trim().to_string());
 
+    // arXiv is open access — the PDF link is a real full-text link.
+    let fulltext_url = entry
+        .children()
+        .filter(|n| {
+            n.is_element()
+                && n.tag_name().name() == "link"
+                && n.tag_name().namespace() == Some(ATOM_NS)
+        })
+        .find(|n| n.attribute("type") == Some("application/pdf"))
+        .and_then(|n| n.attribute("href"))
+        .map(String::from);
+
     Some(Paper {
         id: format!("p-arxiv-{}", arxiv_id),
         title,
@@ -109,6 +121,8 @@ fn parse_entry(entry: roxmltree::Node) -> Option<Paper> {
         read_status: "unread".to_string(),
         created_at: String::new(),
         updated_at: String::new(),
+        sources: vec!["arxiv".to_string()],
+        fulltext_url,
     })
 }
 

@@ -6,6 +6,14 @@ use crate::search::Paper;
 
 const OA_API: &str = "https://api.openalex.org/works";
 const USER_AGENT: &str = "SGHUB/0.1 (+https://github.com/zmc0081/SGHUB)";
+/// Contact e-mail for OpenAlex's "polite pool" (faster, more reliable than the
+/// shared anonymous pool that was timing out at 10s).
+const OA_MAILTO: &str = "contact@sghub.app";
+/// Only request the fields we map. OpenAlex's default response is huge
+/// (referenced_works, related_works, concepts, …); selecting trims payload
+/// dramatically and is the main reason searches were timing out.
+const OA_SELECT: &str =
+    "id,doi,title,publication_date,publication_year,authorships,primary_location,abstract_inverted_index";
 
 #[derive(Debug, Deserialize)]
 struct OaResponse {
@@ -48,6 +56,8 @@ pub async fn search(
         &[
             ("search", query.to_string()),
             ("per_page", limit.to_string()),
+            ("select", OA_SELECT.to_string()),
+            ("mailto", OA_MAILTO.to_string()),
         ],
     )?;
     let client = reqwest::Client::builder().user_agent(USER_AGENT).build()?;
@@ -129,7 +139,33 @@ fn map_to_paper(w: OaWork) -> Option<Paper> {
         read_status: "unread".to_string(),
         created_at: String::new(),
         updated_at: String::new(),
+        sources: vec!["openalex".to_string()],
+        fulltext_url: None,
     })
+}
+
+/// Exact-DOI lookup against the production endpoint.
+pub async fn by_doi(doi: &str) -> Result<Option<Paper>, Box<dyn std::error::Error + Send + Sync>> {
+    by_doi_at(OA_API, doi).await
+}
+
+/// Testable exact-DOI lookup. OpenAlex resolves a work by `…/works/doi:{doi}`;
+/// the DOI's slashes must stay literal, so the URL is built by string and parsed.
+pub async fn by_doi_at(
+    base: &str,
+    doi: &str,
+) -> Result<Option<Paper>, Box<dyn std::error::Error + Send + Sync>> {
+    let mut url = reqwest::Url::parse(&format!("{}/doi:{}", base.trim_end_matches('/'), doi))?;
+    url.query_pairs_mut()
+        .append_pair("select", OA_SELECT)
+        .append_pair("mailto", OA_MAILTO);
+    let client = reqwest::Client::builder().user_agent(USER_AGENT).build()?;
+    let resp = client.get(url).send().await?;
+    if resp.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+    let work: OaWork = resp.error_for_status()?.json().await?;
+    Ok(map_to_paper(work))
 }
 
 #[cfg(test)]

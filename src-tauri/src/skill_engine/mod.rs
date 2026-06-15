@@ -521,6 +521,8 @@ mod tests {
             read_status: "unread".into(),
             created_at: String::new(),
             updated_at: String::new(),
+            sources: Vec::new(),
+            fulltext_url: None,
         };
         let template =
             "Title: {{title}}\nAuthors: {{authors}}\nAbstract: {{abstract}}\nText: {{full_text}}\nLang: {{language}}";
@@ -548,6 +550,8 @@ mod tests {
             read_status: "unread".into(),
             created_at: String::new(),
             updated_at: String::new(),
+            sources: Vec::new(),
+            fulltext_url: None,
         };
         paper.abstract_ = None;
         let r = render_prompt("[{{abstract}}]", &paper, "", "en");

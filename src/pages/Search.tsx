@@ -1,9 +1,11 @@
 // i18n: 本组件文案已国际化 (V2.1.0)
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { listen } from "@tauri-apps/api/event";
 import {
   AlertTriangle,
   ChevronDown,
+  FileText,
   Loader2,
   Search as SearchIcon,
 } from "lucide-react";
@@ -12,14 +14,36 @@ import { PaperActions } from "../components/PaperActions";
 import { Skeleton } from "../components/Skeleton";
 import { Icon } from "../components/Icon";
 import { useT } from "../hooks/useT";
+import { useToast } from "../hooks/useToast";
 
-const SOURCES = [
-  { value: "all", labelKey: "search.source_all" },
-  { value: "arxiv", label: "arXiv" },
-  { value: "semantic_scholar", label: "Semantic Scholar" },
-  { value: "pubmed", label: "PubMed" },
-  { value: "openalex", label: "OpenAlex" },
-] as Array<{ value: string; label?: string; labelKey?: string }>;
+type SourceOption = { value: string; label?: string; labelKey?: string };
+
+const ALL_SOURCE: SourceOption = { value: "all", labelKey: "search.source_all" };
+
+// V2.2.3 — 8 sources, grouped so the dropdown stays scannable.
+const SOURCE_GROUPS: Array<{ labelKey: string; sources: SourceOption[] }> = [
+  {
+    labelKey: "search.source_group_general",
+    sources: [
+      { value: "arxiv", label: "arXiv" },
+      { value: "semantic_scholar", label: "Semantic Scholar" },
+      { value: "openalex", label: "OpenAlex" },
+      { value: "crossref", label: "Crossref" },
+      { value: "pubmed", label: "PubMed" },
+    ],
+  },
+  {
+    labelKey: "search.source_group_cs",
+    sources: [{ value: "dblp", label: "DBLP" }],
+  },
+  {
+    labelKey: "search.source_group_oa",
+    sources: [
+      { value: "core", label: "CORE" },
+      { value: "doaj", label: "DOAJ" },
+    ],
+  },
+];
 
 const TIME_RANGES = [
   { value: "all", labelKey: "search.time_all", days: null as number | null },
@@ -40,6 +64,10 @@ const SOURCE_BADGE: Record<string, string> = {
   pubmed: "bg-src-pubmed text-src-pubmed-fg",
   openalex: "bg-src-openalex text-src-openalex-fg",
   local: "bg-src-local text-src-local-fg",
+  crossref: "bg-src-crossref text-src-crossref-fg",
+  core: "bg-src-core text-src-core-fg",
+  dblp: "bg-src-dblp text-src-dblp-fg",
+  doaj: "bg-src-doaj text-src-doaj-fg",
 };
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -48,6 +76,10 @@ const SOURCE_LABEL: Record<string, string> = {
   pubmed: "PubMed",
   openalex: "OpenAlex",
   local: "Local",
+  crossref: "Crossref",
+  core: "CORE",
+  dblp: "DBLP",
+  doaj: "DOAJ",
 };
 
 function applyTimeFilter(papers: Paper[], days: number | null): Paper[] {
@@ -82,10 +114,23 @@ function SourceBadge({ source }: { source: string }) {
 
 function PaperCard({ paper }: { paper: Paper }) {
   const t = useT();
+  const toast = useToast();
+  // V2.2.3 — a merged paper carries every source it was found in.
+  const sources = paper.sources && paper.sources.length > 0 ? paper.sources : [paper.source];
+
+  const openFulltext = () => {
+    if (!paper.fulltext_url) return;
+    api
+      .openExternalUrl(paper.fulltext_url)
+      .catch((e) => toast.danger(t("search.error_open_fulltext"), String(e)));
+  };
+
   return (
     <article className="rounded-card bg-card shadow-card p-6 transition-shadow duration-base ease-khx hover:shadow-card-hover">
-      <div className="flex items-center gap-3 mb-3">
-        <SourceBadge source={paper.source} />
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        {sources.map((s) => (
+          <SourceBadge key={s} source={s} />
+        ))}
         {paper.published_at && (
           <span className="text-meta text-fg-3 tabular-nums">
             {paper.published_at.slice(0, 10)}
@@ -110,8 +155,18 @@ function PaperCard({ paper }: { paper: Paper }) {
           {paper.abstract}
         </p>
       )}
-      <div className="mt-4">
+      <div className="mt-4 flex items-center gap-3 flex-wrap">
         <PaperActions paper={paper} size="md" />
+        {paper.fulltext_url && (
+          <button
+            type="button"
+            onClick={openFulltext}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill border border-border-default bg-card text-meta text-fg-1 hover:bg-navy-faint transition-colors duration-fast ease-khx"
+          >
+            <Icon icon={FileText} size="sm" />
+            <span>{t("search.fulltext_pdf")}</span>
+          </button>
+        )}
       </div>
     </article>
   );
@@ -180,6 +235,7 @@ function PaperList({ papers }: { papers: Paper[] }) {
 
 export default function Search() {
   const t = useT();
+  const toast = useToast();
   const [query, setQuery] = useState("");
   const [source, setSource] = useState("all");
   const [timeRange, setTimeRange] = useState("all");
@@ -207,6 +263,18 @@ export default function Search() {
   useEffect(() => {
     setPapers([]);
   }, []);
+
+  // V2.2.3 — the backend auto-expands a sparse single-source search to
+  // Crossref + CORE and fires this event so we can tell the user.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen("search:fallback", () => {
+      toast.info(t("search.fallback_expanded"));
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+  }, [toast, t]);
 
   const visible = useMemo(() => {
     const days = TIME_RANGES.find((tr) => tr.value === timeRange)?.days ?? null;
@@ -246,10 +314,15 @@ export default function Search() {
             aria-label={t("search.source_label")}
             className="appearance-none pr-9 pl-input-x py-input-y rounded-pill border border-border-default bg-card text-caption text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
           >
-            {SOURCES.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.labelKey ? t(s.labelKey) : s.label}
-              </option>
+            <option value={ALL_SOURCE.value}>{t(ALL_SOURCE.labelKey!)}</option>
+            {SOURCE_GROUPS.map((g) => (
+              <optgroup key={g.labelKey} label={t(g.labelKey)}>
+                {g.sources.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.labelKey ? t(s.labelKey) : s.label}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
           <Icon

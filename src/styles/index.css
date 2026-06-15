@@ -89,6 +89,15 @@
   --src-openalex-fg:#FFFFFF;
   --src-local:      #6B7280;
   --src-local-fg:   #FFFFFF;
+  /* V2.2.3 — new sources */
+  --src-crossref:   #B25E00;
+  --src-crossref-fg:#FFFFFF;
+  --src-core:       #2E7D32;
+  --src-core-fg:    #FFFFFF;
+  --src-dblp:       #8B5E34;
+  --src-dblp-fg:    #FFFFFF;
+  --src-doaj:       #A6266E;
+  --src-doaj-fg:    #FFFFFF;
 
   /* ── Read status ── */
   --read-unread:   #D9DEEA;
@@ -215,6 +224,11 @@
   --src-pubmed:     #1FAE9F;
   --src-openalex:   #9F5FE0;
   --src-local:      #9CA3AF;
+  /* V2.2.3 — new sources (brighter for dark bg; -fg stays #FFFFFF from :root) */
+  --src-crossref:   #C9740C;
+  --src-core:       #3C9A47;
+  --src-dblp:       #A06F45;
+  --src-doaj:       #BE3A82;
 
   /* ── Read status ── */
   --read-unread:   #363B4D;

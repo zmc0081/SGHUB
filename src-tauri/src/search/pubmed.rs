@@ -69,7 +69,16 @@ pub async fn search(
 }
 
 fn parse_efetch(xml: &str) -> Result<Vec<Paper>, roxmltree::Error> {
-    let doc = roxmltree::Document::parse(xml)?;
+    // NCBI's efetch XML opens with a `<!DOCTYPE PubmedArticleSet PUBLIC … .dtd>`
+    // declaration. roxmltree rejects DTDs by default (error "XML with DTD
+    // detected"), which silently killed the whole PubMed source. Allow it —
+    // roxmltree never fetches external DTDs or expands external entities, so
+    // this is not an XXE vector.
+    let opts = roxmltree::ParsingOptions {
+        allow_dtd: true,
+        ..roxmltree::ParsingOptions::default()
+    };
+    let doc = roxmltree::Document::parse_with_options(xml, opts)?;
     let papers = doc
         .descendants()
         .filter(|n| n.is_element() && n.tag_name().name() == "PubmedArticle")
@@ -137,6 +146,8 @@ fn parse_article(article: roxmltree::Node) -> Option<Paper> {
         read_status: "unread".to_string(),
         created_at: String::new(),
         updated_at: String::new(),
+        sources: vec!["pubmed".to_string()],
+        fulltext_url: None,
     })
 }
 
@@ -344,6 +355,28 @@ mod tests {
         assert_eq!(p.published_at.as_deref(), Some("2023-06-08T00:00:00Z"));
         assert!(p.doi.is_none());
         assert!(p.abstract_.is_none());
+    }
+
+    #[test]
+    fn parses_efetch_with_dtd_doctype() {
+        // Real NCBI efetch responses begin with a DOCTYPE/DTD declaration.
+        // This must parse rather than erroring with "XML with DTD detected".
+        let xml = r#"<?xml version="1.0" ?>
+<!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2024//EN" "https://dtd.nlm.nih.gov/ncbi/pubmed/out/pubmed_240101.dtd">
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation>
+      <PMID Version="1">12345</PMID>
+      <Article>
+        <ArticleTitle>A paper behind a DTD declaration.</ArticleTitle>
+      </Article>
+    </MedlineCitation>
+  </PubmedArticle>
+</PubmedArticleSet>"#;
+        let papers = parse_efetch(xml).expect("must parse despite DTD doctype");
+        assert_eq!(papers.len(), 1);
+        assert_eq!(papers[0].title, "A paper behind a DTD declaration.");
+        assert_eq!(papers[0].id, "p-pubmed-12345");
     }
 
     #[test]
