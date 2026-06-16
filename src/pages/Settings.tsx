@@ -2,8 +2,9 @@
 // V2.2.1 — added Privacy policy section below DataDirCard (Session 27)
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, ChevronDown, Shield } from "lucide-react";
+import { AlertTriangle, ChevronDown, Shield, Sparkles } from "lucide-react";
 import { api, type AppConfig, type UpdaterConfig } from "../lib/tauri";
+import { useOnboardingStore } from "../stores/onboardingStore";
 import {
   SUPPORTED_LANGUAGES,
   isSupportedLanguage,
@@ -163,6 +164,16 @@ export default function Settings() {
           </Row>
           <Row label={t("settings.log_level")}>
             {t(LOG_LEVEL_LABEL_KEY[config.log_level] ?? config.log_level)}
+          </Row>
+          <Row label={t("settings.onboarding")}>
+            <button
+              type="button"
+              onClick={() => useOnboardingStore.getState().show()}
+              className="inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill border border-border-default bg-card text-fg-1 text-caption font-medium hover:border-navy hover:text-navy transition-colors duration-fast ease-khx"
+            >
+              <Icon icon={Sparkles} size="sm" />
+              <span>{t("settings.rerun_onboarding")}</span>
+            </button>
           </Row>
         </div>
       )}

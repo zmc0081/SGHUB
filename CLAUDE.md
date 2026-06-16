@@ -3,7 +3,7 @@
 > 本文件是 Claude Code 的项目上下文,每次会话自动加载。
 > 详细设计见 /docs 目录下的 PRD、架构方案与实施方案。
 > 项目路径: D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub
-> 当前版本: V2.2.2
+> 当前版本: V2.2.4
 
 ## 产品定位
 
@@ -241,6 +241,24 @@ eslint src --max-warnings 0                              → clean
 - 折叠状态持久化到 config.toml,重启恢复
 - 底部固定版权信息:`Copyright © Star Technology. All Rights Reserved`(折叠态简化为 `© Star Technology`)
 - 所有导航图标用 Lucide,不用 emoji
+
+## 首次启动引导(Onboarding,V2.2.4)
+
+全新安装首次打开时,在主界面之上叠加一个 3 屏轻量向导(欢迎 → 数据目录 → AI 模型 → 完成页),
+两步均可跳过。状态存 bootstrap 配置的 `onboarding_completed`(与 `data_dir` 同处 OS 配置目录,
+不在数据目录内)。
+
+- 触发:启动时读 `get_onboarding_status`;`onboarding_completed=false` 才显示。完成或全程跳过 →
+  `complete_onboarding` 置 true,重启不再弹。
+- 老用户升级豁免:首次升级到 V2.2.4 时若检测到已有 model_configs / papers,自动视为已完成,不打扰。
+- 数据目录步:复用设置页校验(`validate_data_dir`),只设初始位置不迁移(`onboarding_set_data_dir`,
+  仅在选了自定义路径时持久化);默认路径保持 bootstrap `data_dir=None`。
+- 模型步三个 Tab:快速预设(`add_model_config` + `test_model_connection`)/ 本地 Ollama
+  (`detect_ollama` 探测 + 列模型)/ AI Store(`ai_store_verify_key` 验证裸 Key → 创建配置)。
+  配置成功的模型自动设为默认。
+- 设置页「重新运行引导」可再次触发(`useOnboardingStore.show()`)。
+- 前端:`src/components/onboarding/`(Gate/Flow/各 Step/ProgressDots);可见性走
+  `src/stores/onboardingStore.ts`;挂载点在 `src/App.tsx`(providers 之内)。
 
 ## 文献数据库本地 PDF 管理(V2.2.2)
 

@@ -727,6 +727,40 @@ pub async fn test_model_connection(
     })
 }
 
+/// V2.2.4 — onboarding "local Ollama" tab. Probe a local Ollama instance
+/// (default `http://localhost:11434`) and, if it's up, list the installed
+/// models so the user can pick one without typing a model id by hand.
+/// Never errors: a down instance just returns `running = false` with an
+/// empty model list and the (best-effort) reason in `message`.
+#[derive(Debug, Clone, Serialize)]
+pub struct OllamaDetect {
+    pub running: bool,
+    pub endpoint: String,
+    pub models: Vec<String>,
+    pub message: Option<String>,
+}
+
+#[tauri::command]
+pub async fn detect_ollama(endpoint: Option<String>) -> Result<OllamaDetect, String> {
+    let endpoint = endpoint
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| "http://localhost:11434".to_string());
+    match ollama::list_models(&endpoint).await {
+        Ok(models) => Ok(OllamaDetect {
+            running: true,
+            endpoint,
+            models,
+            message: None,
+        }),
+        Err(e) => Ok(OllamaDetect {
+            running: false,
+            endpoint,
+            models: Vec::new(),
+            message: Some(e),
+        }),
+    }
+}
+
 #[tauri::command]
 pub async fn ai_chat_stream(
     app: tauri::AppHandle,
