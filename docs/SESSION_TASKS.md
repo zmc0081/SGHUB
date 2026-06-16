@@ -2463,6 +2463,547 @@ git push --tags
 - 每个 Session 开始前先读 CLAUDE.md 确认最新结构与约束
 
 
+---
+
+## M2.2.3 · 文献检索源扩充 + 匹配增强(Week 32-33)
+
+> V2.2.3 解决一个实际问题:部分文献(尤其是统计学等专业期刊论文、机构库全文)
+> 在 SG Hub 检索不到,但在 Google 学术能找到。
+>
+> **根因分析(两层)**:
+> 1. **信息源覆盖盲区**:现有四源(arXiv / PubMed / Semantic Scholar / OpenAlex)对正式期刊论文
+>    (如 REVSTAT 等区域性/专业期刊)与机构库全文覆盖不全。
+> 2. **检索匹配能力弱**:部分文献某些源其实有记录(如 Semantic Scholar 有 CorpusID),
+>    但因查询构造、标题模糊匹配、大小写/标点处理不足而未命中,且单源元数据残缺
+>    (如缺第二作者)无法跨源补全。
+>
+> 因此 V2.2.3 分两块:**扩充信息源**(Session 32)+ **增强匹配与归并能力**(Session 33)。
+>
+> **开工前必读 CLAUDE.md**:遵守 UI 设计规范 7 条硬规则(本版本前端改动少,但仍受约束);
+> 后端遵守"AI Client 设计要点"同款的 provider 模式与编码规范。
+
+### 验收用例(贯穿两个 Session)
+
+以下两篇极值理论(EVT)文献作为标准验收用例,当前检索不到,V2.2.3 完成后必须能命中:
+- **"A Review of Extreme Value Threshold Estimation and Uncertainty Quantification"**
+  (Scarrott & MacDonald, 2012, REVSTAT-Statistical Journal, 10(1):33-60)
+- **"Models for Exceedances over High Thresholds"**
+  (Davison & Smith, 1990, J. R. Stat. Soc. Series B)
+
+### 信息源扩充清单(本次全部新增)
+
+| 源 | API | 鉴权 | 解决的盲区 |
+|-----|-----|------|-----------|
+| Crossref | api.crossref.org | 无(留邮箱进 polite pool) | 正式期刊论文(几乎所有有 DOI 的文献)|
+| CORE | api.core.ac.uk/v3 | 免费 API Key | 机构库 / 预印本库的开放获取全文 |
+| DBLP | dblp.org/search/publ/api | 无 | 计算机科学专精,元数据质量高 |
+| DOAJ | doaj.org/api/v2 | 无 | 开放获取期刊目录 |
+
+> 扩充后,SG Hub 检索源从 4 个增至 8 个:
+> arXiv / PubMed / Semantic Scholar / OpenAlex / Crossref / CORE / DBLP / DOAJ。
+>
+> Google Scholar 因无官方 API(SerpAPI 付费 / scholarly 易限流),本期不纳入,留作后续可选高级源。
+
+### 在开始 Session 32 之前
+
+确认 V2.2.2 已发布并稳定,本地分支已同步:
+```cmd
+cd D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub
+git checkout main
+git pull
+git checkout -b feature/v2.2.3
+```
+
+⚠️ 每个 Session 开始前先读 CLAUDE.md,确认 search/ 模块现有结构与"AI Client 设计要点"的 provider 模式。
+新增源遵循现有 arxiv.rs / semantic_scholar.rs / pubmed.rs / openalex.rs 的同款实现风格。
+
+---
+
+### Session 32: 检索源扩充 - Crossref + CORE + DBLP + DOAJ
+
+```
+读取 CLAUDE.md,重点看 search/ 模块现有结构(Session 6-7 已实现 arxiv/semantic_scholar/
+pubmed/openalex 四源)。本次任务新增 Crossref、CORE、DBLP、DOAJ 四个源,把检索源从 4 个
+扩充到 8 个,补足正式期刊论文、机构库全文、CS 专精、开放获取期刊的覆盖盲区。
+
+== 源 1:Crossref(正式期刊论文,最关键)==
+
+1. 创建 src-tauri/src/search/crossref.rs:
+   - API:GET https://api.crossref.org/works?query={query}&rows={limit}
+   - polite pool:带上联系邮箱(从 config 读)提升速率与稳定性
+     例:?query=...&rows=20&mailto=contact@sghub.app
+   - 解析 message.items[]:
+     * title(数组取第一个)
+     * author(数组,拼接 given + family)
+     * DOI / container-title(期刊名)
+     * published 年份(published.date-parts)
+     * abstract(部分有,JATS 格式需清洗 XML 标签)
+     * URL / resource.primary.URL
+   - 返回 Vec<Paper>,source='crossref'
+   - Crossref 覆盖几乎所有有 DOI 的正式发表文献,是补正式期刊论文的关键源
+
+2. DOI 精确查询通道(Crossref 专属):
+   - crossref_by_doi(doi: &str):GET https://api.crossref.org/works/{doi}
+   - 检索词被识别为 DOI 格式时(正则 ^10\.\d{4,}/),直接走此精确通道
+   - 这是 Session 33 "DOI 直查"能力的后端基础
+
+== 源 2:CORE(机构库全文)==
+
+3. 创建 src-tauri/src/search/core_api.rs(文件名避免与 Rust core 冲突):
+   - API:POST https://api.core.ac.uk/v3/search/works
+     Header: Authorization: Bearer {CORE_API_KEY}
+     Body: { "q": "{query}", "limit": {limit} }
+   - CORE_API_KEY:免费注册获取,存 keychain(不写明文日志)
+   - 解析 results[]:title / authors / abstract / doi / yearPublished /
+     downloadUrl(全文 PDF 链接,CORE 的核心价值)/ publisher
+   - 返回 Vec<Paper>,source='core'
+   - CORE 聚合全球机构库与预印本库的开放获取全文,补"机构库全文"盲区
+
+== 源 3:DBLP(CS 专精)==
+
+4. 创建 src-tauri/src/search/dblp.rs:
+   - API:GET https://dblp.org/search/publ/api?q={query}&format=json&h={limit}
+   - 无需鉴权;CS 领域元数据质量极高
+   - 解析 result.hits.hit[].info:
+     * title / authors(authors.author,可能是单对象或数组,需兼容处理)
+     * year / venue(期刊/会议)/ doi / ee(电子版链接)/ url
+   - 返回 Vec<Paper>,source='dblp'
+   - 注意:DBLP 的 authors 字段单作者时是对象、多作者时是数组,解析需兼容两种
+
+== 源 4:DOAJ(开放获取期刊)==
+
+5. 创建 src-tauri/src/search/doaj.rs:
+   - API:GET https://doaj.org/api/v2/search/articles/{query}?pageSize={limit}
+     (query 需 URL 编码)
+   - 无需鉴权;开放获取期刊
+   - 解析 results[].bibjson:
+     * title / author(数组,取 name)/ abstract
+     * year(bibjson.year)/ DOI(identifier 中 type=doi)
+     * link(数组,取 fulltext 类型的 url)/ journal.title
+   - 返回 Vec<Paper>,source='doaj'
+
+== 并发聚合接入 ==
+
+6. 修改 src-tauri/src/search/mod.rs:
+   - 把 4 个新源纳入 search_all 的并发请求(tokio::join! 或 FuturesUnordered)
+   - 每源独立超时(10s),单源失败/超时降级不影响其他源
+   - 数据源开关:用户可在设置启用/禁用每个源(config 持久化)
+   - 默认启用:arXiv / Semantic Scholar / OpenAlex / Crossref / CORE / DBLP / DOAJ
+     (PubMed 保持原有默认策略)
+   - 8 源并发时注意总体响应时间,可对慢源设更短超时
+
+7. 前端数据源选择(src/pages/Search.tsx):
+   - 数据源下拉/多选新增:Crossref / CORE / DBLP / DOAJ
+   - 来源徽章新增对应颜色(查 docs/ui-design 配色 token,不硬编码颜色)
+   - 图标用 Lucide,不用 emoji
+   - 文案补充到 i18n 五语言包(zh-CN/zh-TW/en-US/ja-JP/fr-FR)
+   - 考虑数据源分组展示(如"综合/CS/开放获取"),避免下拉过长
+
+== 配置 ==
+
+8. config 扩展:
+   - search.crossref_mailto:Crossref polite pool 邮箱(可选,默认空)
+   - search.core_api_key:CORE API Key(存 keychain,config 只存引用)
+   - search.enabled_sources:启用的源列表(8 源)
+
+== 测试 ==
+
+9. 集成测试 src-tauri/tests/search_new_sources.rs:
+   - 用 wiremock 模拟 Crossref / CORE / DBLP / DOAJ 的响应,验证各自解析正确
+   - 特别测试 DBLP authors 单对象/数组两种情况
+   - 验收用例(真实 API,可标记 #[ignore] 手动跑):
+     * Crossref 检索 "Review of Extreme Value Threshold Estimation Scarrott" → 命中
+     * Crossref DOI 直查 → 命中
+     * CORE 检索同样关键词 → 命中(含全文 downloadUrl)
+   - 验证多源去重:同一 DOI 在多个源出现时只保留一条
+
+== 验证 ==
+- 4 个新源全部接入成功,检索源达到 8 个
+- 验收用例两篇 EVT 文献能检索到
+- 数据源开关正常,单源失败降级不影响整体
+- 8 源并发响应时间可接受(慢源超时降级)
+- PR 自查 6 条 grep 全过(无硬编码颜色、无 emoji)
+- cargo test + npm run build + eslint 0 warning
+```
+
+验证:
+- 新增 Crossref + CORE + DBLP + DOAJ 四源,两篇 EVT 验收文献可检索到
+- 数据源可开关,失败降级正常
+- `git commit -m "feat: session 32 - add crossref/core/dblp/doaj search sources"`
+
+---
+
+### Session 33: 检索匹配增强 + 跨源去重归并
+
+```
+读取 CLAUDE.md。本次任务解决"某些源其实有记录却不命中"以及"单源元数据残缺"的问题,
+提升召回率与结果质量。这是让 SG Hub 检索体验接近 Google 学术的关键一环。
+
+== 第一部分:DOI 直查通道 ==
+
+1. 检索入口智能识别(src-tauri/src/search/mod.rs):
+   - 检测用户输入是否为 DOI(正则 ^10\.\d{4,9}/[-._;()/:a-zA-Z0-9]+$)
+   - 是 DOI → 直接走 Crossref DOI 精确端点(Session 32 已建 crossref_by_doi)+
+     并发查其他源的 DOI 端点(OpenAlex / Semantic Scholar 都支持 DOI 查询)
+   - 命中后合并各源元数据,返回单条高质量结果
+   - 也支持用户粘贴完整引用串时,先尝试抽取其中的 DOI
+
+== 第二部分:标题模糊匹配增强 ==
+
+2. 标题归一化(src-tauri/src/search/matching.rs 新建):
+   - normalize_title(title):转小写 / 去标点 / 折叠空白 / 去常见停用词(a/an/the/of/for...)
+   - 用于跨源判定"是否同一篇":两个标题归一化后相似度(Levenshtein 或 Jaccard)超阈值即视为同一篇
+   - 解决大小写、标点差异(如 "Models for Exceedances over High Thresholds" 在不同源的
+     大小写/标点不一致导致漏匹配)
+
+3. 查询构造优化:
+   - 长标题查询时,部分源对完整长句匹配差 → 提取标题核心关键词(去停用词后的实词)再查
+   - 对引号包裹的精确短语查询,保留原样传给支持精确匹配的源
+
+== 第三部分:跨源 DOI 归并与元数据补全 ==
+
+4. 结果归并逻辑(src-tauri/src/search/merge.rs 新建或并入 mod.rs):
+   - 归并键优先级:DOI(精确)> 归一化标题 + 年份(模糊)
+   - 同一篇文献跨多源出现时,合并为一条 Paper,并做元数据补全:
+     * 作者:取最完整的作者列表(如 Semantic Scholar 缺第二作者,用 Crossref 的补全)
+     * 摘要:取最长/最完整的
+     * DOI / 期刊 / 年份:择优填充空缺字段
+     * 全文链接:优先 CORE 的 downloadUrl,其次各源的 OA 链接
+     * sources 字段:记录该文献命中了哪些源(供前端展示"来自 N 个源")
+   - 解决 Semantic Scholar 有记录但元数据残缺(只挂一个作者)的问题
+   - 8 源并发后归并尤为重要:同一篇可能在 4-5 个源都出现,需正确合并为一条
+
+== 第四部分:检索结果回退机制 ==
+
+5. 自动回退(src-tauri/src/search/mod.rs):
+   - 默认源(arXiv/Semantic Scholar/OpenAlex)无结果或结果过少(< N 条)时,
+     自动追加查询 Crossref + CORE,扩大召回
+   - 前端提示:"已自动扩展检索源以获得更多结果"(useToast,不用 alert)
+
+== 第五部分:前端结果展示增强 ==
+
+6. Search.tsx 结果卡片:
+   - 显示该文献命中的源(如"arXiv · Crossref · CORE"小标签)
+   - 有全文链接时显示"全文 PDF"按钮(来自 CORE 或 OA 源)
+   - 归并后元数据更完整(作者、摘要不再残缺)
+   - 遵守 UI 硬规则:Lucide 图标 / token 颜色 / 无 emoji / 无 window.*
+
+== 测试 ==
+
+7. 集成测试 src-tauri/tests/search_matching.rs:
+   - DOI 直查:输入两篇 EVT 文献的 DOI → 各命中单条完整结果
+   - 标题模糊匹配:输入不同大小写/标点的标题变体 → 都能命中
+   - 跨源归并:模拟同一 DOI 在 Crossref(全作者)+ Semantic Scholar(缺作者)出现 →
+     归并后作者完整,sources 记录多个源
+   - 回退机制:模拟默认源空结果 → 验证自动追加 Crossref/CORE
+
+== 验证 ==
+- 两篇 EVT 验收文献:无论用标题还是 DOI 都能稳定检索到,元数据完整
+- 跨源去重归并正确,元数据互补补全生效
+- 命中多源的文献正确展示来源与全文链接
+- PR 自查 6 条 grep 全过
+- cargo test + npm run build + eslint 0 warning
+```
+
+验证:
+- 标题/DOI 检索两篇 EVT 文献稳定命中,元数据完整,体验接近 Google 学术
+- 跨源归并与回退机制正常
+- `git commit -m "feat: session 33 - search matching and cross-source merging"`
+
+---
+
+### V2.2.3 收尾:Beta + 发布
+
+完成 Session 32-33 后:
+
+1. 合并 feature/v2.2.3 到 main:
+```cmd
+git checkout main
+git merge --no-ff feature/v2.2.3
+git push
+```
+
+2. 打 Beta tag → GitHub Releases prerelease → 邀请 V2.2.2 用户测试
+
+3. Beta 期重点:
+   - 两篇 EVT 验收文献必须能稳定检索到
+   - 8 源并发的稳定性与速度(超时降级)
+   - 跨源去重归并的准确性(无误并/漏并)
+   - CORE API Key 配置与全文链接可用性
+   - DBLP authors 单对象/数组解析的健壮性
+
+4. 正式发布:
+```cmd
+git tag v2.2.3
+git push --tags
+```
+
+5. 公告:检索源从 4 个扩充到 8 个(新增 Crossref/CORE/DBLP/DOAJ),
+   大幅提升期刊论文与机构库全文的检索覆盖,检索体验向 Google 学术看齐
+
+---
+
+## V2.2.3 Session 速查
+
+| Session | 主题 | 对应需求 | 预估时长 |
+|---------|------|---------|---------|
+| 32 | 检索源扩充 - Crossref + CORE + DBLP + DOAJ | 信息源扩充(4→8 源) | 1 周 |
+| 33 | 检索匹配增强 + 跨源去重归并 | 匹配能力增强 | 1 周 |
+
+**总计**: 约 2 周
+
+**核心改进**:
+- 信息源:检索源从 4 个扩充到 8 个,新增 Crossref(正式期刊)、CORE(机构库全文)、
+  DBLP(CS)、DOAJ(OA 期刊)
+- 匹配能力:DOI 直查 + 标题模糊匹配 + 跨源去重归并(元数据互补)+ 检索回退
+- 验收标准:两篇极值理论文献(REVSTAT 综述 + Davison-Smith 1990)从检索不到 → 稳定命中且元数据完整
+
+**关键提醒**:
+- Crossref / DBLP / DOAJ 无需 Key;CORE 需免费 API Key(存 keychain)
+- DBLP authors 单作者是对象、多作者是数组,解析需兼容
+- 新源遵循现有 search/ provider 模式;8 源并发,单源失败降级
+- 跨源归并以 DOI 为主键、归一化标题+年份为辅,做元数据互补补全
+- 严格遵守 CLAUDE.md UI 设计规范,提交前过 PR 自查 6 条
+
+
+---
+
+## M2.2.4 · 首次启动引导(Onboarding)(Week 34)
+
+> V2.2.4 新增首次启动引导,把"数据目录"与"模型配置"两件越早配置越好的事前置到
+> 新用户首次打开应用时,降低上手门槛。引导是**帮助而非强制**:每一步可跳过,
+> 事后也能在设置中配置。
+>
+> **开工前必读 CLAUDE.md**:引导页是新 UI,受 7 条硬规则约束(Lucide 图标、token 颜色、
+> 双主题 WCAG AA、无 emoji、无 window.confirm/prompt/alert、无 transition-all、不改基础设施)。
+> 提交前过 PR 自查 6 条。
+
+### 需求要点
+
+- 首次启动引导分两个可配置步骤:**数据目录**(1/2)+ **模型配置**(2/2)
+- 两步都可**跳过**,也可在安装后(设置页)随时配置
+- 模型配置步默认 **快速预设**,可 Tab 切换到 **本地 Ollama** / **AI Store**
+- AI Store Tab 放购买链接 + 完整购买配置流程引导
+
+### 关键设计约束
+
+- **触发条件**:仅全新安装首次启动触发;已完成/已跳过后不再触发;版本升级的老用户不触发
+- **完成标记存储位置**:`onboarding_completed` 标记与数据目录路径存在 **bootstrap 配置**
+  (OS 配置目录,如 %APPDATA%\sghub-bootstrap\),**不能存在数据目录内**——
+  因为引导第一步可能就是改数据目录,存里面会有循环依赖
+- **引导期 vs 设置期的数据目录差异**:
+  * 引导期:全新、无数据 → 只设定初始位置,不涉及迁移(简单)
+  * 设置期:已有数据 → 改路径走迁移逻辑(复制/校验/回滚,见 V2.1.0 数据目录迁移)
+  * 两者复用同一目录选择 + 校验组件,但后续动作不同
+
+### 在开始 Session 34 之前
+
+确认 V2.2.3 已发布并稳定,本地分支已同步:
+```cmd
+cd D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub
+git checkout main
+git pull
+git checkout -b feature/v2.2.4
+```
+
+---
+
+### Session 34: 首次启动引导(数据目录 + 模型配置,可跳过)
+
+```
+读取 CLAUDE.md。本次任务新增首次启动引导(Onboarding):全新安装首次打开时,
+用一个 3 屏轻量向导引导用户配置数据目录与 AI 模型,两步均可跳过。
+
+== 引导流程(3 屏 + 完成页)==
+
+Step 0 欢迎页:
+- SG Hub Logo(用 src/assets/logo) + 一句话简介
+- 文案:"只需两步即可开始,也可以稍后在设置中配置"
+- 按钮:[开始设置] / [跳过,直接进入]
+
+Step 1 数据存储位置(1/2):
+- 说明:SG Hub 会把文献、PDF、Chat 历史等存储在此位置
+- 默认路径(系统默认目录,标注"推荐",默认选中)
+- [选择其他位置...] → tauri-plugin-dialog 目录选择器
+- 选中后校验:可写 / 空间足够 / 非系统关键目录(复用设置页的校验逻辑)
+- 进度指示 ●○
+- 按钮:[上一步] / [跳过此步] / [下一步]
+- 注意:全新安装无数据,这一步只设定初始位置,不涉及数据迁移
+
+Step 2 配置 AI 模型(2/2):
+- 说明:配置一个模型即可使用 Chat / AI 解析
+- 三种方式,Tab 切换,默认选中"快速预设":
+  Tab A. 快速预设(默认):
+    - 模型下拉:Claude / GPT / DeepSeek
+    - API Key 输入(password 类型)
+    - [测试连接] → 显示成功(绿,带延迟)/ 失败(红,带原因)
+  Tab B. 本地 Ollama:
+    - 自动检测 localhost:11434 是否运行
+    - 运行 → 列出已安装模型供选择
+    - 未运行 → 提示如何启动 Ollama
+    - 无需 API Key
+  Tab C. AI Store:
+    - 说明:在 SG AI Store 购买配额,无需自己申请 API Key,即买即用
+    - 热门商品精简预览(从已同步的商品数据取 2-3 个 popular 商品 + 价格)
+    - [前往 SG AI Store 购买] → tauri-plugin-shell 打开
+      https://sgaistore.com/buy?utm_source=sghub_onboarding
+    - 购买配置流程引导文案(展示完整 7 步):
+      1. 点击上方按钮前往 SG AI Store
+      2. 在网站注册 / 登录
+      3. 选择合适的配额包(按模型 + 月度/年度)
+      4. 完成支付(支付宝 / 微信 / Stripe)
+      5. 在个人中心复制生成的 API Key
+      6. 回到此处,粘贴 Key 到下方输入框
+      7. 点"验证并添加",完成配置
+    - [API Key 输入框] + [验证并添加]
+      * 验证:调 GET https://sgaistore.com/api/billing/balance(Bearer Key)
+      * 成功:显示余额,自动创建 SG AI Store 模型配置(endpoint=sgaistore.com/v1)
+    - 不强制等待购买完成:用户去浏览器购买期间,本步保持"等待回填 Key"状态,
+      买完回来粘贴即可;也可直接跳过
+- 配置成功的模型自动设为默认模型
+- 进度指示 ○●
+- 按钮:[上一步] / [跳过此步] / [完成]
+
+Step 3 完成页:
+- 根据跳过情况差异化提示:
+  * 都配置了 → "全部就绪,开始探索吧"
+  * 跳过了模型 → "记得在'模型配置'添加模型后即可使用 AI 功能"(附"现在去配置"快捷入口)
+- 按钮:[进入 SG Hub]
+
+== 触发与状态管理 ==
+
+1. bootstrap 配置扩展(src-tauri/src/config/ 的 bootstrap 部分):
+   - 新增 onboarding_completed: bool(默认 false)
+   - 存在 OS 配置目录的 bootstrap 配置中(不在数据目录内)
+   - 与数据目录路径同处一个 bootstrap 配置
+
+2. 触发逻辑:
+   - 应用启动时读 bootstrap,onboarding_completed=false → 显示引导
+   - 引导完成或全程跳过 → 置 onboarding_completed=true,后续不再弹
+   - 版本升级的老用户:首次升级到 V2.2.4 时,若检测到已有数据目录/已有模型配置,
+     自动视为已完成(置 true),不打扰老用户
+
+3. Tauri Commands:
+   - get_onboarding_status() -> { completed: bool }
+   - complete_onboarding() -> () (置 completed=true)
+   - onboarding_set_data_dir(path) -> Result (设定初始数据目录,无迁移)
+   - 模型配置复用现有 add_model_config / test_model_connection
+   - AI Store 验证复用 V2.2.1 的 ai_store_get_balance(若已实现)
+
+== 前端实现 ==
+
+4. 引导组件(src/pages/onboarding/ 或 components/onboarding/):
+   - OnboardingFlow.tsx:向导容器,管理当前步骤、进度、跳过逻辑
+   - WelcomeStep.tsx / DataDirStep.tsx / ModelStep.tsx / DoneStep.tsx
+   - 模态全屏或居中卡片 + 遮罩,弱化主界面,营造首次见面感
+   - 进度指示器组件(●○ 点)
+
+5. 路由 / 挂载:
+   - App 启动时根据 get_onboarding_status 决定是否在主界面之上叠加引导层
+   - 引导期间主界面不可交互(遮罩)
+
+6. 复用而非重写:
+   - 数据目录选择 + 校验:复用设置页已有的校验逻辑(V2.1.0)
+   - 模型快速预设 + 测试连接:复用模型配置页的预设模板与 test_model_connection
+   - Ollama 检测:复用模型配置页的 Ollama 逻辑
+   - AI Store 商品/余额:复用 V2.2.1 的 ai_store 模块
+
+== 设置页入口(事后配置 + 重跑引导)==
+
+7. 设置页:
+   - 模型配置、数据目录的事后配置入口本就存在(保持不变)
+   - 可选:在设置-关于 或 通用 中新增"重新运行引导"入口(再次触发引导)
+     * 注意:重跑时数据目录步若已有数据,切换为"迁移"逻辑或提示去设置页迁移
+
+== 遵守 UI 硬规则 ==
+- 图标全用 Lucide(查 icon-map.md),禁用 emoji
+- 进度/确认/提示用规范组件 + useToast,禁用 window.*
+- 颜色只用 token,不硬编码;动画用 motion token,不用 transition-all
+- 双主题(亮/暗)WCAG AA
+- 不改基础设施(router 路由 / stores shape / tauri.ts 签名 / i18next 命名空间只增不改)
+- 引导全部文案补充到 i18n 五语言包(zh-CN/zh-TW/en-US/ja-JP/fr-FR)
+- 引导语言在 Step 0 之前已按系统语言确定
+
+== 测试 ==
+8. 测试场景:
+   a. 全新安装首次启动 → 弹出引导;走完两步配置 → 进入应用,模型可用,数据目录正确
+   b. Step 0 直接"跳过,直接进入" → 用默认数据目录,无模型,标记 completed
+   c. 单步"跳过此步" → 该步用默认/不配置,继续
+   d. 模型步三个 Tab 各测一遍:预设填 Key 测试连接 / Ollama 检测 / AI Store 验证 Key
+   e. AI Store Tab:点购买打开浏览器 → 粘贴 Key 验证 → 自动创建模型
+   f. 完成后重启应用 → 不再弹引导
+   g. 模拟老用户(已有数据目录+模型)升级到 V2.2.4 → 不弹引导
+   h. 设置里"重新运行引导" → 再次触发
+   - bootstrap 的 onboarding_completed 读写单元测试
+
+== 验证 ==
+- 全新安装首次启动引导正常,两步可配置可跳过
+- 模型步三种方式都能配置成功,AI Store 购买回填闭环可用
+- 完成/跳过后标记正确,重启不再弹;老用户升级不打扰
+- PR 自查 6 条 grep 全过
+- cargo test + npm run build + eslint 0 warning
+```
+
+验证:
+- 首次启动引导完整可用,数据目录 + 模型两步可配可跳
+- AI Store 购买配置流程闭环正常(跳转购买 → 回填 Key → 验证 → 创建模型)
+- 老用户升级不被打扰,事后可在设置重跑引导
+- `git commit -m "feat: session 34 - first-launch onboarding (data dir + model config)"`
+
+---
+
+### V2.2.4 收尾:Beta + 发布
+
+完成 Session 34 后:
+
+1. 合并 feature/v2.2.4 到 main:
+```cmd
+git checkout main
+git merge --no-ff feature/v2.2.4
+git push
+```
+
+2. 打 Beta tag → GitHub Releases prerelease → 邀请新用户(全新安装)测试引导体验
+
+3. Beta 期重点:
+   - 全新安装首次启动引导是否顺畅
+   - 三种模型配置方式(预设/Ollama/AI Store)在引导中的可用性
+   - AI Store 购买回填闭环
+   - 老用户升级是否被误触发引导(应不触发)
+   - 跳过路径是否都能正常进入应用
+
+4. 正式发布:
+```cmd
+git tag v2.2.4
+git push --tags
+```
+
+5. 公告:新增首次启动引导,新用户开箱即可快速配置数据目录与 AI 模型
+
+---
+
+## V2.2.4 Session 速查
+
+| Session | 主题 | 对应需求 | 预估时长 |
+|---------|------|---------|---------|
+| 34 | 首次启动引导(数据目录 + 模型配置,可跳过) | Onboarding | 0.5-1 周 |
+
+**总计**: 约 0.5-1 周
+
+**核心设计**:
+- 3 屏轻量向导:欢迎 → 数据目录(1/2)→ 模型配置(2/2)→ 完成
+- 两个配置步均可跳过,事后也能在设置中配置(帮助而非强制)
+- 模型配置默认"快速预设",Tab 切换"本地 Ollama" / "AI Store"
+- AI Store Tab 含购买链接 + 完整 7 步购买配置流程引导 + Key 验证回填闭环
+
+**关键提醒**:
+- onboarding_completed 标记存 bootstrap 配置(OS 配置目录),不存数据目录内(避免循环依赖)
+- 引导期数据目录只设初始位置不迁移;设置期改路径才走迁移逻辑
+- 老用户升级到 V2.2.4 不触发引导(检测到已有数据/模型则视为已完成)
+- 大量复用现有能力:数据目录校验、模型预设/测试、Ollama 检测、AI Store 余额验证
+- 严格遵守 CLAUDE.md UI 设计规范,提交前过 PR 自查 6 条
+
+
 ## 所有版本 Session 对照
 
 | 版本 | Session 范围 | 主题 | 状态 |
@@ -2472,4 +3013,6 @@ git push --tags
 | V2.1.0 | 19-24 | 设置完善 + 国际化 + Skill 智能生成(原 V2.0.2) | 已发布 |
 | V2.2.1 | 25-29 | UI 优化(改名 SG Hub/去 emoji/折叠侧栏/隐私协议)+ Bug 修复 + AI Store 模块 | 规划中 |
 | V2.2.2 | 30-31 | 更换 Logo + 文献数据库本地 PDF 上传与集中管理 | 规划中 |
+| V2.2.3 | 32-33 | 文献检索源扩充至 8 源(Crossref/CORE/DBLP/DOAJ)+ 匹配增强与跨源归并 | 规划中 |
+| V2.2.4 | 34 | 首次启动引导(数据目录 + 模型配置,可跳过) | 规划中 |
 
