@@ -26,6 +26,13 @@ pub struct BootstrapConfig {
     /// exist — callers verify before honouring it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data_dir: Option<PathBuf>,
+    /// V2.2.4 — first-run onboarding gate. `false` (or absent, on a
+    /// fresh install) means the 3-screen welcome wizard should show on
+    /// next launch; flipped to `true` once the user finishes or skips
+    /// the whole flow. Lives here (next to `data_dir`) because the app
+    /// must read it before it knows where its main config file is.
+    #[serde(default)]
+    pub onboarding_completed: bool,
 }
 
 // ============================================================
@@ -112,15 +119,32 @@ mod tests {
     fn default_is_none() {
         let cfg = BootstrapConfig::default();
         assert!(cfg.data_dir.is_none());
+        assert!(!cfg.onboarding_completed);
     }
 
     #[test]
     fn serializes_none_as_empty() {
-        // `skip_serializing_if = Option::is_none` makes None disappear
-        // from the file so a fresh install has `bootstrap.toml = ""`.
-        let cfg = BootstrapConfig { data_dir: None };
+        // `skip_serializing_if = Option::is_none` makes a None data_dir
+        // disappear from the file. `onboarding_completed` is always
+        // written (it's a meaningful false), so the file isn't literally
+        // empty — but it must never carry a phantom `data_dir`.
+        let cfg = BootstrapConfig {
+            data_dir: None,
+            onboarding_completed: false,
+        };
         let text = toml::to_string_pretty(&cfg).unwrap();
         assert!(!text.contains("data_dir"), "got: {text}");
+    }
+
+    #[test]
+    fn round_trip_with_onboarding_flag() {
+        let cfg = BootstrapConfig {
+            data_dir: None,
+            onboarding_completed: true,
+        };
+        let back = roundtrip(&cfg);
+        assert!(back.onboarding_completed);
+        assert!(back.data_dir.is_none());
     }
 
     #[test]
@@ -128,6 +152,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let cfg = BootstrapConfig {
             data_dir: Some(tmp.path().to_path_buf()),
+            onboarding_completed: false,
         };
         let back = roundtrip(&cfg);
         assert_eq!(back.data_dir.as_deref(), Some(tmp.path()));

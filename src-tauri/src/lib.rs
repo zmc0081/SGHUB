@@ -98,6 +98,10 @@ pub fn run() {
             config::migrate_data_dir,
             config::reset_data_dir_to_default,
             config::delete_old_data_dir,
+            // V2.2.4 — first-run onboarding
+            config::get_onboarding_status,
+            config::complete_onboarding,
+            config::onboarding_set_data_dir,
             updater::commands::get_updater_status,
             updater::commands::check_update_now,
             updater::commands::install_pending_update,
@@ -176,6 +180,7 @@ pub fn run() {
             ai_client::set_default_model,
             ai_client::get_model_presets,
             ai_client::test_model_connection,
+            ai_client::detect_ollama,
             ai_client::ai_chat_stream,
             ai_client::usage::get_usage_stats_7days,
             ai_client::usage::get_usage_stats_n_days,
@@ -201,6 +206,8 @@ pub fn run() {
             // V2.2.1 Session 29 — SG AI Store billing
             ai_store::billing::ai_store_get_balance,
             ai_store::billing::ai_store_refresh_all_balances,
+            // V2.2.4 — onboarding raw-key verification
+            ai_store::billing::ai_store_verify_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

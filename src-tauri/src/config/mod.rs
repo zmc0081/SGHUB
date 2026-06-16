@@ -238,19 +238,22 @@ pub async fn migrate_data_dir(
 
     // Only after a successful copy do we flip `bootstrap.toml`. Crash
     // anywhere before this point and the user keeps booting the OLD
-    // directory — their data is untouched.
-    let new_bootstrap = bootstrap::BootstrapConfig {
-        data_dir: Some(dest),
-    };
+    // directory — their data is untouched. Load-modify-save so we don't
+    // clobber `onboarding_completed` (V2.2.4).
+    let mut new_bootstrap = bootstrap::load();
+    new_bootstrap.data_dir = Some(dest);
     bootstrap::save(&new_bootstrap).map_err(|e| format!("write bootstrap.toml: {}", e))?;
     Ok(result)
 }
 
 /// Remove the bootstrap override — next launch will use the OS default.
-/// Does NOT touch any data on disk.
+/// Does NOT touch any data on disk. Preserves `onboarding_completed`
+/// (V2.2.4) — we only clear the data-dir override here.
 #[tauri::command]
 pub fn reset_data_dir_to_default() -> Result<(), String> {
-    bootstrap::save(&bootstrap::BootstrapConfig::default())?;
+    let mut bs = bootstrap::load();
+    bs.data_dir = None;
+    bootstrap::save(&bs)?;
     Ok(())
 }
 
@@ -264,6 +267,94 @@ pub fn delete_old_data_dir(path: String) -> Result<(), String> {
         return Err("拒绝删除:目标目录看起来不是 SGHUB 数据目录(缺少 data/ 子目录)".into());
     }
     std::fs::remove_dir_all(&p).map_err(|e| format!("remove failed: {}", e))?;
+    Ok(())
+}
+
+// ============================================================
+// First-run onboarding (V2.2.4)
+// ============================================================
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OnboardingStatus {
+    pub completed: bool,
+}
+
+/// Decide whether the first-run wizard should appear.
+///
+/// Priority:
+/// 1. `bootstrap.onboarding_completed == true` → never show again.
+/// 2. **Upgrading-user grace**: a user who already has model configs or
+///    library papers predates onboarding (they upgraded into V2.2.4).
+///    Auto-mark complete so we don't interrupt them, persist it so the
+///    next launch skips the DB probe, and report `completed = true`.
+/// 3. Otherwise it's a fresh install → `completed = false` (show wizard).
+///
+/// Any DB error is non-fatal: we fall back to "fresh" rather than
+/// blocking boot.
+#[tauri::command]
+pub async fn get_onboarding_status(
+    state: tauri::State<'_, crate::AppState>,
+) -> Result<OnboardingStatus, String> {
+    if bootstrap::load().onboarding_completed {
+        return Ok(OnboardingStatus { completed: true });
+    }
+
+    let pool = state.db_pool.clone();
+    let is_legacy_user = tokio::task::spawn_blocking(move || -> bool {
+        let Ok(conn) = pool.get() else {
+            return false;
+        };
+        let models: i64 = conn
+            .query_row("SELECT COUNT(*) FROM model_configs", [], |r| r.get(0))
+            .unwrap_or(0);
+        let papers: i64 = conn
+            .query_row("SELECT COUNT(*) FROM papers", [], |r| r.get(0))
+            .unwrap_or(0);
+        models > 0 || papers > 0
+    })
+    .await
+    .unwrap_or(false);
+
+    if is_legacy_user {
+        let mut bs = bootstrap::load();
+        bs.onboarding_completed = true;
+        if let Err(e) = bootstrap::save(&bs) {
+            log::warn!("onboarding: failed to persist upgrading-user grace: {}", e);
+        }
+        return Ok(OnboardingStatus { completed: true });
+    }
+
+    Ok(OnboardingStatus { completed: false })
+}
+
+/// Flip `onboarding_completed = true`. Called when the user finishes the
+/// wizard OR skips the whole thing from the welcome screen. Idempotent.
+#[tauri::command]
+pub fn complete_onboarding() -> Result<(), String> {
+    let mut bs = bootstrap::load();
+    bs.onboarding_completed = true;
+    bootstrap::save(&bs).map_err(|e| format!("write bootstrap.toml: {}", e))?;
+    Ok(())
+}
+
+/// Set the **initial** data directory during onboarding. Fresh install,
+/// so there is nothing to migrate — we validate the path, make sure it
+/// exists, and point `bootstrap.data_dir` at it. Unlike
+/// `migrate_data_dir` this never copies files. Callers should only invoke
+/// this for a *custom* pick (keeping the OS default leaves
+/// `bootstrap.data_dir = None`).
+#[tauri::command]
+pub async fn onboarding_set_data_dir(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    let dest = PathBuf::from(&path);
+    let current = paths::effective_data_dir(&app);
+    let v = migration::validate(&dest, &current);
+    if !v.valid {
+        return Err(v.error.unwrap_or_else(|| "invalid path".into()));
+    }
+    std::fs::create_dir_all(&dest).map_err(|e| format!("create data dir: {}", e))?;
+    let mut bs = bootstrap::load();
+    bs.data_dir = Some(dest);
+    bootstrap::save(&bs).map_err(|e| format!("write bootstrap.toml: {}", e))?;
     Ok(())
 }
 

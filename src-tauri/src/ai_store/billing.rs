@@ -276,6 +276,59 @@ pub async fn ai_store_refresh_all_balances(
     refresh_all(&app).await
 }
 
+/// V2.2.4 — onboarding "AI Store" tab. Verify a *raw* API key BEFORE any
+/// model config exists by hitting the balance endpoint with it. On
+/// success the frontend creates the SG AI Store model config and sets it
+/// as default. (`ai_store_get_balance` can't be used here — it requires
+/// an already-persisted, SG-AI-Store-flagged model row.)
+///
+/// Mock path (V2.2.x): any non-empty key returns a deterministic
+/// synthetic balance seeded by the key, so the onboarding flow is fully
+/// exercisable offline. Production path hits
+/// `GET {endpoint}/api/billing/balance` with `Authorization: Bearer`.
+#[tauri::command]
+pub async fn ai_store_verify_key(api_key: String) -> Result<BalanceSnapshot, String> {
+    let key = api_key.trim();
+    if key.is_empty() {
+        return Err("API Key 不能为空 / API key is empty".into());
+    }
+
+    if USE_MOCK_DATA {
+        log::info!("ai_store::billing: mock key verification (len={})", key.len());
+        let mut mock = fresh_mock(key);
+        drain_mock(&mut mock);
+        return Ok(BalanceSnapshot {
+            balance_cny: mock.balance_cny,
+            remaining_tokens: mock.remaining_tokens,
+            subscription: Some(SubscriptionInfo {
+                product_name: "SG AI Store".into(),
+                expires_at: mock.expires_at,
+                auto_renew: false,
+            }),
+            usage_24h: Usage24h::default(),
+        });
+    }
+
+    // Production path:
+    let url = "https://sgaistore.com/api/billing/balance";
+    let resp = reqwest::Client::new()
+        .get(url)
+        .bearer_auth(key)
+        .timeout(Duration::from_secs(10))
+        .send()
+        .await
+        .map_err(|e| format!("无法连接到 SG AI Store / cannot reach gateway: {}", e))?;
+    if resp.status() == reqwest::StatusCode::UNAUTHORIZED {
+        return Err("API Key 无效或已过期 / invalid or expired key (401)".into());
+    }
+    if !resp.status().is_success() {
+        return Err(format!("SG AI Store 返回 HTTP {}", resp.status()));
+    }
+    resp.json::<BalanceSnapshot>()
+        .await
+        .map_err(|e| format!("解析余额响应失败 / parse balance failed: {}", e))
+}
+
 // ============================================================
 // Tests
 // ============================================================

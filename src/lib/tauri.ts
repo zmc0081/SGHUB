@@ -385,6 +385,22 @@ export interface DataMigrationProgress {
 }
 
 // ============================================================
+// First-run onboarding (V2.2.4)
+// ============================================================
+
+export interface OnboardingStatus {
+  completed: boolean;
+}
+
+/** Returned by detect_ollama — local instance probe + installed models. */
+export interface OllamaDetect {
+  running: boolean;
+  endpoint: string;
+  models: string[];
+  message: string | null;
+}
+
+// ============================================================
 // Chat module types (V2.0.1)
 // ============================================================
 
@@ -993,6 +1009,31 @@ export const api = {
 
   aiStoreRefreshAllBalances: () =>
     invoke<number>("ai_store_refresh_all_balances"),
+
+  // ============================================================
+  // First-run onboarding (V2.2.4)
+  // ============================================================
+
+  /** Whether the first-run wizard should show (false = show it). Also
+   *  auto-completes for upgrading users who already have models/papers. */
+  getOnboardingStatus: () =>
+    invoke<OnboardingStatus>("get_onboarding_status"),
+
+  /** Flip the onboarding-completed flag (finish OR skip-all). */
+  completeOnboarding: () => invoke<void>("complete_onboarding"),
+
+  /** Set the INITIAL data directory (no migration — fresh install). Only
+   *  call for a custom pick; keeping the OS default needs no call. */
+  onboardingSetDataDir: (path: string) =>
+    invoke<void>("onboarding_set_data_dir", { path }),
+
+  /** Probe a local Ollama instance and list installed models. */
+  detectOllama: (endpoint?: string) =>
+    invoke<OllamaDetect>("detect_ollama", { endpoint: endpoint ?? null }),
+
+  /** Verify a raw SG AI Store key (before any model config exists). */
+  aiStoreVerifyKey: (apiKey: string) =>
+    invoke<SgStoreBalanceSnapshot>("ai_store_verify_key", { apiKey }),
 };
 
 // ============================================================

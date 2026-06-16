@@ -152,6 +152,40 @@ pub async fn test_connection(endpoint: &str) -> Result<String, String> {
     Ok(format!("Ollama 在线 — 本地有 {} 个模型", count))
 }
 
+/// List the model names installed in a local Ollama instance via
+/// `GET /api/tags`. Used by the onboarding "local Ollama" tab (V2.2.4).
+/// A connection error means Ollama isn't running — surfaced as `Err` so
+/// the caller can show the "how to start Ollama" hint.
+pub async fn list_models(endpoint: &str) -> Result<Vec<String>, String> {
+    let url = format!("{}/api/tags", endpoint.trim_end_matches('/'));
+    let client = reqwest::Client::builder()
+        .timeout(TEST_TIMEOUT)
+        .build()
+        .map_err(|e| e.to_string())?;
+    let resp = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("request failed (Ollama not running?): {}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {}", resp.status()));
+    }
+    let json: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("parse json: {}", e))?;
+    let names = json
+        .get("models")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| m.get("name").and_then(|n| n.as_str()).map(String::from))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    Ok(names)
+}
+
 // ============================================================
 // Tests
 // ============================================================
@@ -234,6 +268,40 @@ mod tests {
             .collect()
             .await;
         assert_eq!(tokens, vec!["He", "llo"]);
+    }
+
+    #[tokio::test]
+    async fn list_models_parses_tag_names() {
+        let mut server = mockito::Server::new_async().await;
+        let body = r#"{"models":[
+            {"name":"llama3:8b","size":123},
+            {"name":"qwen2.5:7b","size":456}
+        ]}"#;
+        let mock = server
+            .mock("GET", "/api/tags")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create_async()
+            .await;
+        let names = list_models(&server.url()).await.unwrap();
+        assert_eq!(names, vec!["llama3:8b", "qwen2.5:7b"]);
+        mock.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn list_models_empty_when_no_models_field() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("GET", "/api/tags")
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body("{}")
+            .create_async()
+            .await;
+        let names = list_models(&server.url()).await.unwrap();
+        assert!(names.is_empty());
+        mock.assert_async().await;
     }
 
     #[tokio::test]
