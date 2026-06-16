@@ -6,6 +6,41 @@ const SS_API: &str = "https://api.semanticscholar.org/graph/v1/paper/search";
 const FIELDS: &str = "title,authors,abstract,externalIds,url,year,publicationDate";
 const USER_AGENT: &str = "SGHUB/0.1 (+https://github.com/zmc0081/SGHUB)";
 const RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+/// Cap a `Retry-After` wait so retries stay within the source timeout budget.
+const MAX_RETRY_DELAY: std::time::Duration = std::time::Duration::from_secs(4);
+/// SS free tier rate-limits aggressively per IP; retry a couple of times.
+const MAX_RETRIES: u32 = 2;
+
+/// GET with retry on HTTP 429, honoring `Retry-After` (capped). SS shares a
+/// per-IP limit, so concurrent 8-source searches frequently hit it.
+async fn get_with_retry(
+    client: &reqwest::Client,
+    url: reqwest::Url,
+) -> reqwest::Result<reqwest::Response> {
+    let mut attempt = 0;
+    loop {
+        let resp = client.get(url.clone()).send().await?;
+        if resp.status() != reqwest::StatusCode::TOO_MANY_REQUESTS || attempt >= MAX_RETRIES {
+            return Ok(resp);
+        }
+        let wait = resp
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| s.trim().parse::<u64>().ok())
+            .map(std::time::Duration::from_secs)
+            .unwrap_or(RETRY_DELAY)
+            .min(MAX_RETRY_DELAY);
+        attempt += 1;
+        log::info!(
+            "semantic_scholar 429 (attempt {}/{}), waiting {:?}",
+            attempt,
+            MAX_RETRIES,
+            wait
+        );
+        tokio::time::sleep(wait).await;
+    }
+}
 
 #[derive(Debug, Deserialize)]
 struct SsResponse {
@@ -50,15 +85,7 @@ pub async fn search(
         ],
     )?;
     let client = reqwest::Client::builder().user_agent(USER_AGENT).build()?;
-
-    // Single retry on 429 — SS free tier rate-limits aggressively per IP.
-    let mut resp = client.get(url.clone()).send().await?;
-    if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
-        log::info!("semantic_scholar 429, retrying after {:?}", RETRY_DELAY);
-        tokio::time::sleep(RETRY_DELAY).await;
-        resp = client.get(url).send().await?;
-    }
-
+    let resp = get_with_retry(&client, url).await?;
     let data: SsResponse = resp.error_for_status()?.json().await?;
     Ok(data.data.into_iter().filter_map(map_to_paper).collect())
 }
@@ -96,7 +123,34 @@ fn map_to_paper(ss: SsPaper) -> Option<Paper> {
         read_status: "unread".to_string(),
         created_at: String::new(),
         updated_at: String::new(),
+        sources: vec!["semantic_scholar".to_string()],
+        fulltext_url: None,
     })
+}
+
+/// Base for Semantic Scholar single-paper lookups (`…/paper/DOI:{doi}`).
+const SS_PAPER: &str = "https://api.semanticscholar.org/graph/v1/paper";
+
+/// Exact-DOI lookup against the production endpoint.
+pub async fn by_doi(doi: &str) -> Result<Option<Paper>, Box<dyn std::error::Error + Send + Sync>> {
+    by_doi_at(SS_PAPER, doi).await
+}
+
+/// Testable exact-DOI lookup: `…/paper/DOI:{doi}?fields=…`. The DOI's slashes
+/// stay literal, so the URL is built by string and parsed.
+pub async fn by_doi_at(
+    base: &str,
+    doi: &str,
+) -> Result<Option<Paper>, Box<dyn std::error::Error + Send + Sync>> {
+    let mut url = reqwest::Url::parse(&format!("{}/DOI:{}", base.trim_end_matches('/'), doi))?;
+    url.query_pairs_mut().append_pair("fields", FIELDS);
+    let client = reqwest::Client::builder().user_agent(USER_AGENT).build()?;
+    let resp = get_with_retry(&client, url).await?;
+    if resp.status() == reqwest::StatusCode::NOT_FOUND {
+        return Ok(None);
+    }
+    let paper: SsPaper = resp.error_for_status()?.json().await?;
+    Ok(map_to_paper(paper))
 }
 
 #[cfg(test)]

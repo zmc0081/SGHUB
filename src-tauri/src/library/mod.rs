@@ -122,6 +122,9 @@ fn row_to_paper(row: &Row) -> rusqlite::Result<Paper> {
         read_status: row.get(10)?,
         created_at: row.get(11)?,
         updated_at: row.get(12)?,
+        // V2.2.3 — not stored in the DB; populated only by live search merge.
+        sources: Vec::new(),
+        fulltext_url: None,
     })
 }
 

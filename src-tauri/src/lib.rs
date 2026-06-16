@@ -103,6 +103,8 @@ pub fn run() {
             updater::commands::install_pending_update,
             updater::commands::set_updater_config,
             search::search_papers,
+            search::set_core_api_key,
+            search::is_core_api_key_set,
             library::get_folders,
             library::get_folder_tree,
             library::create_folder,

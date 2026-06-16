@@ -29,6 +29,10 @@ export interface Paper {
   read_status: string;
   created_at: string;
   updated_at: string;
+  // V2.2.3 — every source a (merged) paper was found in; full-text/PDF link.
+  // Optional: papers read back from the DB omit them.
+  sources?: string[];
+  fulltext_url?: string | null;
 }
 
 export interface Folder {
@@ -547,6 +551,11 @@ export interface DuplicateInfo {
 export const api = {
   searchPapers: (query: string, source: string, limit: number) =>
     invoke<Paper[]>("search_papers", { query, source, limit }),
+
+  // V2.2.3 — CORE source API key (stored in the OS keychain, never in config).
+  // Pass an empty string to clear it.
+  setCoreApiKey: (key: string) => invoke<void>("set_core_api_key", { key }),
+  isCoreApiKeySet: () => invoke<boolean>("is_core_api_key_set"),
 
   getFolders: () => invoke<Folder[]>("get_folders"),
 

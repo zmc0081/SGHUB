@@ -64,6 +64,9 @@
     "authors_more": " et al. ({{count}})",
     "sources": "Sources",
     "source_all": "All",
+    "source_group_general": "General",
+    "source_group_cs": "Computer Science",
+    "source_group_oa": "Open Access",
     "time_all": "Any time",
     "time_7d": "Last 7 days",
     "time_30d": "Last 30 days",
@@ -71,7 +74,10 @@
     "sort_relevance": "Relevance",
     "sort_latest": "Latest",
     "sort_citation": "Citations (soon)",
-    "source_label": "Source"
+    "source_label": "Source",
+    "fulltext_pdf": "Full-text PDF",
+    "error_open_fulltext": "Failed to open the full-text link",
+    "fallback_expanded": "Automatically expanded sources for more results"
   },
   "feed": {
     "title": "Today's feed",

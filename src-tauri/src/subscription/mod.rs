@@ -333,6 +333,8 @@ fn db_subscription_results(
                 read_status: row.get(14)?,
                 created_at: row.get(15)?,
                 updated_at: row.get(16)?,
+                sources: Vec::new(),
+                fulltext_url: None,
             },
         })
     };
@@ -430,7 +432,9 @@ pub(crate) async fn run_one(app: &tauri::AppHandle, sub: &Subscription) -> Resul
         return Ok(0);
     }
 
-    let deduped = crate::search::dedupe(all_papers);
+    // V2.2.3 — `merge` supersedes the old `dedupe`: it collapses cross-source
+    // duplicates and completes metadata in one pass.
+    let deduped = crate::search::merge::merge(all_papers);
 
     // Persist papers + link to subscription
     let pool = {

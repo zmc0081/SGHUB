@@ -64,6 +64,9 @@
     "authors_more": " 等 {{count}} 人",
     "sources": "数据源",
     "source_all": "全部",
+    "source_group_general": "综合",
+    "source_group_cs": "计算机科学",
+    "source_group_oa": "开放获取",
     "time_all": "不限",
     "time_7d": "近 7 天",
     "time_30d": "近 30 天",
@@ -71,7 +74,10 @@
     "sort_relevance": "相关性",
     "sort_latest": "最新",
     "sort_citation": "引用 (待支持)",
-    "source_label": "数据源"
+    "source_label": "数据源",
+    "fulltext_pdf": "全文 PDF",
+    "error_open_fulltext": "打开全文链接失败",
+    "fallback_expanded": "已自动扩展检索源以获得更多结果"
   },
   "feed": {
     "title": "今日推送",
