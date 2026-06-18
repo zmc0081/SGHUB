@@ -3,7 +3,7 @@
 > 本文件是 Claude Code 的项目上下文,每次会话自动加载。
 > 详细设计见 /docs 目录下的 PRD、架构方案与实施方案。
 > 项目路径: D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub
-> 当前版本: V2.2.4
+> 当前版本: V2.2.5
 
 ## 产品定位
 
@@ -352,6 +352,27 @@ app.emit("ai:token", TokenPayload { text, done: false })?;
 
 > 注意:模型路由根据 `ModelConfig.provider` 分发,务必正确传递 `model_config_id`,
 > 不要 hardcode 默认模型路径(参考 V2.2.1 Session 25 的非默认模型解析修复)。
+
+## 设置与计费约定(V2.2.5 简化)
+
+更新设置(设置页「隐私与更新」卡片):
+- 已大幅简化:**无自动更新总开关,无频率 / 时间 / 检查行为配置**(V2.1.0 Session 21 的复杂调度已废弃)
+- 仅保留:右上角「立即检查」按钮 + 当前版本号(来自 `app.package_info()` / tauri.conf.json,不硬编码)
+- 后台策略固定:启动后约 30s 检查一次;检查到更新统一 `emit("updater:available")` 弹通知,由用户决定安装
+- 隐私协议并入该卡片(分隔线分隔;沿用 `PrivacyPolicyDialog` 的中英文切换 + react-markdown)
+
+计费 / 成本(已彻底移除,方案 B):
+- model_configs 不再有价格列(`V007__drop_pricing.sql` 删除 input/output_price_per_1m_tokens)
+- usage_stats 不再有 cost_est_total;`record_usage` 只记 token + 次数;成本估算(`estimate_cost`)已删除
+- 模型配置页顶部统计为 **3 张卡**(已配置模型 / 近 7 天调用 / 近 7 天 Token),无成本卡;模型表单无价格字段
+- 保留:调用次数 + token 统计(不涉及成本)
+
+## 模型配置页入口(V2.2.5)
+
+- 上方两个**等权并列卡**:「添加自有模型」(BYOK,点开填 Endpoint + API Key 表单)/
+  「添加 SG AI Store API Key」(粘贴 Key 直接添加,**无套餐下拉框**;model_id 留空,由网关按请求选择)
+- 下方一整行:SG AI Store 购买引导链接(`https://sgaistore.com/buy?utm_source=sghub_client`)
+- 空状态与有模型时均显示这组入口
 
 ## 关键约束
 

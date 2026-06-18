@@ -69,8 +69,6 @@ const EMPTY_INPUT: ModelConfigInput = {
   model_id: "",
   max_tokens: 8192,
   api_key: null,
-  input_price_per_1m_tokens: 0,
-  output_price_per_1m_tokens: 0,
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -195,11 +193,6 @@ function StatsCards({
       value: formatTokens(totalTokens),
       hint: t("models.stat_hint_tokens"),
     },
-    {
-      label: t("models.stat_cost_7d"),
-      value: `$${(stats?.total_cost_est ?? 0).toFixed(2)}`,
-      hint: t("models.stat_hint_cost"),
-    },
   ];
   return (
     <div className="mb-6">
@@ -217,7 +210,7 @@ function StatsCards({
           <span>{t("models.stat_rebuild")}</span>
         </button>
       </div>
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         {cards.map((c) => (
           <div
             key={c.label}
@@ -251,7 +244,6 @@ interface ChartPoint {
   out: number;
   total: number;
   calls: number;
-  cost: number;
 }
 
 function daysBetween(fromIso: string, toIso: string): number {
@@ -327,7 +319,6 @@ function UsageChart({ stats: initialStats }: { stats: UsageStats7Days }) {
     out: d.tokens_out,
     total: d.tokens_in + d.tokens_out,
     calls: d.call_count,
-    cost: d.cost_est,
   }));
 
   const interval = tickInterval(data.length);
@@ -448,11 +439,6 @@ function UsageChart({ stats: initialStats }: { stats: UsageStats7Days }) {
                       {" · "}
                       {t("models.stat_chart_tooltip_out", {
                         tokens: formatTokens(p.out),
-                      })}
-                    </div>
-                    <div className="text-fg-2">
-                      {t("models.stat_chart_tooltip_cost", {
-                        cost: p.cost.toFixed(4),
                       })}
                     </div>
                   </div>
@@ -665,7 +651,6 @@ function ModelRow({
               {t("models.row_usage_7d", {
                 calls: usage.call_count,
                 tokens: formatTokens(usage.tokens_in + usage.tokens_out),
-                cost: usage.cost_est.toFixed(2),
               })}
             </div>
           )}
@@ -926,38 +911,6 @@ function ModelForm({
           />
         </Field>
         <Field
-          label={`${t("models.form_input_price")} (${t("models.form_price_unit")})`}
-        >
-          <input
-            type="number"
-            step={0.01}
-            min={0}
-            value={form.input_price_per_1m_tokens ?? 0}
-            onChange={(e) =>
-              update("input_price_per_1m_tokens", Number(e.target.value) || 0)
-            }
-            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
-            style={{ fontSize: "13px" }}
-            title={t("models.form_price_hint")}
-          />
-        </Field>
-        <Field
-          label={`${t("models.form_output_price")} (${t("models.form_price_unit")})`}
-        >
-          <input
-            type="number"
-            step={0.01}
-            min={0}
-            value={form.output_price_per_1m_tokens ?? 0}
-            onChange={(e) =>
-              update("output_price_per_1m_tokens", Number(e.target.value) || 0)
-            }
-            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
-            style={{ fontSize: "13px" }}
-            title={t("models.form_price_hint")}
-          />
-        </Field>
-        <Field
           label={
             isEdit
               ? t("models.form_api_key_edit_label")
@@ -1037,65 +990,102 @@ function Field({
   );
 }
 
+const SG_AI_STORE_BUY_URL =
+  "https://sgaistore.com/buy?utm_source=sghub_client";
+
 /**
- * V2.2.1 Session 29 — SG AI Store onboarding banner.
+ * V2.2.5 (Opt③) — model entry cards.
  *
- * Shown above the model list when the user has zero SG AI Store
- * models configured. Pre-fills endpoint + provider, just asks for
- * the API key and the SKU (model_id). On success: creates the
- * ModelConfig, kicks an initial balance fetch, toasts the result.
- *
- * In mock mode the model_id dropdown reads from MOCK_PRODUCTS via
- * sgAiStoreApi.getProducts(). Production mode uses the same call
- * which delegates to the Tauri-backed catalog cache.
+ * Information architecture:
+ *   - top row: two EQUAL-weight cards for users who already have a key —
+ *     "add own model" (BYOK) and "add SG AI Store API key" (paste & go,
+ *     no SKU dropdown).
+ *   - bottom row: full-width purchase guidance for users without a key.
+ * Shown in both empty and populated states.
  */
-function SgAiStoreOnboarding({ onAdded }: { onAdded: () => void }) {
+function ModelEntryCards({
+  onAddOwn,
+  onAdded,
+}: {
+  onAddOwn: () => void;
+  onAdded: () => void;
+}) {
+  const t = useT();
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Card A — BYOK own model */}
+        <section className="bg-card rounded-card shadow-card p-5 flex flex-col">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-icon bg-indigo-soft text-indigo flex items-center justify-center flex-shrink-0">
+              <Icon icon={Bot} size="lg" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-h3 font-semibold text-fg-1">
+                {t("models.entry_own_title")}
+              </h2>
+              <p className="text-meta text-fg-2 mt-1 leading-relaxed">
+                {t("models.entry_own_desc")}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onAddOwn}
+            className="mt-4 self-start inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill border border-border-default bg-card text-fg-1 text-caption font-medium hover:border-navy hover:text-navy transition-colors duration-fast ease-khx"
+          >
+            <span>{t("models.entry_own_btn")}</span>
+          </button>
+        </section>
+
+        {/* Card B — paste SG AI Store key */}
+        <SgAiStoreKeyCard onAdded={onAdded} />
+      </div>
+
+      {/* Bottom row — purchase guidance (no key yet) */}
+      <section className="bg-card rounded-card shadow-card p-5 border border-indigo-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-icon bg-indigo-soft text-indigo flex items-center justify-center flex-shrink-0">
+            <Icon icon={Store} size="sm" />
+          </div>
+          <p className="text-meta text-fg-2 leading-relaxed">
+            {t("models.entry_buy_desc")}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            void api.openExternalUrl(SG_AI_STORE_BUY_URL).catch(() => {});
+          }}
+          className="self-start sm:self-auto flex-shrink-0 inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill bg-navy text-fg-inverse text-caption font-medium shadow-btn hover:bg-navy-hover hover:shadow-btn-hover hover:-translate-y-px transition-[background,box-shadow,transform] duration-fast ease-khx"
+        >
+          <Icon icon={ExternalLink} size="sm" />
+          <span>{t("models.entry_buy_btn")}</span>
+        </button>
+      </section>
+    </div>
+  );
+}
+
+/** Card B body — paste an SG AI Store API key and add (Opt③: no SKU
+ *  dropdown; model selection happens per-request at the gateway). */
+function SgAiStoreKeyCard({ onAdded }: { onAdded: () => void }) {
   const t = useT();
   const toast = useToast();
   const [apiKey, setApiKey] = useState("");
-  const [modelId, setModelId] = useState("");
-  const [productName, setProductName] = useState("SG AI Store");
-  const [products, setProducts] = useState<
-    Array<{ id: string; name: string; model_id: string }>
-  >([]);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    import("../lib/sgAiStoreApi").then(({ sgAiStoreApi, pickLocalized }) => {
-      sgAiStoreApi
-        .getProducts()
-        .then((list) => {
-          if (cancelled) return;
-          // Flatten to per-model_id picker entries; multi packs map to "mixed".
-          setProducts(
-            list.map((p) => ({
-              id: p.id,
-              name: pickLocalized(p.name, "zh-CN"),
-              model_id: p.model_id,
-            })),
-          );
-        })
-        .catch((e) => console.warn("onboarding catalog load failed", e));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   async function submit() {
-    if (!apiKey.trim() || !modelId.trim()) return;
+    if (!apiKey.trim()) return;
     setSubmitting(true);
     try {
       const cfg = await api.addModelConfig({
-        name: `${productName} (SG AI Store)`,
+        name: "SG AI Store",
         provider: "openai",
         endpoint: "https://sgaistore.com/v1",
-        model_id: modelId.trim(),
+        model_id: "",
         max_tokens: 128000,
         api_key: apiKey.trim(),
-        input_price_per_1m_tokens: 0,
-        output_price_per_1m_tokens: 0,
       });
       // Fire an initial balance fetch so the new card shows a real number.
       try {
@@ -1106,11 +1096,9 @@ function SgAiStoreOnboarding({ onAdded }: { onAdded: () => void }) {
           }),
         );
       } catch {
-        // Balance fetch is best-effort here; the auto-refresh will retry.
         toast.success(t("models.sg_onboarding_added_no_balance"));
       }
       setApiKey("");
-      setModelId("");
       onAdded();
     } catch (e) {
       toast.danger(String(e));
@@ -1120,62 +1108,43 @@ function SgAiStoreOnboarding({ onAdded }: { onAdded: () => void }) {
   }
 
   return (
-    <section className="bg-card rounded-card shadow-card p-5 mb-4 border border-indigo-soft">
-      <div className="flex items-start gap-4">
+    <section className="bg-card rounded-card shadow-card p-5 flex flex-col">
+      <div className="flex items-start gap-3">
         <div className="w-11 h-11 rounded-icon bg-indigo-soft text-indigo flex items-center justify-center flex-shrink-0">
           <Icon icon={Store} size="lg" />
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-h3 font-semibold text-fg-1">
-            {t("models.sg_onboarding_title")}
+            {t("models.entry_sg_title")}
           </h2>
           <p className="text-meta text-fg-2 mt-1 leading-relaxed">
-            {t("models.sg_onboarding_desc")}
+            {t("models.entry_sg_desc")}
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_220px_auto] gap-2 mt-4">
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder={t("models.sg_onboarding_key_placeholder")}
-              className="px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono text-meta focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
-            />
-            <select
-              value={modelId}
-              onChange={(e) => {
-                const v = e.target.value;
-                setModelId(v);
-                const match = products.find((p) => p.model_id === v);
-                if (match) setProductName(match.name);
-              }}
-              className="px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 text-meta focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
-            >
-              <option value="">
-                {t("models.sg_onboarding_pick_product")}
-              </option>
-              {products.map((p) => (
-                <option key={p.id} value={p.model_id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={submitting || !apiKey.trim() || !modelId.trim()}
-              className="inline-flex items-center justify-center gap-2 px-btn-x py-btn-y rounded-pill bg-navy text-fg-inverse text-caption font-medium shadow-btn hover:bg-navy-hover hover:shadow-btn-hover hover:-translate-y-px disabled:opacity-50 disabled:hover:translate-y-0 transition-[background,box-shadow,transform] duration-fast ease-khx"
-            >
-              {submitting && (
-                <Icon icon={Loader2} size="sm" className="animate-spin" />
-              )}
-              <span>
-                {submitting
-                  ? t("models.sg_onboarding_adding")
-                  : t("models.sg_onboarding_add_btn")}
-              </span>
-            </button>
-          </div>
         </div>
+      </div>
+      <div className="mt-4 flex flex-col sm:flex-row gap-2">
+        <input
+          type="password"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder={t("models.sg_onboarding_key_placeholder")}
+          className="flex-1 px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono text-meta focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={submitting || !apiKey.trim()}
+          className="flex-shrink-0 inline-flex items-center justify-center gap-2 px-btn-x py-btn-y rounded-pill bg-navy text-fg-inverse text-caption font-medium shadow-btn hover:bg-navy-hover hover:shadow-btn-hover hover:-translate-y-px disabled:opacity-50 disabled:hover:translate-y-0 transition-[background,box-shadow,transform] duration-fast ease-khx"
+        >
+          {submitting && (
+            <Icon icon={Loader2} size="sm" className="animate-spin" />
+          )}
+          <span>
+            {submitting
+              ? t("models.sg_onboarding_adding")
+              : t("models.entry_sg_add_btn")}
+          </span>
+        </button>
       </div>
     </section>
   );
@@ -1197,8 +1166,6 @@ function ModelEditForm({
     model_id: model.model_id,
     max_tokens: model.max_tokens,
     api_key: null,
-    input_price_per_1m_tokens: model.input_price_per_1m_tokens,
-    output_price_per_1m_tokens: model.output_price_per_1m_tokens,
   };
   return (
     <ModelForm
@@ -1269,12 +1236,6 @@ export default function Models() {
 
       <StatsCards models={models} stats={stats} onRebuild={onRebuild} />
 
-      {/* V2.2.1 Session 29 — onboarding banner shown when user has NO
-          SG AI Store model yet. Hidden once they've added their first. */}
-      {!loading && !models.some((m) => m.is_sg_ai_store) && (
-        <SgAiStoreOnboarding onAdded={refresh} />
-      )}
-
       {loading && (
         <div className="flex flex-col gap-3">
           <Skeleton variant="rect" height={120} />
@@ -1293,6 +1254,14 @@ export default function Models() {
 
       {!loading && (
         <div className="flex flex-col gap-4">
+          {/* Entry cards — hidden while the BYOK add-form is open (Opt③). */}
+          {!showAddForm && (
+            <ModelEntryCards
+              onAddOwn={() => setShowAddForm(true)}
+              onAdded={refresh}
+            />
+          )}
+
           {models.length === 0 && !showAddForm && (
             <Stage
               intensity="soft"
@@ -1319,7 +1288,7 @@ export default function Models() {
             />
           ))}
 
-          {showAddForm ? (
+          {showAddForm && (
             <ModelForm
               initial={EMPTY_INPUT}
               presets={presets}
@@ -1331,14 +1300,6 @@ export default function Models() {
               }}
               onCancel={() => setShowAddForm(false)}
             />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowAddForm(true)}
-              className="self-start inline-flex items-center gap-1.5 px-btn-x py-btn-y rounded-pill border border-dashed border-border-default text-caption text-fg-1 hover:border-indigo hover:text-indigo hover:bg-indigo-soft transition-colors duration-fast ease-khx"
-            >
-              <span>{t("models.add_model_btn")}</span>
-            </button>
           )}
         </div>
       )}

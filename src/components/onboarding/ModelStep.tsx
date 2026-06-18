@@ -155,8 +155,6 @@ export function ModelStep({
       model_id: p.model_id,
       max_tokens: p.max_tokens,
       api_key: apiKey.trim(),
-      input_price_per_1m_tokens: p.input_price_per_1m_tokens ?? 0,
-      output_price_per_1m_tokens: p.output_price_per_1m_tokens ?? 0,
     };
     if (draftIdRef.current) {
       await api.updateModelConfig(draftIdRef.current, input);
@@ -213,8 +211,6 @@ export function ModelStep({
         model_id: storeProductId || product?.model_id || "",
         max_tokens: 128000,
         api_key: storeKey.trim(),
-        input_price_per_1m_tokens: 0,
-        output_price_per_1m_tokens: 0,
       });
       await api.setDefaultModel(cfg.id);
       storeAddedRef.current = true;
@@ -242,8 +238,6 @@ export function ModelStep({
           model_id: ollamaModel,
           max_tokens: 8192,
           api_key: null,
-          input_price_per_1m_tokens: 0,
-          output_price_per_1m_tokens: 0,
         });
         await api.setDefaultModel(cfg.id);
       }

@@ -2,17 +2,12 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::UpdaterConfig;
 use crate::updater::scheduler::{self, PendingUpdate};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdaterStatus {
     pub current_version: String,
     pub last_check_at: Option<String>,
-    /// Echoes the active cron expression. The frontend uses this together
-    /// with the current wall clock to render "next check at …" without an
-    /// extra IPC.
-    pub cron_expression: Option<String>,
     pub has_pending_update: bool,
     pub pending: Option<PendingUpdate>,
 }
@@ -32,19 +27,15 @@ pub async fn get_updater_status(app: tauri::AppHandle) -> Result<UpdaterStatus, 
     Ok(UpdaterStatus {
         current_version,
         last_check_at: st.last_check_at.clone(),
-        cron_expression: st.last_cron.clone(),
         has_pending_update: st.pending.is_some(),
         pending: st.pending.clone(),
     })
 }
 
-/// Trigger an update check immediately (ignores schedule but updates
-/// `last_check_at`).
+/// Trigger an update check immediately (updates `last_check_at`).
 #[tauri::command]
 pub async fn check_update_now(app: tauri::AppHandle) -> Result<CheckResult, String> {
-    // For manual checks we always honour "notify" semantics — the user
-    // initiated the action, so they're already paying attention.
-    scheduler::perform_check(app, "notify").await;
+    scheduler::perform_check(app).await;
     let st = scheduler::state().read().await;
     Ok(CheckResult {
         had_update: st.pending.is_some(),
@@ -83,19 +74,4 @@ pub async fn install_pending_update(app: tauri::AppHandle) -> Result<(), String>
         let _ = app;
         Err("updater is only available in release builds".into())
     }
-}
-
-/// Convenience hook so the frontend doesn't have to push the new config
-/// AND emit the event separately — calling this both persists (via the
-/// stub) and live-reschedules.
-#[tauri::command]
-pub async fn set_updater_config(
-    app: tauri::AppHandle,
-    config: UpdaterConfig,
-) -> Result<(), String> {
-    // Persistence stub: forward to save_app_config so it emits the event.
-    // We rebuild a full AppConfig because that's the existing setter.
-    let mut full = crate::config::get_app_config().await?;
-    full.updater = config;
-    crate::config::save_app_config(app, full).await
 }

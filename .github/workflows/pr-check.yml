@@ -56,6 +56,9 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Check version consistency
+        run: node scripts/check-version.cjs
+
       - name: Lint (clippy)
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings

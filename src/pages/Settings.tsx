@@ -1,9 +1,11 @@
 // i18n: 本组件文案已国际化 (V2.1.0)
-// V2.2.1 — added Privacy policy section below DataDirCard (Session 27)
-import { useCallback, useEffect, useState } from "react";
+// V2.2.5 — updater simplified + privacy policy merged into the
+// "隐私与更新" card (UpdaterCard); version now shown there too.
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertTriangle, ChevronDown, Shield, Sparkles } from "lucide-react";
-import { api, type AppConfig, type UpdaterConfig } from "../lib/tauri";
+import { useNavigate } from "@tanstack/react-router";
+import { AlertTriangle, ChevronDown, Settings2, Sparkles } from "lucide-react";
+import { api, type AppConfig, type ModelConfig } from "../lib/tauri";
 import { useOnboardingStore } from "../stores/onboardingStore";
 import {
   SUPPORTED_LANGUAGES,
@@ -13,7 +15,6 @@ import {
 } from "../i18n";
 import { UpdaterCard } from "../components/UpdaterCard";
 import { DataDirCard } from "../components/DataDirCard";
-import { PrivacyPolicyDialog } from "../components/PrivacyPolicyDialog";
 import { Icon } from "../components/Icon";
 import { Skeleton } from "../components/Skeleton";
 
@@ -47,7 +48,9 @@ function Row({
 
 export default function Settings() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [config, setConfig] = useState<AppConfig | null>(null);
+  const [models, setModels] = useState<ModelConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [systemLocale, setSystemLocale] = useState<SupportedLanguage>("en-US");
@@ -64,9 +67,17 @@ export default function Settings() {
         if (isSupportedLanguage(s)) setSystemLocale(s);
       })
       .catch(() => {});
+    // Default model is derived from the real model list (is_default), not
+    // the config stub — so an unconfigured app shows "not set", not a
+    // phantom model name.
+    api
+      .getModelConfigs()
+      .then(setModels)
+      .catch(() => {});
   }, []);
 
   const currentLangValue = config?.language ?? "";
+  const defaultModel = models.find((m) => m.is_default) ?? null;
 
   const handleLanguageChange = async (
     e: React.ChangeEvent<HTMLSelectElement>,
@@ -152,14 +163,23 @@ export default function Settings() {
             {t(THEME_LABEL_KEY[config.theme] ?? config.theme)}
           </Row>
           <Row label={t("settings.default_model")}>
-            {config.default_model_id ? (
-              <code className="text-meta font-mono">
-                {config.default_model_id}
-              </code>
+            {defaultModel ? (
+              <button
+                type="button"
+                onClick={() => navigate({ to: "/models" })}
+                className="inline-flex items-center gap-1 text-caption text-navy hover:text-navy-hover hover:underline transition-colors duration-fast ease-khx"
+              >
+                <span>{defaultModel.name}</span>
+              </button>
             ) : (
-              <span className="text-fg-3">
-                {t("settings.default_model_unset")}
-              </span>
+              <button
+                type="button"
+                onClick={() => navigate({ to: "/models" })}
+                className="inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill border border-border-default bg-card text-fg-1 text-caption font-medium hover:border-navy hover:text-navy transition-colors duration-fast ease-khx"
+              >
+                <Icon icon={Settings2} size="sm" />
+                <span>{t("settings.default_model_configure")}</span>
+              </button>
             )}
           </Row>
           <Row label={t("settings.log_level")}>
@@ -178,78 +198,14 @@ export default function Settings() {
         </div>
       )}
 
-      {config && (
-        <div className="mt-4">
-          <UpdaterCardSection
-            updater={config.updater}
-            setConfig={setConfig}
-          />
-        </div>
-      )}
+      {/* 隐私与更新 — updater (simplified) + privacy policy, merged (V2.2.5) */}
+      <div className="mt-4">
+        <UpdaterCard />
+      </div>
 
       <div className="mt-4">
         <DataDirCard />
       </div>
-
-      <div className="mt-4">
-        <PrivacyCard />
-      </div>
     </main>
   );
-}
-
-/**
- * Privacy-policy entry card. Sits below DataDirCard so it reads as
- * "data lives here → here's how it's handled". The actual policy text
- * is rendered in a dialog (PrivacyPolicyDialog) so a user can also
- * compare zh/en side-by-side without leaving Settings.
- */
-function PrivacyCard() {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <section
-        aria-labelledby="settings-privacy-heading"
-        className="bg-card rounded-card shadow-card p-6"
-      >
-        <div className="flex items-start gap-4">
-          <div className="w-11 h-11 rounded-icon bg-indigo-soft text-indigo flex items-center justify-center flex-shrink-0">
-            <Icon icon={Shield} size="lg" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2
-              id="settings-privacy-heading"
-              className="text-h3 font-semibold text-fg-1"
-            >
-              {t("settings.privacy_section")}
-            </h2>
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              className="mt-3 inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill border border-border-default bg-card text-fg-1 text-caption font-medium hover:border-navy hover:text-navy transition-colors duration-fast ease-khx"
-            >
-              <span>{t("settings.privacy_open_btn")}</span>
-            </button>
-          </div>
-        </div>
-      </section>
-      <PrivacyPolicyDialog open={open} onClose={() => setOpen(false)} />
-    </>
-  );
-}
-
-function UpdaterCardSection({
-  updater,
-  setConfig,
-}: {
-  updater: UpdaterConfig;
-  setConfig: React.Dispatch<React.SetStateAction<AppConfig | null>>;
-}) {
-  const handleChange = useCallback(
-    (next: UpdaterConfig) =>
-      setConfig((c) => (c ? { ...c, updater: next } : c)),
-    [setConfig],
-  );
-  return <UpdaterCard initial={updater} onChange={handleChange} />;
 }

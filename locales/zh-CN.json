@@ -391,7 +391,7 @@
     "form_output_price": "输出价格",
     "form_price_unit": "$/1M tokens",
     "form_price_hint": "用于成本估算,可在模型提供商官网查询定价。0 表示不计算成本。",
-    "row_usage_7d": "近 7 天:{{calls}} 次 · {{tokens}} tokens · ${{cost}}",
+    "row_usage_7d": "近 7 天:{{calls}} 次 · {{tokens}} tokens",
     "chart_range_7d": "近 7 天",
     "chart_range_30d": "近 30 天",
     "chart_range_custom": "自定义",
@@ -417,7 +417,15 @@
     "sg_onboarding_add_btn": "添加并查询余额",
     "sg_onboarding_adding": "添加中…",
     "sg_onboarding_added": "已接入 SG AI Store,当前余额 ¥{{balance}}",
-    "sg_onboarding_added_no_balance": "模型已添加,余额稍后自动更新"
+    "sg_onboarding_added_no_balance": "模型已添加,余额稍后自动更新",
+    "entry_own_title": "添加自有模型",
+    "entry_own_desc": "BYOK:Claude / GPT / DeepSeek / 本地 Ollama,填入 Endpoint 与 API Key。",
+    "entry_own_btn": "填写 Endpoint + API Key",
+    "entry_sg_title": "已在 SG AI Store 购买?",
+    "entry_sg_desc": "粘贴 API Key 即可使用。",
+    "entry_sg_add_btn": "添加",
+    "entry_buy_desc": "还没有 SG AI Store 配额?无需自己申请 API Key,购买即用。",
+    "entry_buy_btn": "前往 SG AI Store 购买"
   },
   "skill_gen": {
     "title": "用 AI 创建 Skill",
@@ -494,6 +502,7 @@
   },
   "settings": {
     "title": "设置",
+    "version": "版本",
     "language": "语言",
     "language_follow_system": "跟随系统",
     "language_follow_system_with": "跟随系统:{{current}}",
@@ -505,6 +514,7 @@
     "auto_update": "自动更新",
     "default_model": "默认模型",
     "default_model_unset": "未设置",
+    "default_model_configure": "未设置 · 去配置模型",
     "log_level": "日志级别",
     "log_debug": "Debug (详细)",
     "log_info": "Info (默认)",

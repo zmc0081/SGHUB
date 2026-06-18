@@ -30,9 +30,6 @@ pub struct AppConfig {
     pub backup_retention_days: u32,
     pub default_model_id: Option<String>,
     pub log_level: String,
-    /// V2.1.0 — fine-grained auto-updater schedule.
-    #[serde(default = "UpdaterConfig::default")]
-    pub updater: UpdaterConfig,
     /// V2.2.3 — Crossref "polite pool" contact e-mail. Empty = use the
     /// built-in project contact (`search::CROSSREF_MAILTO`). The CORE API key
     /// is NOT stored here — it lives in the OS keychain (see
@@ -47,44 +44,6 @@ pub struct AppConfig {
     pub enabled_sources: Vec<String>,
 }
 
-/// Auto-updater scheduling configuration (V2.1.0).
-///
-/// `frequency_value` semantics depend on `frequency_type`:
-/// - "daily"  → run every N days (1..=30)
-/// - "weekly" → 7-bit weekday bitmask
-///   (Mon=1 Tue=2 Wed=4 Thu=8 Fri=16 Sat=32 Sun=64; Mon+Wed+Fri = 21)
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct UpdaterConfig {
-    /// Master switch. When false the scheduler is removed entirely.
-    pub enabled: bool,
-    /// "daily" | "weekly"
-    pub frequency_type: String,
-    /// Days N (daily mode) or weekday bitmask (weekly mode).
-    pub frequency_value: u32,
-    /// "HH:MM" 24-hour local time.
-    pub check_time: String,
-    /// "notify" — show a system notification, user decides
-    /// "silent_download" — download in background, user restarts to apply
-    /// "check_only" — just mark availability, no notification, no download
-    pub action: String,
-    /// ISO 8601 timestamp of the last successful check (None = never).
-    #[serde(default)]
-    pub last_check_at: Option<String>,
-}
-
-impl Default for UpdaterConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            frequency_type: "daily".into(),
-            frequency_value: 7,
-            check_time: "09:00".into(),
-            action: "notify".into(),
-            last_check_at: None,
-        }
-    }
-}
-
 fn mock_app_config() -> AppConfig {
     AppConfig {
         language: None,
@@ -93,9 +52,11 @@ fn mock_app_config() -> AppConfig {
         auto_update: true,
         auto_backup: true,
         backup_retention_days: 7,
-        default_model_id: Some("model-claude-opus-4-7".into()),
+        // Real default model is derived from `model_configs.is_default`
+        // (the frontend reads it from get_model_configs); the config stub
+        // no longer fabricates a phantom id here.
+        default_model_id: None,
         log_level: "info".into(),
-        updater: UpdaterConfig::default(),
         crossref_mailto: String::new(),
         enabled_sources: Vec::new(),
     }
@@ -107,14 +68,10 @@ pub async fn get_app_config() -> Result<AppConfig, String> {
 }
 
 #[tauri::command]
-pub async fn save_app_config(app: tauri::AppHandle, config: AppConfig) -> Result<(), String> {
-    // Persistence is still a no-op stub (config file writer TBD), but we
-    // fire the change event so live listeners (e.g. the updater scheduler)
-    // can react to the new settings without a restart.
-    use tauri::Emitter;
-    if let Err(e) = app.emit("config:updater_changed", &config.updater) {
-        log::warn!("config:updater_changed emit failed: {}", e);
-    }
+pub async fn save_app_config(_config: AppConfig) -> Result<(), String> {
+    // Persistence is still a no-op stub (config file writer TBD). V2.2.5
+    // removed the updater config + its change event, so there is nothing
+    // to broadcast here anymore.
     Ok(())
 }
 
@@ -448,8 +405,7 @@ mod tests {
         // `None` is skipped, not serialized as `"language":null`.
         assert!(!json_none.contains("language"), "json: {}", json_none);
 
-        // Deserialize a JSON missing the field (also missing `updater` —
-        // serde's `default = "UpdaterConfig::default"` fills it in).
+        // Deserialize a JSON missing the optional `language` field.
         let parsed: AppConfig = serde_json::from_str(
             r#"{
             "theme":"light","data_dir":"","auto_update":true,"auto_backup":false,
@@ -458,11 +414,5 @@ mod tests {
         )
         .unwrap();
         assert!(parsed.language.is_none());
-        assert_eq!(parsed.updater, UpdaterConfig::default());
-        assert!(parsed.updater.enabled);
-        assert_eq!(parsed.updater.frequency_type, "daily");
-        assert_eq!(parsed.updater.frequency_value, 7);
-        assert_eq!(parsed.updater.check_time, "09:00");
-        assert_eq!(parsed.updater.action, "notify");
     }
 }

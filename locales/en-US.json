@@ -391,7 +391,7 @@
     "form_output_price": "Output price",
     "form_price_unit": "$/1M tokens",
     "form_price_hint": "Used for cost estimation. Check the provider's website for current pricing. 0 disables cost tracking for this model.",
-    "row_usage_7d": "Last 7d: {{calls}} calls · {{tokens}} tokens · ${{cost}}",
+    "row_usage_7d": "Last 7d: {{calls}} calls · {{tokens}} tokens",
     "chart_range_7d": "Last 7d",
     "chart_range_30d": "Last 30d",
     "chart_range_custom": "Custom",
@@ -417,7 +417,15 @@
     "sg_onboarding_add_btn": "Add & check balance",
     "sg_onboarding_adding": "Adding…",
     "sg_onboarding_added": "Connected to SG AI Store · balance ¥{{balance}}",
-    "sg_onboarding_added_no_balance": "Model added — balance will refresh shortly"
+    "sg_onboarding_added_no_balance": "Model added — balance will refresh shortly",
+    "entry_own_title": "Add your own model",
+    "entry_own_desc": "BYOK: Claude / GPT / DeepSeek / local Ollama — enter endpoint + API key.",
+    "entry_own_btn": "Enter endpoint + API key",
+    "entry_sg_title": "Purchased from SG AI Store?",
+    "entry_sg_desc": "Paste your API key and you're ready to go.",
+    "entry_sg_add_btn": "Add",
+    "entry_buy_desc": "No SG AI Store quota yet? No need to apply for your own API key — buy and use instantly.",
+    "entry_buy_btn": "Go to SG AI Store"
   },
   "skill_gen": {
     "title": "Create a Skill with AI",
@@ -494,6 +502,7 @@
   },
   "settings": {
     "title": "Settings",
+    "version": "Version",
     "language": "Language",
     "language_follow_system": "Follow system",
     "language_follow_system_with": "Follow system: {{current}}",
@@ -505,6 +514,7 @@
     "auto_update": "Auto-update",
     "default_model": "Default model",
     "default_model_unset": "Not set",
+    "default_model_configure": "Not set · configure a model",
     "log_level": "Log level",
     "log_debug": "Debug (verbose)",
     "log_info": "Info (default)",

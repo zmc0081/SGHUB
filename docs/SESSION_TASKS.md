@@ -3004,6 +3004,289 @@ git push --tags
 - 严格遵守 CLAUDE.md UI 设计规范,提交前过 PR 自查 6 条
 
 
+---
+
+## M2.2.5 · 打包发布完善 + 设置/模型配置 UI 优化(Week 35-36)
+
+> V2.2.5 解决一批在真实安装/使用中暴露的问题:打包发布的健壮性(Logo 生效、代码签名、
+> 安装/卸载/快捷方式、跨平台一致性),以及版本号同步、设置简化、隐私协议归位、
+> 模型配置 UI 优化。
+>
+> **开工前必读 CLAUDE.md**:特别注意新增的"版本号与打包一致性(强制流程)";
+> UI 改动遵守 7 条硬规则,提交前过 PR 自查 6 条。
+
+### 问题来源(真实安装中暴露)
+
+| 问题 | 现象 | 所属 Session |
+|------|------|-------------|
+| Logo 未生效到产物 | 安装包/快捷方式仍是旧图标 | Session 35 |
+| SmartScreen 安全提示 | "发布者未知",拦截运行 | Session 35 |
+| 安装失败 / 幽灵卸载项 | 自定义目录安装失败;uninstall.exe 找不到无法卸载 | Session 35 |
+| 快捷方式指向开发目录 | "修复"后打开旧 dev 版(2.2.1) | Session 35 |
+| macOS 同类问题 | 待验证(DMG 图标/公证/Gatekeeper/自定义目录) | Session 35 |
+| 版本号不一致 | 打包版本与代码版本可能不一致 | Session 35(+ CLAUDE.md 强制命令) |
+| 设置"检查更新"过于复杂 | 频率/时间/行为配置太重 | Session 36 |
+| 隐私协议位置 | 需归入隐私与更新区并合理分隔 | Session 36 |
+| "添加模型"按钮太弱 | 底部按钮不明显 | Session 36 |
+
+### 在开始 Session 35 之前
+
+确认 V2.2.4 已发布并稳定,本地分支已同步:
+```cmd
+cd D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub
+git checkout main
+git pull
+git checkout -b feature/v2.2.5
+```
+
+---
+
+### Session 35: 打包发布完善(Logo / 签名 / 安装卸载 / 版本一致 / 跨平台)
+
+```
+读取 CLAUDE.md,特别注意"版本号与打包一致性(强制流程)"。本次任务系统性解决
+打包发布的健壮性问题,覆盖 Windows 与 macOS。
+
+== 第一部分:版本号同步(强制)==
+
+1. 建立版本号单一来源 + 同步机制:
+   - 确认三处版本号一致:tauri.conf.json / Cargo.toml / package.json
+   - 写一个发布前校验脚本(scripts/check-version.js 或 .sh):
+     * 读取三处版本号,不一致则报错退出(可接入 pr-check CI)
+   - 应用内"设置/关于"显示的版本号从 tauri.conf.json 读取(Tauri app.package_info().version),
+     不硬编码
+   - 可选:写一个 bump-version 脚本,一条命令同步更新三处版本号
+
+== 第二部分:Logo 生效验证 ==
+
+2. 确保 Logo 正确嵌入构建产物:
+   - 用新 Logo 源图(1024x1024 PNG)运行 npm run tauri icon <源图>,生成 src-tauri/icons/ 全规格
+   - 确认 tauri.conf.json bundle.icon 指向正确
+   - 完整构建 npm run tauri build,验证:
+     * Windows:安装包 exe 图标、安装后程序图标、快捷方式图标均为新 Logo
+     * macOS:.app 图标、DMG 图标均为新 Logo
+   - 发布前清理 dev 残留:cargo clean,避免旧 dev 构建产物干扰
+
+== 第三部分:代码签名(解决 SmartScreen / Gatekeeper)==
+
+3. Windows 代码签名:
+   - 评估签名方案:OV 证书 / EV 证书 / Azure Trusted Signing
+   - 在 tauri.conf.json bundle.windows 配置 certificateThumbprint(或 signCommand)
+   - 构建时自动签名,签名后 SmartScreen "发布者未知"提示消除
+   - 若暂无证书:在 README / 下载页提供"更多信息→仍要运行"的引导说明(过渡方案)
+
+4. macOS 签名与公证(notarization):
+   - 配置 Apple Developer 证书(Developer ID Application)
+   - tauri.conf.json bundle.macOS 配置 signingIdentity
+   - 集成 notarize 流程(apple-id / team-id / app-specific password)
+   - 公证后通过 Gatekeeper,用户无需"右键打开"绕过
+
+== 第四部分:安装/卸载/快捷方式健壮性 ==
+
+5. Windows NSIS 安装器加固:
+   - 装前清理旧版本:安装前检测已安装的旧版本并先卸载(NSIS 的 uninstall-before-install)
+   - 自定义安装目录健壮性:
+     * 路径校验(可写、非系统关键目录)
+     * 权限不足时提示以管理员运行或换目录
+     * 安装失败回滚,不留半成品注册项
+   - 卸载程序完整性:确保 uninstall.exe 一定生成,且注册表卸载项与实际文件路径一致
+     (避免"幽灵卸载项":注册表有记录但文件不存在)
+   - 快捷方式:安装器生成的快捷方式必须指向正式安装目录的 exe,
+     绝不指向开发目录(D:\...\SG_Hub\... 的 dev 产物)
+   - 升级安装:同目录覆盖升级时正确替换文件、更新版本号、保留用户数据
+
+6. macOS DMG / 安装健壮性:
+   - 标准 DMG 拖拽到 Applications 的安装体验
+   - 升级覆盖时正确替换 .app
+   - 验证自定义位置安装(若支持)不出错
+
+== 第五部分:跨平台一致性验证 ==
+
+7. 发布前 checklist(写入 docs/release-checklist.md):
+   - [ ] 三处版本号一致(运行校验脚本)
+   - [ ] cargo clean 后完整重建
+   - [ ] Windows:安装包/程序/快捷方式图标为新 Logo
+   - [ ] Windows:已签名,SmartScreen 无"发布者未知"(或有过渡说明)
+   - [ ] Windows:自定义目录安装成功;旧版本被正确清理;可正常卸载(uninstall.exe 存在)
+   - [ ] Windows:快捷方式指向正式安装目录,非开发目录
+   - [ ] macOS:.app/DMG 图标为新 Logo
+   - [ ] macOS:已签名 + 公证,Gatekeeper 通过
+   - [ ] macOS:拖拽安装、升级覆盖正常
+   - [ ] 安装后设置页版本号显示正确(= 打包版本)
+
+== 验收用例(用历史踩坑场景)==
+- 装过旧版(2.2.x)的机器上安装新版:旧版被清理,不产生幽灵卸载项
+- 自定义安装目录:安装成功,快捷方式指向该目录,可正常打开与卸载
+- 安装后版本号 = 打包版本(不会出现打开旧 dev 版的情况)
+- 图标在 Windows + macOS 各处均为新 Logo
+
+== 验证 ==
+- 版本号校验脚本可用并接入 CI
+- Windows + macOS 安装包图标、签名、安装/卸载/快捷方式全部正常
+- 发布 checklist 全过
+```
+
+验证:
+- 三处版本号一致校验生效;Logo 在双平台各处正确
+- 代码签名消除 SmartScreen/Gatekeeper 提示(或有过渡说明)
+- 安装/卸载/快捷方式健壮,无幽灵卸载项,不指向开发目录
+- `git commit -m "feat: session 35 - packaging hardening (logo/sign/installer/version)"`
+
+---
+
+### Session 36: 设置简化 + 隐私协议归位 + 模型配置 UI 优化(四项)
+
+```
+读取 CLAUDE.md。本次任务做四项 UI/设置优化,均受 UI 设计规范硬规则约束。
+
+== 优化 ①:简化「隐私与更新」设置 ==
+
+- 当前"隐私与更新"卡片包含:检查频率(每日/每周 + 每 N 天)、检查时间、
+  检查到更新后的行为(弹通知/静默下载/只标记)、当前版本/最近检查/下次计划检查、
+  右上角开关、底部立即检查按钮
+- 简化为:
+  * **去掉右上角的总开关**(不再保留)
+  * 保留:右上角「立即检查」按钮(从底部移到右上角)
+  * 保留:当前版本号显示(从 tauri.conf.json 读取)
+  * 移除:检查频率、检查时间、检查到更新后的行为、最近检查/下次计划检查等全部复杂配置
+- 后端:大幅简化 updater 逻辑(去掉细粒度频率/时间/行为配置与总开关持久化),
+  保留一个固定合理的后台检查策略(如每次启动检查一次)+ 手动「立即检查」命令。
+  检查到更新统一弹通知让用户决定(去掉多行为选项)
+- 这是对 V2.1.0 Session 21 复杂调度的大幅简化,降低用户认知负担
+
+== 优化 ②:隐私协议归位 ==
+
+- 将 V2.2.1 Session 27 实现的"隐私协议"整合进"隐私与更新"卡片区域
+- 合理分隔:用分隔线区分"更新设置"与"隐私协议"两部分
+- 隐私协议入口(查看完整中英文协议)保持原有能力(中英文切换、react-markdown 渲染)
+- 卡片结构建议:
+  * 顶部:标题"隐私与更新" + 右上角「立即检查」按钮(无开关)
+  * 上半:当前版本号
+  * 分隔线
+  * 下半:隐私协议(查看/展开入口)
+
+== 优化 ③:模型配置 — SG AI Store 配置卡简化 + 「添加模型」升级为等权并列卡 ==
+
+最终布局(上下两层结构):
+
+上方一行:两个**等权并列卡**(已有 Key 的两种配置入口)
+- 卡 A「添加自有模型」:BYOK,Claude / GPT / DeepSeek / Ollama,点击进入填写 Endpoint + API Key
+- 卡 B「添加 SG AI Store API Key」:已购买?粘贴 Key 即用
+  * 卡内含 API Key 输入框 + 「添加」按钮(primary 样式)
+  * **去掉原来的「选择已购买的套餐」下拉框**(多余)
+  * 文案精简:标题"已在 SG AI Store 购买?"、说明"粘贴 API Key 即可使用"(原文案过长,缩短)
+
+下方一整行:SG AI Store **购买引导链接**(没有 Key 的用户)
+- 文案:"还没有 SG AI Store 配额?无需自己申请 API Key,购买即用"
+- 按钮:「前往 SG AI Store 购买」→ tauri-plugin-shell 打开 https://sgaistore.com/buy?utm_source=sghub_client
+
+要点:
+- 信息架构:上方=已有 Key 的配置入口(两卡等权);下方=没 Key 的购买引导(整行)
+- 「添加自有模型」从原来的底部弱按钮,升级为与 SG AI Store 配置卡等权的并列卡
+- 两个上方卡视觉权重一致(同尺寸、同层级)
+- 空状态与有模型时都遵循此结构;有模型时这组入口可收纳到顶部工具栏或"添加模型"区
+
+== 优化 ④:去掉模型配置页顶部「近 7 天成本」统计卡(含后端成本估算)==
+
+前端:
+- 当前顶部统计为 4 张卡:已配置模型 / 近 7 天调用 / 近 7 天 Token / 近 7 天成本(USD)
+- **去掉最右侧「近 7 天成本 (USD)」卡**,保留前 3 张(已配置模型 / 近 7 天调用 / 近 7 天 Token)
+- 统计区从 4 列改为 3 列布局
+
+后端(方案 B:彻底移除成本估算):
+- 回改 V2.1.0 Session 23 的成本相关产物:
+  * 去掉 usage_stats 的成本聚合字段(cost_est_total)或停止写入
+  * 去掉 model_configs 的价格字段(input_price_per_1m_tokens / output_price_per_1m_tokens)
+    —— 用一个新的 migration(V00X__drop_pricing.sql)删除这两列(SQLite 用重建表方式删列)
+  * get_usage_stats_7days() 返回结构去掉 total_cost_est / 各项 cost
+  * record_usage 不再计算与写入成本
+  * 模型配置新增/编辑表单去掉"输入价格/输出价格"两个字段
+- 保留:调用次数、token 统计(这些不涉及成本)
+- 注意:这是对 Session 23 的回退性调整,需确保删列 migration 在已有数据库上安全执行
+  (备份 → 重建表 → 迁移数据 → 删旧表)
+
+== 遵守 UI 硬规则 ==
+- 图标全用 Lucide,禁用 emoji
+- 确认/提示用 confirmAsync/useToast,禁用 window.*
+- 颜色只用 token,动画用 motion token,不用 transition-all
+- 双主题 WCAG AA;不改基础设施;文案补充到 i18n 五语言包
+
+== 测试 ==
+- 优化①:卡片只剩「立即检查」(右上角,无开关)+ 版本号 + 隐私协议,立即检查可触发
+- 优化②:隐私协议在卡片内合理分隔,中英文切换正常
+- 优化③:上方两等权并列卡(添加自有模型 / SG AI Store API Key,后者无套餐下拉框),
+  下方一整行购买链接;点击购买打开浏览器;粘贴 Key 添加成功
+- 优化④:顶部 3 张卡(无成本卡);删价格列 migration 在有数据的库上安全执行;
+  统计接口与表单无成本相关字段
+- PR 自查 6 条全过;cargo test + npm run build + eslint 0 warning
+
+== 验证 ==
+- 四项 UI 优化均符合最终设计意图与设计系统规范
+```
+
+验证:
+- 隐私与更新简化(无开关,仅立即检查 + 版本)、隐私协议归位分隔
+- 模型配置:上方两等权并列卡 + 下方购买链接整行,SG AI Store 卡去套餐下拉框
+- 顶部成本卡移除,后端成本估算与价格字段彻底删除(方案 B)
+- `git commit -m "feat: session 36 - settings simplify, privacy policy, model config ui, remove cost"`
+
+---
+
+### V2.2.5 收尾:Beta + 发布
+
+完成 Session 35-36 后:
+
+1. 合并 feature/v2.2.5 到 main:
+```cmd
+git checkout main
+git merge --no-ff feature/v2.2.5
+git push
+```
+
+2. 严格按 docs/release-checklist.md 走发布前验证(双平台)
+
+3. 打 Beta tag → 邀请用户(含装过旧版的机器)测试安装/卸载/升级
+
+4. Beta 期重点:
+   - Windows:Logo 生效、签名、自定义目录安装、旧版清理、卸载、快捷方式正确
+   - macOS:Logo、签名公证、Gatekeeper、安装升级
+   - 版本号一致性
+   - 设置简化与模型配置 UI 的体验
+
+5. 正式发布:
+```cmd
+git tag v2.2.5
+git push --tags
+```
+
+5. 公告:更换全新图标、修复安装/卸载问题、应用签名、简化更新设置、优化模型配置入口
+
+---
+
+## V2.2.5 Session 速查
+
+| Session | 主题 | 对应需求 | 预估时长 |
+|---------|------|---------|---------|
+| 35 | 打包发布完善(Logo/签名/安装卸载/版本一致/跨平台) | 打包发布健壮性 | 1-1.5 周 |
+| 36 | 设置简化 + 隐私协议归位 + 模型配置 UI + 去成本卡(含后端) | UI/设置优化 4 项 | 0.5-1 周 |
+
+**总计**: 约 2 周
+
+**核心改进**:
+- 打包发布:版本号三处同步(强制)、Logo 生效验证、Windows+macOS 代码签名、
+  NSIS 装前清旧版/卸载完整性/快捷方式指向正确、发布 checklist
+- 设置简化:去除复杂的检查频率/时间/行为配置,只留开关 + 立即检查(移右上角)+ 版本号
+- 隐私协议:归入"隐私与更新"卡片并合理分隔
+- 模型配置:上方两等权并列卡(添加自有模型 / SG AI Store API Key,去套餐下拉框)+ 下方购买链接整行
+- 去成本卡:移除顶部「近 7 天成本」统计卡,后端成本估算与价格字段一并删除(方案 B,回改 Session 23)
+
+**关键提醒**:
+- CLAUDE.md 已新增"版本号与打包一致性(强制流程)",每次发版必须同步三处版本号
+- macOS 需验证与 Windows 同类的安装/图标/签名问题(本期一并覆盖)
+- 历史踩坑(幽灵卸载项、快捷方式指向 dev 目录、Logo 未生效)作为验收用例
+- 严格遵守 CLAUDE.md UI 设计规范,提交前过 PR 自查 6 条
+
+
 ## 所有版本 Session 对照
 
 | 版本 | Session 范围 | 主题 | 状态 |
@@ -3015,4 +3298,5 @@ git push --tags
 | V2.2.2 | 30-31 | 更换 Logo + 文献数据库本地 PDF 上传与集中管理 | 规划中 |
 | V2.2.3 | 32-33 | 文献检索源扩充至 8 源(Crossref/CORE/DBLP/DOAJ)+ 匹配增强与跨源归并 | 规划中 |
 | V2.2.4 | 34 | 首次启动引导(数据目录 + 模型配置,可跳过) | 规划中 |
+| V2.2.5 | 35-36 | 打包发布完善(Logo/签名/安装卸载/版本一致)+ 设置简化 + 模型配置 UI 优化 | 规划中 |
 

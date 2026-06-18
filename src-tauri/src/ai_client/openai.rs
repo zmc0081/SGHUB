@@ -200,8 +200,6 @@ mod tests {
             keychain_ref: None,
             created_at: String::new(),
             updated_at: String::new(),
-            input_price_per_1m_tokens: 0.0,
-            output_price_per_1m_tokens: 0.0,
             is_sg_ai_store: false,
             balance_cny: None,
             remaining_tokens: None,

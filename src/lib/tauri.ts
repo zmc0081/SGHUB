@@ -77,9 +77,6 @@ export interface ModelConfig {
   keychain_ref: string | null;
   created_at: string;
   updated_at: string;
-  /** USD per 1,000,000 input tokens. 0 = not priced (no cost tracking). */
-  input_price_per_1m_tokens: number;
-  output_price_per_1m_tokens: number;
 
   // V2.2.1 Session 29 — SG AI Store columns (V006 migration).
   /** Auto-set to true when endpoint contains "sgaistore.com". */
@@ -117,9 +114,6 @@ export interface ModelConfigInput {
   model_id: string;
   max_tokens: number;
   api_key: string | null;
-  /** Omit to keep existing value on update; default 0 on add. */
-  input_price_per_1m_tokens?: number | null;
-  output_price_per_1m_tokens?: number | null;
 }
 
 // ============================================================
@@ -131,7 +125,6 @@ export interface DailyUsage {
   tokens_in: number;
   tokens_out: number;
   call_count: number;
-  cost_est: number;
 }
 
 export interface ModelUsage {
@@ -140,14 +133,12 @@ export interface ModelUsage {
   tokens_in: number;
   tokens_out: number;
   call_count: number;
-  cost_est: number;
 }
 
 export interface UsageStats7Days {
   total_tokens_in: number;
   total_tokens_out: number;
   total_call_count: number;
-  total_cost_est: number;
   daily_breakdown: DailyUsage[];
   by_model: ModelUsage[];
 }
@@ -301,34 +292,17 @@ export interface AppConfig {
   language?: string | null;
   theme: string;
   data_dir: string;
-  /** Legacy v2.0 toggle (kept for back-compat). Use `updater.enabled`
-   *  as the source of truth. */
+  /** Legacy v2.0 toggle (kept for back-compat). */
   auto_update: boolean;
   auto_backup: boolean;
   backup_retention_days: number;
   default_model_id: string | null;
   log_level: string;
-  /** V2.1.0 — fine-grained auto-updater schedule. */
-  updater: UpdaterConfig;
 }
 
 // ============================================================
-// Auto-updater (V2.1.0)
+// Auto-updater (V2.2.5 — simplified: startup check + manual check)
 // ============================================================
-
-export interface UpdaterConfig {
-  enabled: boolean;
-  /** "daily" | "weekly" */
-  frequency_type: string;
-  /** daily: every N days (1-30); weekly: weekday bitmask Mon=1..Sun=64 */
-  frequency_value: number;
-  /** "HH:MM" 24-hour local time. */
-  check_time: string;
-  /** "notify" | "silent_download" | "check_only" */
-  action: string;
-  /** ISO 8601, null = never checked. */
-  last_check_at?: string | null;
-}
 
 export interface PendingUpdate {
   version: string;
@@ -339,8 +313,6 @@ export interface PendingUpdate {
 export interface UpdaterStatus {
   current_version: string;
   last_check_at: string | null;
-  /** Active cron expression; frontend uses it to estimate next-check time. */
-  cron_expression: string | null;
   has_pending_update: boolean;
   pending: PendingUpdate | null;
 }
@@ -804,20 +776,19 @@ export const api = {
   saveAppConfig: (config: AppConfig) =>
     invoke<void>("save_app_config", { config }),
 
+  /** Canonical app version (from package_info → tauri.conf.json). Use this
+   *  for any in-app version display instead of importing package.json. */
+  getAppVersion: () => invoke<string>("get_app_version"),
+
   /** Returns one of the 5 supported app locale codes (V2.1.0). */
   getSystemLocale: () => invoke<string>("get_system_locale"),
 
   // ============================================================
-  // Auto-updater (V2.1.0)
+  // Auto-updater (V2.2.5 — simplified)
   // ============================================================
   getUpdaterStatus: () => invoke<UpdaterStatus>("get_updater_status"),
   checkUpdateNow: () => invoke<CheckResult>("check_update_now"),
   installPendingUpdate: () => invoke<void>("install_pending_update"),
-  /** Saves the updater config AND live-reschedules the cron job in one
-   *  IPC, so the Settings panel can save-on-change without an extra
-   *  round-trip. */
-  setUpdaterConfig: (config: UpdaterConfig) =>
-    invoke<void>("set_updater_config", { config }),
 
   // ============================================================
   // Data directory management (V2.1.0)
