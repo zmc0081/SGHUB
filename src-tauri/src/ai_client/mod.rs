@@ -27,13 +27,6 @@ pub struct ModelConfig {
     pub keychain_ref: Option<String>,
     pub created_at: String,
     pub updated_at: String,
-    /// USD per 1,000,000 input tokens. `0.0` = unknown / not priced;
-    /// the usage_stats writer still records call_count + tokens.
-    #[serde(default)]
-    pub input_price_per_1m_tokens: f64,
-    /// USD per 1,000,000 output tokens.
-    #[serde(default)]
-    pub output_price_per_1m_tokens: f64,
 
     // ── V2.2.1 Session 29 — SG AI Store columns (V006 migration) ──
     /// 1 iff this model routes through the SG AI Store gateway.
@@ -65,11 +58,6 @@ pub struct ModelConfigInput {
     pub model_id: String,
     pub max_tokens: i32,
     pub api_key: Option<String>,
-    /// Optional — if omitted on add we default to 0.0 (no cost tracking).
-    #[serde(default)]
-    pub input_price_per_1m_tokens: Option<f64>,
-    #[serde(default)]
-    pub output_price_per_1m_tokens: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -202,8 +190,6 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: "claude-opus-4-7".into(),
             max_tokens: 200000,
             api_key: None,
-            input_price_per_1m_tokens: Some(15.0),
-            output_price_per_1m_tokens: Some(75.0),
         },
         ModelConfigInput {
             name: "GPT-5".into(),
@@ -212,8 +198,6 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: "gpt-5".into(),
             max_tokens: 128000,
             api_key: None,
-            input_price_per_1m_tokens: Some(5.0),
-            output_price_per_1m_tokens: Some(15.0),
         },
         ModelConfigInput {
             name: "DeepSeek V3".into(),
@@ -222,8 +206,6 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: "deepseek-chat".into(),
             max_tokens: 64000,
             api_key: None,
-            input_price_per_1m_tokens: Some(0.27),
-            output_price_per_1m_tokens: Some(1.10),
         },
         ModelConfigInput {
             name: "Ollama Llama 3 (8B,本地)".into(),
@@ -232,8 +214,6 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: "llama3:8b".into(),
             max_tokens: 8192,
             api_key: None,
-            input_price_per_1m_tokens: Some(0.0),
-            output_price_per_1m_tokens: Some(0.0),
         },
         // V2.2.1 Session 29 — SG AI Store preset. Endpoint substring
         // auto-tags this row as is_sg_ai_store=1 on insert, which in
@@ -247,8 +227,6 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: String::new(),
             max_tokens: 128000,
             api_key: None,
-            input_price_per_1m_tokens: Some(0.0),
-            output_price_per_1m_tokens: Some(0.0),
         },
     ]
 }
@@ -273,23 +251,20 @@ fn row_to_config(row: &rusqlite::Row) -> rusqlite::Result<ModelConfig> {
         keychain_ref: row.get(7)?,
         created_at: row.get(8)?,
         updated_at: row.get(9)?,
-        // V004 — pricing fields (NOT NULL DEFAULT 0.0, so always present).
-        input_price_per_1m_tokens: row.get(10)?,
-        output_price_per_1m_tokens: row.get(11)?,
         // V006 (V2.2.1 Session 29) — SG AI Store columns. All except
         // is_sg_ai_store are nullable; serde_default keeps older JSON
-        // round-trips clean.
-        is_sg_ai_store: row.get::<_, i64>(12)? == 1,
-        balance_cny: row.get(13)?,
-        remaining_tokens: row.get(14)?,
-        subscription_expires_at: row.get(15)?,
-        balance_synced_at: row.get(16)?,
+        // round-trips clean. (V007 dropped the price columns, so indices
+        // shift down by 2 from the old layout.)
+        is_sg_ai_store: row.get::<_, i64>(10)? == 1,
+        balance_cny: row.get(11)?,
+        remaining_tokens: row.get(12)?,
+        subscription_expires_at: row.get(13)?,
+        balance_synced_at: row.get(14)?,
     })
 }
 
 const SELECT_COLS: &str = "id, name, provider, endpoint, model_id, max_tokens, \
                            is_default, keychain_ref, created_at, updated_at, \
-                           input_price_per_1m_tokens, output_price_per_1m_tokens, \
                            is_sg_ai_store, balance_cny, remaining_tokens, \
                            subscription_expires_at, balance_synced_at";
 
@@ -390,9 +365,8 @@ fn insert(pool: &crate::db::DbPool, cfg: &ModelConfig) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO model_configs \
          (id, name, provider, endpoint, model_id, max_tokens, is_default, keychain_ref, \
-          created_at, updated_at, input_price_per_1m_tokens, output_price_per_1m_tokens, \
-          is_sg_ai_store) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+          created_at, updated_at, is_sg_ai_store) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         params![
             cfg.id,
             cfg.name,
@@ -404,8 +378,6 @@ fn insert(pool: &crate::db::DbPool, cfg: &ModelConfig) -> rusqlite::Result<()> {
             cfg.keychain_ref,
             cfg.created_at,
             cfg.updated_at,
-            cfg.input_price_per_1m_tokens,
-            cfg.output_price_per_1m_tokens,
             cfg.is_sg_ai_store as i64,
         ],
     )?;
@@ -416,51 +388,24 @@ fn update(pool: &crate::db::DbPool, id: &str, input: &ModelConfigInput) -> rusql
     let conn = pool
         .get()
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-    // Build a single UPDATE that always touches name/provider/endpoint
-    // /model_id/max_tokens/updated_at and only sets the price fields
-    // when the form sent them (None = "leave whatever was there").
-    let (in_price_sql, out_price_sql) = (
-        if input.input_price_per_1m_tokens.is_some() {
-            ", input_price_per_1m_tokens = ?7"
-        } else {
-            ""
-        },
-        if input.output_price_per_1m_tokens.is_some() {
-            if input.input_price_per_1m_tokens.is_some() {
-                ", output_price_per_1m_tokens = ?8"
-            } else {
-                ", output_price_per_1m_tokens = ?7"
-            }
-        } else {
-            ""
-        },
-    );
-    let sql = format!(
+    // V2.2.5 — cost estimation removed, so this is now a fixed-column
+    // UPDATE (no per-call price fields to conditionally set).
+    let now = now_iso();
+    conn.execute(
         "UPDATE model_configs \
          SET name = ?1, provider = ?2, endpoint = ?3, model_id = ?4, \
-             max_tokens = ?5, updated_at = ?6{in_price_sql}{out_price_sql} \
-         WHERE id = ?{where_idx}",
-        where_idx = 7
-            + (input.input_price_per_1m_tokens.is_some() as usize)
-            + (input.output_price_per_1m_tokens.is_some() as usize)
-    );
-    let now = now_iso();
-    let mut p: Vec<&dyn rusqlite::ToSql> = vec![
-        &input.name,
-        &input.provider,
-        &input.endpoint,
-        &input.model_id,
-        &input.max_tokens,
-        &now,
-    ];
-    if let Some(v) = &input.input_price_per_1m_tokens {
-        p.push(v);
-    }
-    if let Some(v) = &input.output_price_per_1m_tokens {
-        p.push(v);
-    }
-    p.push(&id);
-    conn.execute(&sql, rusqlite::params_from_iter(p))
+             max_tokens = ?5, updated_at = ?6 \
+         WHERE id = ?7",
+        params![
+            input.name,
+            input.provider,
+            input.endpoint,
+            input.model_id,
+            input.max_tokens,
+            now,
+            id,
+        ],
+    )
 }
 
 fn delete(pool: &crate::db::DbPool, id: &str) -> rusqlite::Result<usize> {
@@ -525,8 +470,6 @@ pub async fn add_model_config(
         keychain_ref: if has_key { Some(id.clone()) } else { None },
         created_at: now.clone(),
         updated_at: now,
-        input_price_per_1m_tokens: input.input_price_per_1m_tokens.unwrap_or(0.0),
-        output_price_per_1m_tokens: input.output_price_per_1m_tokens.unwrap_or(0.0),
         is_sg_ai_store,
         balance_cny: None,
         remaining_tokens: None,
@@ -903,8 +846,6 @@ mod tests {
             model_id: "test-model".into(),
             max_tokens: 1024,
             api_key: None,
-            input_price_per_1m_tokens: None,
-            output_price_per_1m_tokens: None,
         }
     }
 
@@ -926,8 +867,6 @@ mod tests {
             keychain_ref: None,
             created_at: now_iso(),
             updated_at: now_iso(),
-            input_price_per_1m_tokens: input.input_price_per_1m_tokens.unwrap_or(0.0),
-            output_price_per_1m_tokens: input.output_price_per_1m_tokens.unwrap_or(0.0),
             is_sg_ai_store: is_sg_ai_store_endpoint(&input.endpoint),
             balance_cny: None,
             remaining_tokens: None,

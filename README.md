@@ -74,10 +74,14 @@ The interface follows the **V2.2 SGHUB Capsule** design spec (tokens / component
 
 Go to [Releases](https://github.com/zmc0081/SGHUB/releases/latest):
 
-- **Windows 10/11** — `SG.Hub_2.2.2_x64-setup.exe` (NSIS installer)
-- **macOS 12+** — `SG.Hub_2.2.2_universal.dmg` (universal: Intel & Apple Silicon)
+- **Windows 10/11** — `SG.Hub_2.2.4_x64-setup.exe` (NSIS installer)
+- **macOS 12+** — `SG.Hub_2.2.4_universal.dmg` (universal: Intel & Apple Silicon)
 
-> On macOS, if the first launch says "cannot verify developer", right-click → Open → Allow.
+> **First-launch security prompts (until release signing is enabled):**
+> - **Windows** — if SmartScreen shows "Windows protected your PC", click **More info → Run anyway**.
+> - **macOS** — if it says "cannot verify developer", **right-click → Open → Open** (or run `xattr -dr com.apple.quarantine "/Applications/SG Hub.app"`).
+>
+> Maintainers: see [`docs/code-signing.md`](docs/code-signing.md) to enable code signing + notarization (removes these prompts).
 
 ### Build from source
 
@@ -341,6 +345,8 @@ See [`docs/i18n-guide.md`](docs/i18n-guide.md) for adding a new language.
 | [`docs/i18n-guide.md`](docs/i18n-guide.md) | guide to adding / maintaining languages |
 | [`docs/skill-authoring-guide.md`](docs/skill-authoring-guide.md) | Skill YAML authoring spec |
 | [`docs/data-management.md`](docs/data-management.md) | data directory / migration / backup strategy |
+| [`docs/release-checklist.md`](docs/release-checklist.md) | pre-release checklist (version sync / icons / signing / install robustness) |
+| [`docs/code-signing.md`](docs/code-signing.md) | Windows + macOS code signing & notarization setup |
 | [`docs/SESSION_TASKS.md`](docs/SESSION_TASKS.md) | per-version session task list (M2.1.0 / M2.2.1 history + roadmap) |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | dev environment / code style / PR flow |
 | [CLAUDE.md](CLAUDE.md) | Claude Code project context (architecture / constraints / style) |

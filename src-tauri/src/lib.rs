@@ -24,6 +24,15 @@ fn get_db_status(state: tauri::State<'_, AppState>) -> Result<db::DbStatus, Stri
     db::get_status(&state.db_pool).map_err(|e| e.to_string())
 }
 
+/// Canonical app version for any in-app display (Settings / About).
+/// Sourced from `package_info().version`, which Tauri derives from
+/// `tauri.conf.json` (= the packaged binary's version) — never hardcoded
+/// in the frontend. Keeps "installed version == displayed version".
+#[tauri::command]
+fn get_app_version(app: tauri::AppHandle) -> String {
+    app.package_info().version.to_string()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // tauri-plugin-updater requires `plugins.updater.{endpoints,pubkey}`
@@ -89,6 +98,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_db_status,
+            get_app_version,
             config::get_app_config,
             config::save_app_config,
             config::get_system_locale,
@@ -105,7 +115,6 @@ pub fn run() {
             updater::commands::get_updater_status,
             updater::commands::check_update_now,
             updater::commands::install_pending_update,
-            updater::commands::set_updater_config,
             search::search_papers,
             search::set_core_api_key,
             search::is_core_api_key_set,

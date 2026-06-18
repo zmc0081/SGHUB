@@ -1,9 +1,13 @@
-//! Token + cost accounting (V2.1.0).
+//! Token accounting (V2.1.0; cost estimation removed in V2.2.5).
 //!
-//! `upsert_usage_stats` already lives in `ai_client/mod.rs` — this
-//! module layers cost-aware writes, the 7-day rollup query the model
-//! page reads, and the back-fill that synthesises history from
-//! `chat_messages` + `ai_parse_results` for V2.0.1 upgraders.
+//! `record_usage` upserts per-(model, day) token + call counts; the 7-day
+//! / N-day rollups feed the Models page stat cards + chart, and the
+//! back-fill synthesises history from `chat_messages` + `ai_parse_results`
+//! for V2.0.1 upgraders.
+//!
+//! V2.2.5 — the cost-estimation feature (per-model prices →
+//! `cost_est_total`) was removed entirely (方案 B); only token + call
+//! metrics remain.
 
 use rusqlite::{params, params_from_iter};
 use serde::{Deserialize, Serialize};
@@ -11,20 +15,10 @@ use serde::{Deserialize, Serialize};
 use super::ModelConfig;
 
 // ============================================================
-// Cost calculation
+// Per-call write
 // ============================================================
 
-/// USD cost of one (tokens_in, tokens_out) pair against a model's
-/// per-1M-token prices.
-pub fn estimate_cost(model: &ModelConfig, tokens_in: i64, tokens_out: i64) -> f64 {
-    let inp = (tokens_in as f64) / 1_000_000.0 * model.input_price_per_1m_tokens;
-    let out = (tokens_out as f64) / 1_000_000.0 * model.output_price_per_1m_tokens;
-    inp + out
-}
-
-/// Per-call UPSERT that *also* writes the cost estimate. Replaces the
-/// old `upsert_usage_stats` (which always wrote 0 cost) at the three
-/// call paths.
+/// Per-call UPSERT of token + call counts for (model, today).
 pub fn record_usage(
     pool: &crate::db::DbPool,
     model: &ModelConfig,
@@ -36,17 +30,15 @@ pub fn record_usage(
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
     let date = chrono::Utc::now().format("%Y-%m-%d").to_string();
     let id = uuid::Uuid::now_v7().to_string();
-    let cost = estimate_cost(model, tokens_in, tokens_out);
     conn.execute(
         "INSERT INTO usage_stats \
-         (id, model_config_id, date, tokens_in_total, tokens_out_total, call_count, cost_est_total) \
-         VALUES (?1, ?2, ?3, ?4, ?5, 1, ?6) \
+         (id, model_config_id, date, tokens_in_total, tokens_out_total, call_count) \
+         VALUES (?1, ?2, ?3, ?4, ?5, 1) \
          ON CONFLICT(model_config_id, date) DO UPDATE SET \
             tokens_in_total = tokens_in_total + excluded.tokens_in_total, \
             tokens_out_total = tokens_out_total + excluded.tokens_out_total, \
-            call_count = call_count + 1, \
-            cost_est_total = cost_est_total + excluded.cost_est_total",
-        params![id, model.id, date, tokens_in, tokens_out, cost],
+            call_count = call_count + 1",
+        params![id, model.id, date, tokens_in, tokens_out],
     )?;
     Ok(())
 }
@@ -62,7 +54,6 @@ pub struct DailyUsage {
     pub tokens_in: i64,
     pub tokens_out: i64,
     pub call_count: i64,
-    pub cost_est: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,7 +65,6 @@ pub struct ModelUsage {
     pub tokens_in: i64,
     pub tokens_out: i64,
     pub call_count: i64,
-    pub cost_est: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,7 +72,6 @@ pub struct UsageStats7Days {
     pub total_tokens_in: i64,
     pub total_tokens_out: i64,
     pub total_call_count: i64,
-    pub total_cost_est: f64,
     /// 7 entries, one per calendar day (today − 6 .. today). Zero-filled
     /// for days with no activity so the bar chart spans a full week.
     pub daily_breakdown: Vec<DailyUsage>,
@@ -93,8 +82,8 @@ pub struct UsageStats7Days {
 // Query — `WHERE date >= date('now', '-6 days')`
 // ============================================================
 
-/// (date_yyyymmdd, model_config_id, tokens_in, tokens_out, call_count, cost)
-type RawUsageRow = (String, String, i64, i64, i64, f64);
+/// (date_yyyymmdd, model_config_id, tokens_in, tokens_out, call_count)
+type RawUsageRow = (String, String, i64, i64, i64);
 
 fn query_7day_rows(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<RawUsageRow>> {
     let conn = pool
@@ -102,7 +91,7 @@ fn query_7day_rows(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<RawUsageRow
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
     let mut stmt = conn.prepare(
         "SELECT date, model_config_id, \
-                tokens_in_total, tokens_out_total, call_count, cost_est_total \
+                tokens_in_total, tokens_out_total, call_count \
          FROM usage_stats \
          WHERE date >= date('now', '-6 days') \
          ORDER BY date ASC",
@@ -115,7 +104,6 @@ fn query_7day_rows(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<RawUsageRow
                 r.get::<_, i64>(2)?,
                 r.get::<_, i64>(3)?,
                 r.get::<_, i64>(4)?,
-                r.get::<_, f64>(5)?,
             ))
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -145,73 +133,83 @@ pub fn rollup_7days(
     names: &std::collections::HashMap<String, String>,
     today_yyyymmdd: &str,
 ) -> UsageStats7Days {
+    rollup_window(raw, names, today_yyyymmdd, 7)
+}
+
+/// Generalized rollup over `days` (clamped 1..=90). Zero-fills the window
+/// so the chart has no holes.
+pub fn rollup_n_days(
+    raw: Vec<RawUsageRow>,
+    names: &std::collections::HashMap<String, String>,
+    today_yyyymmdd: &str,
+    days: u32,
+) -> UsageStats7Days {
+    rollup_window(raw, names, today_yyyymmdd, days.clamp(1, 90) as i64)
+}
+
+fn rollup_window(
+    raw: Vec<RawUsageRow>,
+    names: &std::collections::HashMap<String, String>,
+    today_yyyymmdd: &str,
+    days: i64,
+) -> UsageStats7Days {
     use std::collections::BTreeMap;
-    // Daily aggregate (date → tuple)
-    let mut by_date: BTreeMap<String, (i64, i64, i64, f64)> = BTreeMap::new();
-    // Per-model aggregate
-    let mut by_model: std::collections::HashMap<String, (i64, i64, i64, f64)> =
+    let mut by_date: BTreeMap<String, (i64, i64, i64)> = BTreeMap::new();
+    let mut by_model: std::collections::HashMap<String, (i64, i64, i64)> =
         std::collections::HashMap::new();
 
     let mut total_in: i64 = 0;
     let mut total_out: i64 = 0;
     let mut total_calls: i64 = 0;
-    let mut total_cost: f64 = 0.0;
 
-    for (date, mid, tin, tout, calls, cost) in raw {
-        let d = by_date.entry(date).or_insert((0, 0, 0, 0.0));
+    for (date, mid, tin, tout, calls) in raw {
+        let d = by_date.entry(date).or_insert((0, 0, 0));
         d.0 += tin;
         d.1 += tout;
         d.2 += calls;
-        d.3 += cost;
-        let m = by_model.entry(mid).or_insert((0, 0, 0, 0.0));
+        let m = by_model.entry(mid).or_insert((0, 0, 0));
         m.0 += tin;
         m.1 += tout;
         m.2 += calls;
-        m.3 += cost;
         total_in += tin;
         total_out += tout;
         total_calls += calls;
-        total_cost += cost;
     }
 
-    // Zero-fill the 7 days so the bar chart spans the whole week.
-    let mut daily_breakdown = Vec::with_capacity(7);
+    let mut daily_breakdown = Vec::with_capacity(days as usize);
     if let Ok(today) = chrono::NaiveDate::parse_from_str(today_yyyymmdd, "%Y-%m-%d") {
-        for back in (0..7).rev() {
+        for back in (0..days).rev() {
             let date = (today - chrono::Duration::days(back))
                 .format("%Y-%m-%d")
                 .to_string();
-            let (tin, tout, calls, cost) = by_date.get(&date).copied().unwrap_or((0, 0, 0, 0.0));
+            let (tin, tout, calls) = by_date.get(&date).copied().unwrap_or((0, 0, 0));
             daily_breakdown.push(DailyUsage {
                 date,
                 tokens_in: tin,
                 tokens_out: tout,
                 call_count: calls,
-                cost_est: cost,
             });
         }
     } else {
         // Fallback — just emit whatever we have, sorted (BTreeMap is sorted).
-        for (date, (tin, tout, calls, cost)) in by_date.iter() {
+        for (date, (tin, tout, calls)) in by_date.iter() {
             daily_breakdown.push(DailyUsage {
                 date: date.clone(),
                 tokens_in: *tin,
                 tokens_out: *tout,
                 call_count: *calls,
-                cost_est: *cost,
             });
         }
     }
 
     let mut by_model_vec: Vec<ModelUsage> = by_model
         .into_iter()
-        .map(|(mid, (tin, tout, calls, cost))| ModelUsage {
+        .map(|(mid, (tin, tout, calls))| ModelUsage {
             model_name: names.get(&mid).cloned().unwrap_or_else(|| mid.clone()),
             model_config_id: mid,
             tokens_in: tin,
             tokens_out: tout,
             call_count: calls,
-            cost_est: cost,
         })
         .collect();
     // Stable order: highest call_count first so the most-used model
@@ -222,7 +220,6 @@ pub fn rollup_7days(
         total_tokens_in: total_in,
         total_tokens_out: total_out,
         total_call_count: total_calls,
-        total_cost_est: total_cost,
         daily_breakdown,
         by_model: by_model_vec,
     }
@@ -237,105 +234,10 @@ pub fn query_usage_stats_7days(pool: &crate::db::DbPool) -> rusqlite::Result<Usa
 }
 
 // ============================================================
-// V2.2.1 fix — N-day variant for the chart's 7d/30d/custom toggle.
-// Same shape as UsageStats7Days; the `daily_breakdown` vec length
-// equals the requested window so the frontend can render a smooth
-// line chart without holes.
+// N-day variant for the chart's 7d/30d/custom toggle (V2.2.1).
 // ============================================================
 
-/// Generalized version of `rollup_7days`. `days` is clamped to
-/// 1..=90 — anything outside is coerced into that range, since wider
-/// windows would blow the chart's pixel budget and shorter ones make
-/// the toggle a no-op.
-pub fn rollup_n_days(
-    raw: Vec<RawUsageRow>,
-    names: &std::collections::HashMap<String, String>,
-    today_yyyymmdd: &str,
-    days: u32,
-) -> UsageStats7Days {
-    use std::collections::BTreeMap;
-    let days = days.clamp(1, 90) as i64;
-
-    let mut by_date: BTreeMap<String, (i64, i64, i64, f64)> = BTreeMap::new();
-    let mut by_model: std::collections::HashMap<String, (i64, i64, i64, f64)> =
-        std::collections::HashMap::new();
-
-    let mut total_in: i64 = 0;
-    let mut total_out: i64 = 0;
-    let mut total_calls: i64 = 0;
-    let mut total_cost: f64 = 0.0;
-
-    for (date, mid, tin, tout, calls, cost) in raw {
-        let d = by_date.entry(date).or_insert((0, 0, 0, 0.0));
-        d.0 += tin;
-        d.1 += tout;
-        d.2 += calls;
-        d.3 += cost;
-        let m = by_model.entry(mid).or_insert((0, 0, 0, 0.0));
-        m.0 += tin;
-        m.1 += tout;
-        m.2 += calls;
-        m.3 += cost;
-        total_in += tin;
-        total_out += tout;
-        total_calls += calls;
-        total_cost += cost;
-    }
-
-    let mut daily_breakdown = Vec::with_capacity(days as usize);
-    if let Ok(today) = chrono::NaiveDate::parse_from_str(today_yyyymmdd, "%Y-%m-%d") {
-        for back in (0..days).rev() {
-            let date = (today - chrono::Duration::days(back))
-                .format("%Y-%m-%d")
-                .to_string();
-            let (tin, tout, calls, cost) = by_date.get(&date).copied().unwrap_or((0, 0, 0, 0.0));
-            daily_breakdown.push(DailyUsage {
-                date,
-                tokens_in: tin,
-                tokens_out: tout,
-                call_count: calls,
-                cost_est: cost,
-            });
-        }
-    } else {
-        for (date, (tin, tout, calls, cost)) in by_date.iter() {
-            daily_breakdown.push(DailyUsage {
-                date: date.clone(),
-                tokens_in: *tin,
-                tokens_out: *tout,
-                call_count: *calls,
-                cost_est: *cost,
-            });
-        }
-    }
-
-    let mut by_model_vec: Vec<ModelUsage> = by_model
-        .into_iter()
-        .map(|(mid, (tin, tout, calls, cost))| ModelUsage {
-            model_name: names.get(&mid).cloned().unwrap_or_else(|| mid.clone()),
-            model_config_id: mid,
-            tokens_in: tin,
-            tokens_out: tout,
-            call_count: calls,
-            cost_est: cost,
-        })
-        .collect();
-    by_model_vec.sort_by_key(|m| std::cmp::Reverse(m.call_count));
-
-    UsageStats7Days {
-        total_tokens_in: total_in,
-        total_tokens_out: total_out,
-        total_call_count: total_calls,
-        total_cost_est: total_cost,
-        daily_breakdown,
-        by_model: by_model_vec,
-    }
-}
-
-fn query_n_day_rows(
-    pool: &crate::db::DbPool,
-    days: u32,
-) -> rusqlite::Result<Vec<RawUsageRow>> {
+fn query_n_day_rows(pool: &crate::db::DbPool, days: u32) -> rusqlite::Result<Vec<RawUsageRow>> {
     let days = days.clamp(1, 90) as i64;
     let conn = pool
         .get()
@@ -344,7 +246,7 @@ fn query_n_day_rows(
     // today + 6 prior days, matching the 7-day query above).
     let mut stmt = conn.prepare(
         "SELECT date, model_config_id, \
-                tokens_in_total, tokens_out_total, call_count, cost_est_total \
+                tokens_in_total, tokens_out_total, call_count \
          FROM usage_stats \
          WHERE date >= date('now', ?1) \
          ORDER BY date ASC",
@@ -358,7 +260,6 @@ fn query_n_day_rows(
                 r.get::<_, i64>(2)?,
                 r.get::<_, i64>(3)?,
                 r.get::<_, i64>(4)?,
-                r.get::<_, f64>(5)?,
             ))
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -429,34 +330,15 @@ pub fn rebuild_from_history(pool: &crate::db::DbPool) -> rusqlite::Result<i64> {
         }
     }
 
-    // Pull pricing so we can re-cost. Falls back to zeros for missing.
-    let mut prices = conn.prepare(
-        "SELECT id, input_price_per_1m_tokens, output_price_per_1m_tokens FROM model_configs",
-    )?;
-    let mut price_map: std::collections::HashMap<String, (f64, f64)> =
-        std::collections::HashMap::new();
-    for r in prices.query_map([], |r| {
-        Ok((
-            r.get::<_, String>(0)?,
-            r.get::<_, f64>(1)?,
-            r.get::<_, f64>(2)?,
-        ))
-    })? {
-        let (id, ip, op) = r?;
-        price_map.insert(id, (ip, op));
-    }
-
     let mut inserted: i64 = 0;
     for ((mid, date), (tin, tout, calls)) in bucket {
-        let (ip, op) = price_map.get(&mid).copied().unwrap_or((0.0, 0.0));
-        let cost = (tin as f64) / 1_000_000.0 * ip + (tout as f64) / 1_000_000.0 * op;
         let id = uuid::Uuid::now_v7().to_string();
         conn.execute(
             "INSERT INTO usage_stats \
-             (id, model_config_id, date, tokens_in_total, tokens_out_total, call_count, cost_est_total) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+             (id, model_config_id, date, tokens_in_total, tokens_out_total, call_count) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
             params_from_iter::<Vec<&dyn rusqlite::ToSql>>(vec![
-                &id, &mid, &date, &tin, &tout, &calls, &cost,
+                &id, &mid, &date, &tin, &tout, &calls,
             ]),
         )?;
         inserted += 1;
@@ -515,7 +397,7 @@ mod tests {
     use crate::db::init_at;
     use tempfile::TempDir;
 
-    fn cfg(id: &str, ip: f64, op: f64) -> ModelConfig {
+    fn cfg(id: &str) -> ModelConfig {
         ModelConfig {
             id: id.into(),
             name: format!("Model {id}"),
@@ -527,8 +409,6 @@ mod tests {
             keychain_ref: None,
             created_at: "2026-01-01T00:00:00Z".into(),
             updated_at: "2026-01-01T00:00:00Z".into(),
-            input_price_per_1m_tokens: ip,
-            output_price_per_1m_tokens: op,
             is_sg_ai_store: false,
             balance_cny: None,
             remaining_tokens: None,
@@ -542,62 +422,46 @@ mod tests {
         conn.execute(
             "INSERT INTO model_configs \
              (id, name, provider, endpoint, model_id, max_tokens, is_default, \
-              created_at, updated_at, input_price_per_1m_tokens, output_price_per_1m_tokens) \
+              created_at, updated_at) \
              VALUES (?1, ?2, 'openai', 'https://x', 'm', 1024, 0, \
                      strftime('%Y-%m-%dT%H:%M:%SZ','now'), \
-                     strftime('%Y-%m-%dT%H:%M:%SZ','now'), 5.0, 15.0)",
+                     strftime('%Y-%m-%dT%H:%M:%SZ','now'))",
             params![id, name],
         )
         .unwrap();
     }
 
     #[test]
-    fn cost_basic() {
-        let m = cfg("m1", 5.0, 15.0);
-        // 1M in + 500k out @ $5/$15 → 5 + 7.5 = 12.5
-        let c = estimate_cost(&m, 1_000_000, 500_000);
-        assert!((c - 12.5).abs() < 1e-9, "got {}", c);
-    }
-
-    #[test]
-    fn cost_zero_when_unpriced() {
-        let m = cfg("m1", 0.0, 0.0);
-        assert_eq!(estimate_cost(&m, 1_000_000, 1_000_000), 0.0);
-    }
-
-    #[test]
-    fn record_usage_upserts_and_sums_cost() {
+    fn record_usage_upserts_and_sums() {
         let tmp = TempDir::new().unwrap();
         let pool = init_at(tmp.path()).unwrap();
         insert_model(&pool, "m1", "GPT-5");
-        let m = cfg("m1", 5.0, 15.0);
+        let m = cfg("m1");
 
-        // 3 calls today → call_count=3, tokens summed, cost summed
+        // 3 calls today → call_count=3, tokens summed.
         record_usage(&pool, &m, 1_000_000, 100_000).unwrap();
         record_usage(&pool, &m, 200_000, 50_000).unwrap();
         record_usage(&pool, &m, 0, 0).unwrap();
 
         let conn = pool.get().unwrap();
-        let (calls, tin, tout, cost): (i64, i64, i64, f64) = conn
+        let (calls, tin, tout): (i64, i64, i64) = conn
             .query_row(
-                "SELECT call_count, tokens_in_total, tokens_out_total, cost_est_total \
+                "SELECT call_count, tokens_in_total, tokens_out_total \
                  FROM usage_stats WHERE model_config_id = 'm1'",
                 [],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             )
             .unwrap();
         assert_eq!(calls, 3);
         assert_eq!(tin, 1_200_000);
         assert_eq!(tout, 150_000);
-        // 1.2M in * $5 + 150k out * $15 = 6.0 + 2.25 = 8.25
-        assert!((cost - 8.25).abs() < 1e-6, "cost={cost}");
     }
 
     #[test]
     fn rollup_zero_fills_missing_days() {
         let raw = vec![
-            ("2026-05-15".into(), "m1".into(), 100, 200, 1, 0.5),
-            ("2026-05-17".into(), "m1".into(), 300, 400, 2, 1.0),
+            ("2026-05-15".into(), "m1".into(), 100, 200, 1),
+            ("2026-05-17".into(), "m1".into(), 300, 400, 2),
         ];
         let mut names = std::collections::HashMap::new();
         names.insert("m1".into(), "GPT-5".into());
@@ -617,16 +481,13 @@ mod tests {
                 "2026-05-17",
             ]
         );
-        // The two days with data
         assert_eq!(r.daily_breakdown[4].call_count, 1); // 2026-05-15
         assert_eq!(r.daily_breakdown[6].call_count, 2); // 2026-05-17
-                                                        // Zero-filled in-between
-        assert_eq!(r.daily_breakdown[5].call_count, 0);
+        assert_eq!(r.daily_breakdown[5].call_count, 0); // zero-filled
 
         assert_eq!(r.total_call_count, 3);
         assert_eq!(r.total_tokens_in, 400);
         assert_eq!(r.total_tokens_out, 600);
-        assert!((r.total_cost_est - 1.5).abs() < 1e-9);
 
         assert_eq!(r.by_model.len(), 1);
         assert_eq!(r.by_model[0].model_name, "GPT-5");
@@ -635,9 +496,9 @@ mod tests {
     #[test]
     fn rollup_sorts_models_by_call_count() {
         let raw = vec![
-            ("2026-05-17".into(), "m_low".into(), 10, 10, 1, 0.0),
-            ("2026-05-17".into(), "m_high".into(), 10, 10, 50, 0.0),
-            ("2026-05-17".into(), "m_mid".into(), 10, 10, 5, 0.0),
+            ("2026-05-17".into(), "m_low".into(), 10, 10, 1),
+            ("2026-05-17".into(), "m_high".into(), 10, 10, 50),
+            ("2026-05-17".into(), "m_mid".into(), 10, 10, 5),
         ];
         let mut names = std::collections::HashMap::new();
         names.insert("m_low".into(), "Low".into());
@@ -652,7 +513,7 @@ mod tests {
 
     #[test]
     fn rollup_unknown_model_id_uses_id_as_name() {
-        let raw = vec![("2026-05-17".into(), "ghost".into(), 0, 0, 1, 0.0)];
+        let raw = vec![("2026-05-17".into(), "ghost".into(), 0, 0, 1)];
         let names = std::collections::HashMap::new();
         let r = rollup_7days(raw, &names, "2026-05-17");
         assert_eq!(r.by_model[0].model_name, "ghost");
@@ -663,7 +524,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let pool = init_at(tmp.path()).unwrap();
         insert_model(&pool, "m1", "GPT-5");
-        let m = cfg("m1", 5.0, 15.0);
+        let m = cfg("m1");
         record_usage(&pool, &m, 1_000_000, 100_000).unwrap();
         record_usage(&pool, &m, 0, 50_000).unwrap();
 
@@ -761,7 +622,7 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let pool = init_at(tmp.path()).unwrap();
         insert_model(&pool, "m1", "GPT-5");
-        let m = cfg("m1", 5.0, 15.0);
+        let m = cfg("m1");
 
         // Pretend we already have stats from a previous record_usage call.
         record_usage(&pool, &m, 1_000_000, 100_000).unwrap();
