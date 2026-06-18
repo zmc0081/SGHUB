@@ -1,15 +1,28 @@
 # 代码签名与公证 / Code signing & notarization
 
 > 目的:消除 Windows **SmartScreen「发布者未知」** 与 macOS **Gatekeeper「无法打开」** 提示。
-> 现状:发布流水线(`.github/workflows/release.yml`)已为签名预留接线 —— **配置好对应的
-> GitHub Secrets 后自动生效;未配置时构建产物为"未签名",流程不报错**(过渡可用)。
+> 现状:`.github/workflows/release.yml` **默认不启用签名**(macOS / Windows 产物均为未签名,
+> 可正常构建)。拿到证书后,按下文把对应 env / Secrets 加进 release.yml 即可启用。
+> ⚠️ 切勿在没有证书时就把 `APPLE_*` env 接进去 —— 空 Secret 会让 tauri-action 尝试导入空
+> 证书并**导致 macOS 构建失败**(security import 报错)。
 
 ---
 
 ## 一、macOS 签名 + 公证(notarization)
 
 `tauri-action` 在检测到下列环境变量时会自动:导入证书 → 用 Developer ID 签名 `.app`/`.dmg`
-→ 调 `notarytool` 公证 → staple。release.yml 已把这些变量从 Secrets 透传进去。
+→ 调 `notarytool` 公证 → staple。**启用方式**:在 release.yml 的 `Build & publish via
+tauri-action` 步骤的 `env:` 下加入这组变量(仅在配齐 Secrets 后再加):
+
+```yaml
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+```
 
 ### 需要的材料
 1. Apple Developer 账号(99 USD/年)。

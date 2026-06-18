@@ -51,17 +51,11 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # ── macOS code signing + notarization ──
-          # These activate signing ONLY when the secrets are configured;
-          # if absent they resolve to empty strings and the macOS build is
-          # produced unsigned (non-breaking). See docs/code-signing.md.
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          # NOTE: macOS code signing + notarization is intentionally NOT
+          # wired here — passing empty APPLE_* secrets makes tauri-action
+          # attempt (and fail) a keychain import. When you have an Apple
+          # Developer cert, add the APPLE_* / KEYCHAIN_PASSWORD env block
+          # per docs/code-signing.md. Until then macOS ships unsigned.
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'SG Hub ${{ github.ref_name }}'
