@@ -15,6 +15,7 @@ import {
 } from "../i18n";
 import { UpdaterCard } from "../components/UpdaterCard";
 import { DataDirCard } from "../components/DataDirCard";
+import { SourcesCard } from "../components/SourcesCard";
 import { Icon } from "../components/Icon";
 import { Skeleton } from "../components/Skeleton";
 
@@ -198,13 +199,19 @@ export default function Settings() {
         </div>
       )}
 
-      {/* 隐私与更新 — updater (simplified) + privacy policy, merged (V2.2.5) */}
+      {/* V2.2.6 — 文献数据源管理 (placed where 隐私与更新 used to be) */}
       <div className="mt-4">
-        <UpdaterCard />
+        <SourcesCard />
       </div>
 
       <div className="mt-4">
         <DataDirCard />
+      </div>
+
+      {/* 隐私与更新 — updater (simplified) + privacy policy, merged (V2.2.5);
+          moved below data management in V2.2.6. */}
+      <div className="mt-4">
+        <UpdaterCard />
       </div>
     </main>
   );

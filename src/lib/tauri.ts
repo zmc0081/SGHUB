@@ -364,6 +364,16 @@ export interface OnboardingStatus {
   completed: boolean;
 }
 
+/** Privacy-policy consent gate status (V2.2.6). */
+export interface PrivacyStatus {
+  /** True when the user has accepted the currently-required policy version. */
+  agreed: boolean;
+  /** Policy version the app currently requires (== app version). */
+  required_version: string;
+  /** Version the user last accepted ("" = never). */
+  agreed_version: string;
+}
+
 /** Returned by detect_ollama — local instance probe + installed models. */
 export interface OllamaDetect {
   running: boolean;
@@ -888,6 +898,30 @@ export const api = {
   /** Open a local PDF in the OS-default viewer. */
   openLocalPdf: (path: string) => invoke<void>("open_local_pdf", { path }),
 
+  /** V2.2.6 — read a local PDF as base64 for the in-app pdf.js viewer. */
+  readPdfBytes: (path: string) => invoke<string>("read_pdf_bytes", { path }),
+
+  /** V2.2.6 — open a local PDF via the OS "Open with" app picker (WPS /
+   *  Adobe / any installed app). `path` is a papers.pdf_path value. */
+  openPdfWithAppPicker: (path: string) =>
+    invoke<void>("open_pdf_with_app_picker", { path }),
+
+  /** V2.2.6 — translate a PDF/document's full text via the default model.
+   *  Streams `translate:progress` events; resolves with the full
+   *  translated Markdown. Provide filePath (preferred) or paperId. */
+  translateDocument: (args: {
+    paperId?: string | null;
+    filePath?: string | null;
+    targetLang: string;
+    mode: string;
+  }) =>
+    invoke<string>("translate_document", {
+      paperId: args.paperId ?? null,
+      filePath: args.filePath ?? null,
+      targetLang: args.targetLang,
+      mode: args.mode,
+    }),
+
   /**
    * Download an OA paper's PDF; emits `download:progress` events keyed by paper_id.
    * Returns the absolute path on success.
@@ -993,6 +1027,19 @@ export const api = {
   /** Flip the onboarding-completed flag (finish OR skip-all). */
   completeOnboarding: () => invoke<void>("complete_onboarding"),
 
+  /** V2.2.6 — whether the user must (re-)read & accept the privacy policy
+   *  before entering the app (fresh install or a policy-version bump). */
+  getPrivacyStatus: () => invoke<PrivacyStatus>("get_privacy_status"),
+
+  /** V2.2.6 — record acceptance of the current policy version. */
+  setPrivacyAgreed: () => invoke<void>("set_privacy_agreed"),
+
+  /** V2.2.6 — global enabled literature sources (empty = all). Shared by
+   *  Literature Search and Today's Feed; edited in Settings. */
+  getEnabledSources: () => invoke<string[]>("get_enabled_sources"),
+  setEnabledSources: (sources: string[]) =>
+    invoke<void>("set_enabled_sources", { sources }),
+
   /** Set the INITIAL data directory (no migration — fresh install). Only
    *  call for a custom pick; keeping the OS default needs no call. */
   onboardingSetDataDir: (path: string) =>
@@ -1018,6 +1065,15 @@ export interface PaperFolderChangedPayload {
   folder_id: string | null;
   from_folder_id: string | null;
   to_folder_id: string | null;
+}
+
+/** V2.2.6 — emitted per translated chunk by `translate_document`. */
+export interface TranslateProgressPayload {
+  current: number;
+  total: number;
+  percent: number;
+  original: string;
+  translated: string;
 }
 
 export interface DownloadProgressPayload {

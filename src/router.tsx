@@ -16,7 +16,6 @@ import Skills from "./pages/Skills";
 import SkillEditor from "./components/SkillEditor";
 import SkillGenerator from "./pages/SkillGenerator";
 import Chat from "./pages/Chat";
-import StoreHome from "./pages/store/StoreHome";
 import ProductDetail from "./pages/store/ProductDetail";
 
 const rootRoute = createRootRoute({
@@ -135,11 +134,15 @@ const settingsRoute = createRoute({
   component: Settings,
 });
 
-// AI Store (V2.2.1 Session 28)
+// AI Store — V2.2.6: the standalone store home was merged into the Models
+// page, so /store now redirects there. The per-product detail route below
+// is still reachable from the product cards embedded in 模型配置.
 const storeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/store",
-  component: StoreHome,
+  beforeLoad: () => {
+    throw redirect({ to: "/models" });
+  },
 });
 
 const storeProductRoute = createRoute({

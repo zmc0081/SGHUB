@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 pub mod bootstrap;
 pub mod migration;
 pub mod paths;
+pub mod sources;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
@@ -311,6 +312,67 @@ pub async fn onboarding_set_data_dir(app: tauri::AppHandle, path: String) -> Res
     std::fs::create_dir_all(&dest).map_err(|e| format!("create data dir: {}", e))?;
     let mut bs = bootstrap::load();
     bs.data_dir = Some(dest);
+    bootstrap::save(&bs).map_err(|e| format!("write bootstrap.toml: {}", e))?;
+    Ok(())
+}
+
+// ============================================================
+// Literature data sources — single global toggle (V2.2.6)
+// ============================================================
+
+/// The enabled source ids (empty = all). Read by Literature Search and the
+/// Today's Feed scheduler so both query the same set.
+#[tauri::command]
+pub fn get_enabled_sources(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    Ok(sources::load_enabled(&app))
+}
+
+/// Persist the enabled source ids (the Settings "文献数据源管理" card).
+#[tauri::command]
+pub fn set_enabled_sources(app: tauri::AppHandle, sources: Vec<String>) -> Result<(), String> {
+    self::sources::save_enabled(&app, sources)
+}
+
+// ============================================================
+// Privacy-policy consent gate (V2.2.6)
+// ============================================================
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PrivacyStatus {
+    /// True when the user has accepted the currently-required policy version.
+    pub agreed: bool,
+    /// The policy version the app currently requires (kept equal to the app
+    /// version — the bundled policy header must match, enforced by
+    /// `scripts/check-version`).
+    pub required_version: String,
+    /// The version the user last accepted ("" = never).
+    pub agreed_version: String,
+}
+
+/// Report whether the user must (re-)read & accept the privacy policy before
+/// entering the app. A fresh install has never agreed; a policy/version bump
+/// makes `agreed_version` stale and re-prompts.
+#[tauri::command]
+pub fn get_privacy_status(app: tauri::AppHandle) -> Result<PrivacyStatus, String> {
+    let required = app.package_info().version.to_string();
+    let bs = bootstrap::load();
+    let agreed = bs.privacy_agreed && bs.privacy_agreed_version == required;
+    Ok(PrivacyStatus {
+        agreed,
+        required_version: required,
+        agreed_version: bs.privacy_agreed_version,
+    })
+}
+
+/// Record the user's acceptance of the current policy version. Persists both
+/// the flag and the accepted version into `bootstrap.toml` so a later policy
+/// bump re-prompts. Idempotent.
+#[tauri::command]
+pub fn set_privacy_agreed(app: tauri::AppHandle) -> Result<(), String> {
+    let version = app.package_info().version.to_string();
+    let mut bs = bootstrap::load();
+    bs.privacy_agreed = true;
+    bs.privacy_agreed_version = version;
     bootstrap::save(&bs).map_err(|e| format!("write bootstrap.toml: {}", e))?;
     Ok(())
 }

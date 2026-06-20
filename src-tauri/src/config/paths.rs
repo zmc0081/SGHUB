@@ -20,7 +20,7 @@
 //! └── logs/
 //! ```
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use tauri::{AppHandle, Manager, Runtime};
 
@@ -69,6 +69,22 @@ pub fn pdfs_dir<R: Runtime>(app: &AppHandle<R>) -> PathBuf {
 /// `<effective>/data/pdfs/uploaded/`
 pub fn uploaded_pdfs_dir<R: Runtime>(app: &AppHandle<R>) -> PathBuf {
     pdfs_dir(app).join("uploaded")
+}
+
+/// Resolve a stored `papers.pdf_path` to an absolute filesystem path.
+///
+/// Storage is mixed by design: uploaded papers store a path RELATIVE to
+/// `<data>/pdfs/` (e.g. `uploaded/{uuid}.pdf`) so the data directory stays
+/// portable, while downloaded OA papers store an absolute path. Absolute
+/// inputs pass through unchanged; relative inputs are joined onto
+/// `pdfs_dir`. This is the single resolver every PDF consumer must use.
+pub fn resolve_pdf_path<R: Runtime>(app: &AppHandle<R>, pdf_path: &str) -> PathBuf {
+    let p = Path::new(pdf_path);
+    if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        pdfs_dir(app).join(pdf_path)
+    }
 }
 
 /// `<effective>/data/chat_attachments/<session_id>/`

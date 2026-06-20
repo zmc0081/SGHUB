@@ -139,7 +139,7 @@ export default function ProductDetail({ productId }: ProductDetailProps) {
     return (
       <main role="main" className="p-8 max-w-3xl mx-auto">
         <Link
-          to="/store"
+          to="/models"
           className="inline-flex items-center gap-1.5 text-meta text-indigo hover:text-indigo-hover mb-4"
         >
           <Icon icon={ArrowLeft} size="xs" />

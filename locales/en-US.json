@@ -76,6 +76,10 @@
     "sort_citation": "Citations (soon)",
     "source_label": "Source",
     "fulltext_pdf": "Full-text PDF",
+    "open_with": "Open with…",
+    "open_with_browser": "Open in default browser",
+    "open_with_app": "Open with another app…",
+    "open_with_need_download": "Download the PDF first to open it with another app",
     "error_open_fulltext": "Failed to open the full-text link",
     "fallback_expanded": "Automatically expanded sources for more results"
   },
@@ -103,6 +107,7 @@
     "form_keyword_label": "Keyword expression",
     "form_keyword_placeholder": "e.g. \"LLM alignment\" OR \"RLHF\"",
     "form_sources_label": "Sources",
+    "sources_follow_settings": "Follows Settings → Literature Data Sources:",
     "form_freq_label": "Frequency",
     "form_max_label": "Max per run",
     "form_freq_daily": "Daily",
@@ -425,7 +430,10 @@
     "entry_sg_desc": "Paste your API key and you're ready to go.",
     "entry_sg_add_btn": "Add",
     "entry_buy_desc": "No SG AI Store quota yet? No need to apply for your own API key — buy and use instantly.",
-    "entry_buy_btn": "Go to SG AI Store"
+    "entry_buy_btn": "Go to SG AI Store",
+    "store_section_title": "SG AI Store Products",
+    "store_section_subtitle": "Browse purchasable model bundles and quotas — buy and use instantly, no API key application needed.",
+    "store_section_empty": "No products yet — click \"Sync now\" to fetch the latest bundles."
   },
   "skill_gen": {
     "title": "Create a Skill with AI",
@@ -641,7 +649,42 @@
     "open_failed": "Open failed: {{detail}}",
     "download_cancelled": "Cancelled",
     "download_failed": "Download failed",
-    "cancel_title": "Cancel"
+    "cancel_title": "Cancel",
+    "translate": "Translate",
+    "translate_title": "Translate full text"
+  },
+  "pdf_viewer": {
+    "close": "Close",
+    "outline": "Outline",
+    "prev_page": "Previous page",
+    "next_page": "Next page",
+    "page": "Page",
+    "zoom_in": "Zoom in",
+    "zoom_out": "Zoom out",
+    "fit_width": "Fit width",
+    "search": "Search in document",
+    "search_placeholder": "Search in document…",
+    "prev_match": "Previous match",
+    "next_match": "Next match",
+    "loading": "Loading PDF…",
+    "load_failed": "Failed to load PDF: {{detail}}"
+  },
+  "translate": {
+    "title": "Translate",
+    "target_lang": "Target language",
+    "toggle_mode": "Toggle layout",
+    "mode_replace": "Translation only",
+    "mode_compare": "Side-by-side",
+    "retranslate": "Re-translate",
+    "copy": "Copy translation",
+    "export": "Export translation",
+    "start": "Start translating",
+    "retry": "Retry",
+    "idle_hint": "Translates the full text with your default model, preserving structure and terminology.",
+    "translating": "Translating…",
+    "copied": "Translation copied",
+    "copy_failed": "Copy failed",
+    "exported": "Translation exported"
   },
   "favorite_button": {
     "favorited": "Favorited",
@@ -789,6 +832,23 @@
     "cancel": "Cancel",
     "switch_model": "Switch model",
     "top_up": "Top up"
+  },
+  "privacy_consent": {
+    "title": "Privacy Policy",
+    "subtitle": "Please read and accept the privacy policy before using SG Hub.",
+    "scroll_hint": "Scroll to the bottom of the policy to enable the “I have read and agree” button.",
+    "agree": "I have read and agree",
+    "exit": "Exit",
+    "save_failed": "Failed to save your consent — you can continue this session; you'll be asked again next launch."
+  },
+  "sources": {
+    "title": "Literature Data Sources",
+    "subtitle": "Configure the sources used by Search and Feed in one place; enabled sources apply to both Literature Search and Today's Feed.",
+    "loading": "Loading…",
+    "at_least_one": "Keep at least one source enabled",
+    "group_general": "General",
+    "group_oa": "Open Access",
+    "group_cs": "Computer Science"
   },
   "onboarding": {
     "welcome_title": "Welcome to SG Hub",

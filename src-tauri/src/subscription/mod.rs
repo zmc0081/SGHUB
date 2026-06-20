@@ -1,14 +1,10 @@
 //! Keyword subscriptions: CRUD, scheduled execution, and per-paper bookkeeping.
 
-use std::time::Duration;
-
 use rusqlite::{params, Row};
 use serde::{Deserialize, Serialize};
 
 use crate::search::Paper;
 use crate::AppState;
-
-const SOURCE_TIMEOUT: Duration = Duration::from_secs(15);
 
 // ============================================================
 // Types
@@ -392,38 +388,63 @@ fn db_unread_count(pool: &crate::db::DbPool) -> rusqlite::Result<i64> {
 
 pub(crate) async fn run_one(app: &tauri::AppHandle, sub: &Subscription) -> Result<usize, String> {
     let mut all_papers: Vec<Paper> = Vec::new();
+    let q = sub.keyword_expr.as_str();
+    let limit = sub.max_results as u32;
 
-    for source in &sub.sources {
-        let q = sub.keyword_expr.as_str();
-        let limit = sub.max_results as u32;
-        let result = match source.as_str() {
+    // V2.2.6 — subscriptions follow the GLOBAL enabled-sources toggle
+    // (Settings → 文献数据源管理), exactly like Literature Search, so the two
+    // stay consistent (now all 8 sources, not the old hard-coded 4).
+    // `sub.sources` is retained on the row for display only.
+    let enabled = crate::config::sources::load_enabled(app);
+    let core_key = crate::search::read_core_key().await;
+    let have_core_key = !core_key.trim().is_empty();
+
+    for source in crate::config::sources::ALL_SOURCES {
+        let on = crate::config::sources::is_enabled(&enabled, source);
+        let papers = match source {
             "arxiv" => {
-                tokio::time::timeout(SOURCE_TIMEOUT, crate::search::arxiv::search(q, limit)).await
+                crate::search::run_source(source, on, || crate::search::arxiv::search(q, limit))
+                    .await
             }
             "semantic_scholar" => {
-                tokio::time::timeout(
-                    SOURCE_TIMEOUT,
-                    crate::search::semantic_scholar::search(q, limit),
-                )
+                crate::search::run_source(source, on, || {
+                    crate::search::semantic_scholar::search(q, limit)
+                })
                 .await
             }
             "pubmed" => {
-                tokio::time::timeout(SOURCE_TIMEOUT, crate::search::pubmed::search(q, limit)).await
-            }
-            "openalex" => {
-                tokio::time::timeout(SOURCE_TIMEOUT, crate::search::openalex::search(q, limit))
+                crate::search::run_source(source, on, || crate::search::pubmed::search(q, limit))
                     .await
             }
-            other => {
-                log::warn!("subscription {}: unknown source `{}`", sub.id, other);
-                continue;
+            "openalex" => {
+                crate::search::run_source(source, on, || {
+                    crate::search::openalex::search(q, limit)
+                })
+                .await
             }
+            "crossref" => {
+                crate::search::run_source(source, on, || {
+                    crate::search::crossref::search(q, limit, Some(crate::search::CROSSREF_MAILTO))
+                })
+                .await
+            }
+            "core" => {
+                crate::search::run_source(source, on && have_core_key, || {
+                    crate::search::core_api::search(q, limit, &core_key)
+                })
+                .await
+            }
+            "dblp" => {
+                crate::search::run_source(source, on, || crate::search::dblp::search(q, limit))
+                    .await
+            }
+            "doaj" => {
+                crate::search::run_source(source, on, || crate::search::doaj::search(q, limit))
+                    .await
+            }
+            _ => Vec::new(),
         };
-        match result {
-            Ok(Ok(papers)) => all_papers.extend(papers),
-            Ok(Err(e)) => log::warn!("subscription {}: source {} failed: {}", sub.id, source, e),
-            Err(_) => log::warn!("subscription {}: source {} timed out", sub.id, source),
-        }
+        all_papers.extend(papers);
     }
 
     if all_papers.is_empty() {

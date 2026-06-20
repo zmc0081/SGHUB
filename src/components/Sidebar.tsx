@@ -13,7 +13,6 @@ import {
   Settings,
   Sparkles,
   Star,
-  Store,
 } from "lucide-react";
 import { api } from "../lib/tauri";
 import { useT } from "../hooks/useT";
@@ -35,14 +34,15 @@ type NavItem = {
 // (search → feed → parse → library), then management (skills → models
 // → settings).
 const NAV_ITEMS: NavItem[] = [
-  { to: "/chat", icon: MessageSquare, labelKey: "sidebar.chat", badge: "new" },
+  { to: "/chat", icon: MessageSquare, labelKey: "sidebar.chat", badge: null },
   { to: "/search", icon: Search, labelKey: "sidebar.search", badge: null },
   { to: "/feed", icon: Newspaper, labelKey: "sidebar.feed", badge: "unread" },
   { to: "/parse", icon: Brain, labelKey: "sidebar.parse", badge: null },
   { to: "/library", icon: Star, labelKey: "sidebar.library", badge: null },
   { to: "/skills", icon: Sparkles, labelKey: "sidebar.skills", badge: null },
+  // V2.2.6 — the standalone "AI Store" entry was removed; its product
+  // listing now lives inside the 模型配置 (Models) page.
   { to: "/models", icon: Bot, labelKey: "sidebar.models", badge: null },
-  { to: "/store", icon: Store, labelKey: "sidebar.store", badge: null },
   { to: "/settings", icon: Settings, labelKey: "sidebar.settings", badge: null },
 ];
 

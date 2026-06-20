@@ -467,11 +467,7 @@ pub async fn re_extract_paper_metadata(
 
 /// Resolve a stored `pdf_path` (relative to `<data>/pdfs/`) to an absolute path.
 fn resolve_pdf_abs(app: &tauri::AppHandle, rel: &str) -> PathBuf {
-    if Path::new(rel).is_absolute() {
-        PathBuf::from(rel)
-    } else {
-        crate::config::paths::pdfs_dir(app).join(rel)
-    }
+    crate::config::paths::resolve_pdf_path(app, rel)
 }
 
 /// Stream a file through SHA-256 (8 KiB chunks — never loads the whole PDF).

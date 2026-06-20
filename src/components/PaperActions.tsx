@@ -13,7 +13,7 @@
  */
 
 // i18n: 本组件文案已国际化 (V2.1.0)
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import {
   AlertTriangle,
@@ -21,6 +21,7 @@ import {
   Download,
   FileText,
   FolderOpen,
+  Languages,
   X,
 } from "lucide-react";
 import {
@@ -28,6 +29,7 @@ import {
   type Paper,
 } from "../lib/tauri";
 import { useAppNavigation } from "../hooks/useAppNavigation";
+import { usePdfReaderStore } from "../stores/pdfReaderStore";
 import { FavoriteButton } from "./FavoriteButton";
 import { useT } from "../hooks/useT";
 import { Icon } from "./Icon";
@@ -39,6 +41,11 @@ interface Props {
   showFavorite?: boolean;
   /** Compact = icon-only chips; full = labelled chips with more padding. */
   size?: "sm" | "md";
+  /** Called once a local PDF path is resolved for this paper (download
+   *  finished or an existing file was found). Lets the host persist it —
+   *  e.g. the search store — so the card keeps showing "打开 PDF" after the
+   *  component unmounts and remounts on navigation. */
+  onLocalPath?: (paperId: string, path: string) => void;
 }
 
 /** Open-access heuristic — same gate the backend uses for `pdf_url_for`. */
@@ -52,6 +59,7 @@ export function PaperActions({
   paper,
   showFavorite = true,
   size = "sm",
+  onLocalPath,
 }: Props) {
   const t = useT();
   const nav = useAppNavigation();
@@ -59,6 +67,17 @@ export function PaperActions({
   const [progress, setProgress] = useState<number>(0);
   const [localPath, setLocalPath] = useState<string | null>(paper.pdf_path);
   const [error, setError] = useState<string | null>(null);
+
+  // Keep the latest callback in a ref so the event listener (subscribed once
+  // per paper.id) always calls the current one without re-subscribing.
+  const onLocalPathRef = useRef(onLocalPath);
+  useEffect(() => {
+    onLocalPathRef.current = onLocalPath;
+  });
+  const commitLocalPath = (path: string) => {
+    setLocalPath(path);
+    onLocalPathRef.current?.(paper.id, path);
+  };
 
   useEffect(() => {
     let unlisten: UnlistenFn | undefined;
@@ -71,7 +90,7 @@ export function PaperActions({
       } else if (status === "done") {
         setDownloading(false);
         setProgress(100);
-        if (path) setLocalPath(path);
+        if (path) commitLocalPath(path);
         setError(null);
       } else if (status === "cancelled") {
         setDownloading(false);
@@ -112,7 +131,7 @@ export function PaperActions({
     setProgress(0);
     try {
       const path = await nav.downloadPaperPdf(paper.id);
-      setLocalPath(path);
+      commitLocalPath(path);
     } catch (e) {
       const msg = String(e);
       const cancelled = t("paper_actions.download_cancelled");
@@ -133,14 +152,44 @@ export function PaperActions({
     void nav.cancelDownload(paper.id);
   };
 
-  const onOpenLocal = async () => {
+  // V2.2.6 — open in the in-app PDF reader (no longer the OS viewer).
+  const onOpenLocal = () => {
     if (!localPath) return;
-    try {
-      await nav.openLocalPdf(localPath);
-    } catch (e) {
-      setError(t("paper_actions.open_failed", { detail: String(e) }));
-      setTimeout(() => setError(null), 2500);
+    usePdfReaderStore.getState().openReader({
+      path: localPath,
+      title: paper.title,
+      paperId: paper.id,
+    });
+  };
+
+  // V2.2.6 — open the reader with the translation panel. If the PDF isn't
+  // local yet, download it first (OA only), then open + translate.
+  const onTranslate = async () => {
+    let path = localPath;
+    if (!path) {
+      if (!isLikelyOA(paper)) {
+        setError(t("paper_actions.not_oa_title"));
+        setTimeout(() => setError(null), 3000);
+        return;
+      }
+      setError(null);
+      setDownloading(true);
+      setProgress(0);
+      try {
+        path = await nav.downloadPaperPdf(paper.id);
+        commitLocalPath(path);
+      } catch (e) {
+        setError(String(e));
+        setTimeout(() => setError(null), 4200);
+        return;
+      } finally {
+        setDownloading(false);
+      }
     }
+    usePdfReaderStore.getState().openReader(
+      { path, title: paper.title, paperId: paper.id },
+      { translate: true },
+    );
   };
 
   // Sizing tokens (sm = Library dense rows, md = Search/Feed cards).
@@ -184,6 +233,17 @@ export function PaperActions({
       >
         <Icon icon={FileText} size={iconSize} />
         <span>{t("paper_actions.view_source")}</span>
+      </button>
+
+      <button
+        type="button"
+        aria-label={t("paper_actions.translate_title")}
+        onClick={onTranslate}
+        className={`${btnBase} ${btnNormal}`}
+        title={t("paper_actions.translate_title")}
+      >
+        <Icon icon={Languages} size={iconSize} />
+        <span>{t("paper_actions.translate")}</span>
       </button>
 
       {localPath ? (

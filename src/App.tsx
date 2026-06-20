@@ -4,20 +4,31 @@ import Sidebar from "./components/Sidebar";
 import { ToastProvider } from "./components/ToastProvider";
 import { DialogProvider } from "./components/DialogProvider";
 import { OnboardingGate } from "./components/onboarding/OnboardingGate";
+import { PrivacyGate } from "./components/PrivacyGate";
+import { PdfReaderOverlay } from "./components/pdf/PdfReaderOverlay";
 
 export default function App({ children }: { children: ReactNode }) {
   return (
     <ToastProvider>
       <DialogProvider>
+        <PrivacyGate>
         <OnboardingGate>
           <div className="h-screen flex flex-col bg-page text-fg-1">
             <Titlebar />
             <div className="flex flex-1 overflow-hidden">
               <Sidebar />
-              <main className="flex-1 overflow-auto">{children}</main>
+              {/* The content column is a positioning context so the in-app
+                  PDF reader can fill ONLY this area (below the titlebar,
+                  right of the sidebar) instead of covering the whole
+                  window — keeping the nav menu reachable while reading. */}
+              <div className="relative flex-1 min-w-0">
+                <main className="absolute inset-0 overflow-auto">{children}</main>
+                <PdfReaderOverlay />
+              </div>
             </div>
           </div>
         </OnboardingGate>
+        </PrivacyGate>
       </DialogProvider>
     </ToastProvider>
   );

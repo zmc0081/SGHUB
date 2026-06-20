@@ -33,6 +33,17 @@ pub struct BootstrapConfig {
     /// must read it before it knows where its main config file is.
     #[serde(default)]
     pub onboarding_completed: bool,
+    /// V2.2.6 — privacy-policy consent gate. The user must read & accept the
+    /// bundled privacy policy on first launch BEFORE the onboarding wizard
+    /// and the app proper. `false`/absent → show the (mandatory) consent
+    /// screen on next launch.
+    #[serde(default)]
+    pub privacy_agreed: bool,
+    /// V2.2.6 — the policy version the user last accepted (kept equal to the
+    /// app version). When the bundled policy version is newer than this, the
+    /// consent screen re-appears so the user re-accepts. Empty = never agreed.
+    #[serde(default)]
+    pub privacy_agreed_version: String,
 }
 
 // ============================================================
@@ -130,7 +141,7 @@ mod tests {
         // empty — but it must never carry a phantom `data_dir`.
         let cfg = BootstrapConfig {
             data_dir: None,
-            onboarding_completed: false,
+            ..Default::default()
         };
         let text = toml::to_string_pretty(&cfg).unwrap();
         assert!(!text.contains("data_dir"), "got: {text}");
@@ -139,8 +150,8 @@ mod tests {
     #[test]
     fn round_trip_with_onboarding_flag() {
         let cfg = BootstrapConfig {
-            data_dir: None,
             onboarding_completed: true,
+            ..Default::default()
         };
         let back = roundtrip(&cfg);
         assert!(back.onboarding_completed);
@@ -152,10 +163,25 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let cfg = BootstrapConfig {
             data_dir: Some(tmp.path().to_path_buf()),
-            onboarding_completed: false,
+            ..Default::default()
         };
         let back = roundtrip(&cfg);
         assert_eq!(back.data_dir.as_deref(), Some(tmp.path()));
+    }
+
+    #[test]
+    fn round_trip_with_privacy_consent() {
+        let cfg = BootstrapConfig {
+            privacy_agreed: true,
+            privacy_agreed_version: "2.2.6".into(),
+            ..Default::default()
+        };
+        let back = roundtrip(&cfg);
+        assert!(back.privacy_agreed);
+        assert_eq!(back.privacy_agreed_version, "2.2.6");
+        // A fresh config has never agreed.
+        assert!(!BootstrapConfig::default().privacy_agreed);
+        assert!(BootstrapConfig::default().privacy_agreed_version.is_empty());
     }
 
     #[test]

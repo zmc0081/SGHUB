@@ -1,13 +1,9 @@
-// V2.2.1 Session 28 — AI Store home page (product listing).
-//
-// Layout (top-to-bottom):
-//   Header        title + subtitle + sync indicator + sync button
-//   BYOK notice   one-line reassurance for users who don't want a Store
-//   Popular row   featured products (popular:true)
-//   Provider grid grouped by model_provider — Anthropic / OpenAI /
-//                 DeepSeek / Multi
-//   Disclosure    bottom privacy note + link to /settings → 隐私协议
-
+// V2.2.6 — SG AI Store product listing, embedded in the 模型配置 (Models)
+// page below the "前往 SG AI Store 购买" button. The standalone /store home
+// was removed; this reuses the same sgAiStoreApi sync (pull + SSE) and the
+// product-card design so users can browse / be guided to purchase without
+// leaving model configuration. Each card still deep-links to the per-product
+// detail page (/store/product/:id).
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useTranslation } from "react-i18next";
@@ -16,7 +12,6 @@ import {
   CheckCircle2,
   Loader2,
   RefreshCw,
-  Shield,
   Sparkles,
   WifiOff,
 } from "lucide-react";
@@ -25,9 +20,9 @@ import {
   type SgStoreProduct,
   type SyncStatus,
   sgAiStoreApi,
-} from "../../lib/sgAiStoreApi";
-import { Icon } from "../../components/Icon";
-import { Skeleton } from "../../components/Skeleton";
+} from "../lib/sgAiStoreApi";
+import { Icon } from "./Icon";
+import { Skeleton } from "./Skeleton";
 
 const PROVIDER_LABEL: Record<string, { zh: string; en: string }> = {
   anthropic: { zh: "Anthropic — Claude", en: "Anthropic — Claude" },
@@ -49,12 +44,9 @@ function formatLastSynced(iso: string | null, lang: string): string {
   return lang.startsWith("zh") ? `${hr} 小时前` : `${hr}h ago`;
 }
 
-function formatQuotaTokens(tokens: number, lang: string): string {
-  const zh = lang.startsWith("zh");
+function formatQuotaTokens(tokens: number): string {
   if (tokens >= 1_000_000_000) {
-    return zh
-      ? `${(tokens / 1_000_000_000).toFixed(1)}B tokens`
-      : `${(tokens / 1_000_000_000).toFixed(1)}B tokens`;
+    return `${(tokens / 1_000_000_000).toFixed(1)}B tokens`;
   }
   if (tokens >= 1_000_000) {
     return `${Math.round(tokens / 1_000_000)}M tokens`;
@@ -124,7 +116,7 @@ function ProductCard({
             </span>
           </div>
           <div className="text-meta text-fg-3 tabular-nums">
-            {formatQuotaTokens(product.token_quota, lang)}
+            {formatQuotaTokens(product.token_quota)}
           </div>
         </div>
         <Link
@@ -151,22 +143,9 @@ function SyncIndicator({
   lang: string;
 }) {
   const { t } = useTranslation();
-  if (!status) {
-    return (
-      <button
-        type="button"
-        onClick={onSync}
-        disabled={syncing}
-        className="inline-flex items-center gap-2 px-btn-x-sm py-btn-y-sm rounded-pill border border-border-default bg-card text-fg-2 text-meta font-medium hover:border-navy hover:text-navy disabled:opacity-50 transition-colors duration-fast ease-khx"
-      >
-        <Icon icon={syncing ? Loader2 : RefreshCw} size="xs" className={syncing ? "animate-spin" : ""} />
-        <span>{t("store.sync_now")}</span>
-      </button>
-    );
-  }
 
   const statusIcon =
-    status.state === "synced"
+    !status || status.state === "synced"
       ? CheckCircle2
       : status.state === "syncing" || syncing
         ? Loader2
@@ -175,7 +154,7 @@ function SyncIndicator({
           : AlertTriangle;
 
   const statusColor =
-    status.state === "synced"
+    !status || status.state === "synced"
       ? "text-success-fg"
       : status.state === "offline"
         ? "text-fg-3"
@@ -184,8 +163,8 @@ function SyncIndicator({
           : "text-fg-2";
 
   const statusLabel = (() => {
-    if (syncing || status.state === "syncing") return t("store.status_syncing");
-    if (status.state === "synced") return t("store.status_synced");
+    if (syncing || status?.state === "syncing") return t("store.status_syncing");
+    if (!status || status.state === "synced") return t("store.status_synced");
     if (status.state === "offline") return t("store.status_offline");
     return t("store.status_stale");
   })();
@@ -197,11 +176,11 @@ function SyncIndicator({
           icon={statusIcon}
           size="xs"
           className={`${statusColor} ${
-            status.state === "syncing" || syncing ? "animate-spin" : ""
+            status?.state === "syncing" || syncing ? "animate-spin" : ""
           }`}
         />
         <span className={statusColor}>{statusLabel}</span>
-        {status.last_synced_at && (
+        {status?.last_synced_at && (
           <span className="text-fg-3">
             · {formatLastSynced(status.last_synced_at, lang)}
           </span>
@@ -220,7 +199,8 @@ function SyncIndicator({
   );
 }
 
-export default function StoreHome() {
+/** Embedded SG AI Store product browser for the Models page (V2.2.6). */
+export function AiStoreProducts() {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
 
@@ -230,7 +210,6 @@ export default function StoreHome() {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initial load
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -284,13 +263,16 @@ export default function StoreHome() {
   }, [products]);
 
   return (
-    <main role="main" className="p-8 max-w-5xl mx-auto">
-      <header className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+    <section className="mt-2">
+      <header className="flex items-start justify-between gap-4 flex-wrap mb-4">
         <div className="min-w-0">
-          <h1 className="text-h2 font-semibold text-fg-1">
-            {t("store.title")}
-          </h1>
-          <p className="text-meta text-fg-2 mt-1">{t("store.subtitle")}</p>
+          <h2 className="text-h3 font-semibold text-fg-1 flex items-center gap-2">
+            <Icon icon={Sparkles} size="base" className="text-indigo" />
+            <span>{t("models.store_section_title")}</span>
+          </h2>
+          <p className="text-meta text-fg-2 mt-1">
+            {t("models.store_section_subtitle")}
+          </p>
         </div>
         <SyncIndicator
           status={status}
@@ -300,15 +282,10 @@ export default function StoreHome() {
         />
       </header>
 
-      <section className="bg-info-bg border border-info-border rounded-card-sm px-4 py-3 mb-6 text-caption text-fg-1 flex items-start gap-3">
-        <Icon icon={Shield} size="sm" className="text-info-fg mt-0.5 flex-shrink-0" />
-        <span>{t("store.byok_notice")}</span>
-      </section>
-
       {error && (
         <div
           role="alert"
-          className="rounded-card-sm bg-danger-bg border border-danger-border text-danger-fg px-4 py-3 mb-6 flex items-start gap-2 text-caption"
+          className="rounded-card-sm bg-danger-bg border border-danger-border text-danger-fg px-4 py-3 mb-4 flex items-start gap-2 text-caption"
         >
           <Icon icon={AlertTriangle} size="sm" className="flex-shrink-0 mt-0.5" />
           <span>{error}</span>
@@ -316,25 +293,24 @@ export default function StoreHome() {
       )}
 
       {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} variant="rect" height={260} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} variant="rect" height={240} />
           ))}
         </div>
       )}
 
       {!loading && popular.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-h3 font-semibold text-fg-1 mb-3 flex items-center gap-2">
-            <Icon icon={Sparkles} size="base" className="text-indigo" />
-            <span>{t("store.section_popular")}</span>
-          </h2>
+        <div className="mb-6">
+          <h3 className="text-meta uppercase tracking-wide-brand text-fg-3 mb-3">
+            {t("store.section_popular")}
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {popular.map((p) => (
               <ProductCard key={p.id} product={p} lang={lang} />
             ))}
           </div>
-        </section>
+        </div>
       )}
 
       {!loading &&
@@ -345,32 +321,24 @@ export default function StoreHome() {
             PROVIDER_LABEL[provider]?.[lang.startsWith("zh") ? "zh" : "en"] ??
             provider;
           return (
-            <section key={provider} className="mb-8">
-              <h2 className="text-h3 font-semibold text-fg-1 mb-3">{label}</h2>
+            <div key={provider} className="mb-6">
+              <h3 className="text-meta uppercase tracking-wide-brand text-fg-3 mb-3">
+                {label}
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {list.map((p) => (
                   <ProductCard key={p.id} product={p} lang={lang} />
                 ))}
               </div>
-            </section>
+            </div>
           );
         })}
 
-      {/* Bottom privacy disclosure */}
-      <section className="mt-10 pt-6 border-t border-border-subtle text-meta text-fg-3 leading-relaxed">
-        <div className="flex items-start gap-2">
-          <Icon icon={Shield} size="xs" className="mt-0.5 flex-shrink-0" />
-          <p>
-            {t("store.privacy_disclosure")}{" "}
-            <Link
-              to="/settings"
-              className="text-indigo hover:text-indigo-hover underline"
-            >
-              {t("store.privacy_disclosure_link")}
-            </Link>
-          </p>
+      {!loading && !error && (products?.length ?? 0) === 0 && (
+        <div className="text-caption text-fg-3 text-center py-8">
+          {t("models.store_section_empty")}
         </div>
-      </section>
-    </main>
+      )}
+    </section>
   );
 }

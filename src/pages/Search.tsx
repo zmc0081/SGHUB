@@ -4,8 +4,10 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { listen } from "@tauri-apps/api/event";
 import {
   AlertTriangle,
+  AppWindow,
   ChevronDown,
-  FileText,
+  ExternalLink,
+  Globe,
   Loader2,
   Search as SearchIcon,
 } from "lucide-react";
@@ -15,35 +17,7 @@ import { Skeleton } from "../components/Skeleton";
 import { Icon } from "../components/Icon";
 import { useT } from "../hooks/useT";
 import { useToast } from "../hooks/useToast";
-
-type SourceOption = { value: string; label?: string; labelKey?: string };
-
-const ALL_SOURCE: SourceOption = { value: "all", labelKey: "search.source_all" };
-
-// V2.2.3 — 8 sources, grouped so the dropdown stays scannable.
-const SOURCE_GROUPS: Array<{ labelKey: string; sources: SourceOption[] }> = [
-  {
-    labelKey: "search.source_group_general",
-    sources: [
-      { value: "arxiv", label: "arXiv" },
-      { value: "semantic_scholar", label: "Semantic Scholar" },
-      { value: "openalex", label: "OpenAlex" },
-      { value: "crossref", label: "Crossref" },
-      { value: "pubmed", label: "PubMed" },
-    ],
-  },
-  {
-    labelKey: "search.source_group_cs",
-    sources: [{ value: "dblp", label: "DBLP" }],
-  },
-  {
-    labelKey: "search.source_group_oa",
-    sources: [
-      { value: "core", label: "CORE" },
-      { value: "doaj", label: "DOAJ" },
-    ],
-  },
-];
+import { useSearchStore } from "../stores/searchStore";
 
 const TIME_RANGES = [
   { value: "all", labelKey: "search.time_all", days: null as number | null },
@@ -112,18 +86,102 @@ function SourceBadge({ source }: { source: string }) {
   );
 }
 
-function PaperCard({ paper }: { paper: Paper }) {
+/** V2.2.6 — "open with another app" split-button. Primary action is smart: a
+ *  downloaded local PDF opens via the OS "Open with" picker (WPS / Adobe / …);
+ *  otherwise the online full-text link opens in the default browser. The
+ *  dropdown exposes both choices explicitly. */
+function OpenWithButton({ paper }: { paper: Paper }) {
   const t = useT();
   const toast = useToast();
-  // V2.2.3 — a merged paper carries every source it was found in.
-  const sources = paper.sources && paper.sources.length > 0 ? paper.sources : [paper.source];
+  const [open, setOpen] = useState(false);
+  const hasLocal = !!paper.pdf_path;
+  const hasUrl = !!paper.fulltext_url;
+  if (!hasLocal && !hasUrl) return null;
 
-  const openFulltext = () => {
+  const openBrowser = () => {
+    setOpen(false);
     if (!paper.fulltext_url) return;
     api
       .openExternalUrl(paper.fulltext_url)
       .catch((e) => toast.danger(t("search.error_open_fulltext"), String(e)));
   };
+  const openApp = () => {
+    setOpen(false);
+    if (!paper.pdf_path) {
+      toast.info(t("search.open_with_need_download"));
+      return;
+    }
+    api.openPdfWithAppPicker(paper.pdf_path).catch((e) => toast.danger(String(e)));
+  };
+  const primary = () => (hasLocal ? openApp() : openBrowser());
+
+  const itemCls =
+    "w-full flex items-center gap-2 px-3 py-2 text-meta text-fg-1 hover:bg-navy-faint disabled:opacity-40 disabled:hover:bg-transparent transition-colors duration-fast ease-khx";
+
+  return (
+    <div className="relative inline-flex">
+      <button
+        type="button"
+        onClick={primary}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-l-pill border border-border-default bg-card text-meta text-fg-1 hover:bg-navy-faint transition-colors duration-fast ease-khx"
+      >
+        <Icon icon={ExternalLink} size="sm" />
+        <span>{t("search.open_with")}</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={t("search.open_with")}
+        className="inline-flex items-center px-1.5 rounded-r-pill border border-l-0 border-border-default bg-card text-fg-2 hover:bg-navy-faint transition-colors duration-fast ease-khx"
+      >
+        <Icon icon={ChevronDown} size="xs" />
+      </button>
+      {open && (
+        <>
+          <div
+            className="fixed inset-0 z-dropdown"
+            onClick={() => setOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            role="menu"
+            className="absolute right-0 top-full mt-1 z-dropdown min-w-[200px] rounded-card-sm border border-border-default bg-card shadow-nav py-1"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={openBrowser}
+              disabled={!hasUrl}
+              className={itemCls}
+            >
+              <Icon icon={Globe} size="sm" />
+              <span>{t("search.open_with_browser")}</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={openApp}
+              disabled={!hasLocal}
+              title={!hasLocal ? t("search.open_with_need_download") : undefined}
+              className={itemCls}
+            >
+              <Icon icon={AppWindow} size="sm" />
+              <span>{t("search.open_with_app")}</span>
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function PaperCard({ paper }: { paper: Paper }) {
+  const t = useT();
+  const setPaperPdfPath = useSearchStore((s) => s.setPaperPdfPath);
+  // V2.2.3 — a merged paper carries every source it was found in.
+  const sources = paper.sources && paper.sources.length > 0 ? paper.sources : [paper.source];
 
   return (
     <article className="rounded-card bg-card shadow-card p-6 transition-shadow duration-base ease-khx hover:shadow-card-hover">
@@ -156,17 +214,8 @@ function PaperCard({ paper }: { paper: Paper }) {
         </p>
       )}
       <div className="mt-4 flex items-center gap-3 flex-wrap">
-        <PaperActions paper={paper} size="md" />
-        {paper.fulltext_url && (
-          <button
-            type="button"
-            onClick={openFulltext}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-pill border border-border-default bg-card text-meta text-fg-1 hover:bg-navy-faint transition-colors duration-fast ease-khx"
-          >
-            <Icon icon={FileText} size="sm" />
-            <span>{t("search.fulltext_pdf")}</span>
-          </button>
-        )}
+        <PaperActions paper={paper} size="md" onLocalPath={setPaperPdfPath} />
+        <OpenWithButton paper={paper} />
       </div>
     </article>
   );
@@ -236,32 +285,46 @@ function PaperList({ papers }: { papers: Paper[] }) {
 export default function Search() {
   const t = useT();
   const toast = useToast();
-  const [query, setQuery] = useState("");
-  const [source, setSource] = useState("all");
-  const [timeRange, setTimeRange] = useState("all");
-  const [sortBy, setSortBy] = useState("relevance");
-  const [papers, setPapers] = useState<Paper[]>([]);
+  // Query / filters / results live in a persistent store so they survive
+  // navigating away and back (V2.2.6). Only the transient spinner is local.
+  const query = useSearchStore((s) => s.query);
+  const timeRange = useSearchStore((s) => s.timeRange);
+  const sortBy = useSearchStore((s) => s.sortBy);
+  const papers = useSearchStore((s) => s.papers);
+  const error = useSearchStore((s) => s.error);
+  const duration = useSearchStore((s) => s.duration);
+  const setQuery = useSearchStore((s) => s.setQuery);
+  const setTimeRange = useSearchStore((s) => s.setTimeRange);
+  const setSortBy = useSearchStore((s) => s.setSortBy);
+  const setResults = useSearchStore((s) => s.setResults);
+  const setError = useSearchStore((s) => s.setError);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [duration, setDuration] = useState<number | null>(null);
+  const rootRef = useRef<HTMLElement>(null);
 
   const runSearch = () => {
     if (!query.trim()) return;
     setLoading(true);
     setError(null);
     const start = Date.now();
+    // V2.2.6 — sources are configured globally in Settings → 文献数据源管理;
+    // search always queries the enabled set (backend filters on "all").
     api
-      .searchPapers(query, source, 50)
-      .then((p) => {
-        setPapers(p);
-        setDuration(Date.now() - start);
-      })
+      .searchPapers(query, "all", 50)
+      .then((p) => setResults(p, Date.now() - start))
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
   };
 
+  // Restore the results-viewport scroll on return; persist it on scroll.
+  // The scroller is the surrounding <main> (this page's parent element).
   useEffect(() => {
-    setPapers([]);
+    const scroller = rootRef.current?.parentElement;
+    if (!scroller) return;
+    scroller.scrollTop = useSearchStore.getState().scrollTop;
+    const onScroll = () =>
+      useSearchStore.getState().setScrollTop(scroller.scrollTop);
+    scroller.addEventListener("scroll", onScroll, { passive: true });
+    return () => scroller.removeEventListener("scroll", onScroll);
   }, []);
 
   // V2.2.3 — the backend auto-expands a sparse single-source search to
@@ -282,7 +345,7 @@ export default function Search() {
   }, [papers, timeRange, sortBy]);
 
   return (
-    <main role="main" className="p-8 max-w-5xl mx-auto">
+    <main ref={rootRef} role="main" className="p-8 max-w-5xl mx-auto">
       <header className="mb-6">
         <h1 className="text-h2 font-semibold text-fg-1">{t("search.title")}</h1>
         <p className="text-meta text-fg-2 mt-1">{t("search.subtitle")}</p>
@@ -304,31 +367,6 @@ export default function Search() {
             type="search"
             aria-label={t("search.title")}
             className="w-full pl-10 pr-input-x py-input-y rounded-pill border border-border-default bg-card text-caption text-fg-1 placeholder:text-fg-3 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
-          />
-        </div>
-
-        <div className="relative">
-          <select
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            aria-label={t("search.source_label")}
-            className="appearance-none pr-9 pl-input-x py-input-y rounded-pill border border-border-default bg-card text-caption text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
-          >
-            <option value={ALL_SOURCE.value}>{t(ALL_SOURCE.labelKey!)}</option>
-            {SOURCE_GROUPS.map((g) => (
-              <optgroup key={g.labelKey} label={t(g.labelKey)}>
-                {g.sources.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {s.labelKey ? t(s.labelKey) : s.label}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          <Icon
-            icon={ChevronDown}
-            size="sm"
-            className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-fg-2"
           />
         </div>
 

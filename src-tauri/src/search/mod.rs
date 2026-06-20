@@ -44,7 +44,7 @@ pub(crate) const CORE_API_KEY_REF: &str = "core_api_key";
 /// override can be wired through `AppConfig.crossref_mailto` once config
 /// persistence lands; until then this project contact keeps us in the
 /// polite pool for better rate limits.
-const CROSSREF_MAILTO: &str = "contact@sghub.app";
+pub(crate) const CROSSREF_MAILTO: &str = "contact@sghub.app";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Paper {
@@ -290,7 +290,7 @@ pub(crate) fn persist(pool: &crate::db::DbPool, papers: &[Paper]) -> rusqlite::R
 }
 
 /// Read the CORE API key off the keychain, best-effort (empty when absent).
-async fn read_core_key() -> String {
+pub(crate) async fn read_core_key() -> String {
     tokio::task::spawn_blocking(|| {
         crate::keychain::get_api_key(CORE_API_KEY_REF)
             .ok()
@@ -347,7 +347,7 @@ async fn doi_direct_lookup(doi: &str, core_key: &str) -> Vec<Paper> {
     out
 }
 
-async fn run_source<F, Fut>(name: &'static str, enabled: bool, fetcher: F) -> Vec<Paper>
+pub(crate) async fn run_source<F, Fut>(name: &'static str, enabled: bool, fetcher: F) -> Vec<Paper>
 where
     F: FnOnce() -> Fut,
     Fut: std::future::Future<Output = Result<Vec<Paper>, Box<dyn std::error::Error + Send + Sync>>>,
@@ -401,14 +401,25 @@ pub async fn search_papers(
     }
 
     // ── Normal multi-source search ───────────────────────────────────────
-    let want_arxiv = matches!(source.as_str(), "all" | "" | "arxiv");
-    let want_ss = matches!(source.as_str(), "all" | "" | "semantic_scholar");
-    let want_pubmed = matches!(source.as_str(), "all" | "" | "pubmed");
-    let want_openalex = matches!(source.as_str(), "all" | "" | "openalex");
-    let want_crossref = matches!(source.as_str(), "all" | "" | "crossref");
-    let want_core = matches!(source.as_str(), "all" | "" | "core");
-    let want_dblp = matches!(source.as_str(), "all" | "" | "dblp");
-    let want_doaj = matches!(source.as_str(), "all" | "" | "doaj");
+    // V2.2.6 — when querying "all" (the default; the Search page no longer
+    // exposes a per-source picker), honour the global enabled-sources toggle
+    // configured in Settings. An explicit single source still queries just
+    // that source.
+    let enabled = crate::config::sources::load_enabled(&app);
+    let want = |name: &str| -> bool {
+        match source.as_str() {
+            "all" | "" => crate::config::sources::is_enabled(&enabled, name),
+            other => other == name,
+        }
+    };
+    let want_arxiv = want("arxiv");
+    let want_ss = want("semantic_scholar");
+    let want_pubmed = want("pubmed");
+    let want_openalex = want("openalex");
+    let want_crossref = want("crossref");
+    let want_core = want("core");
+    let want_dblp = want("dblp");
+    let want_doaj = want("doaj");
     if want_core && !have_core_key {
         log::info!("core source requested but no API key configured — skipping");
     }
