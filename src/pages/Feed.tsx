@@ -23,6 +23,10 @@ import { Skeleton } from "../components/Skeleton";
 import { confirmAsync } from "../components/DialogProvider";
 import { useToast } from "../hooks/useToast";
 import { useT } from "../hooks/useT";
+import {
+  ALL_SOURCES as SOURCE_DEFS,
+  resolveEnabledSources,
+} from "../lib/sources";
 
 const SOURCE_BADGE: Record<string, string> = {
   arxiv: "bg-src-arxiv text-src-arxiv-fg",
@@ -31,13 +35,6 @@ const SOURCE_BADGE: Record<string, string> = {
   openalex: "bg-src-openalex text-src-openalex-fg",
   local: "bg-src-local text-src-local-fg",
 };
-
-const ALL_SOURCES = [
-  { value: "arxiv", label: "arXiv" },
-  { value: "semantic_scholar", label: "Semantic Scholar" },
-  { value: "pubmed", label: "PubMed" },
-  { value: "openalex", label: "OpenAlex" },
-];
 
 const FREQUENCIES = [
   { value: "daily", labelKey: "feed.form_freq_daily" },
@@ -66,29 +63,30 @@ function SubscriptionForm({
   const [form, setForm] = useState<SubscriptionInput>(initial);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-
-  const toggleSource = (src: string) => {
-    setForm((f) => ({
-      ...f,
-      sources: f.sources.includes(src)
-        ? f.sources.filter((s) => s !== src)
-        : [...f.sources, src],
-    }));
-  };
+  // V2.2.6 — subscriptions follow the GLOBAL enabled-sources toggle
+  // (Settings → 文献数据源管理); there is no per-subscription source picker,
+  // so Feed and Literature Search always query the same set.
+  const [enabledSources, setEnabledSources] = useState<string[]>([]);
+  useEffect(() => {
+    api
+      .getEnabledSources()
+      .then((s) => setEnabledSources(resolveEnabledSources(s)))
+      .catch(() => setEnabledSources(resolveEnabledSources([])));
+  }, []);
 
   const submit = async () => {
     if (!form.keyword_expr.trim()) {
       setErr(t("feed.form_validation_keyword_required"));
       return;
     }
-    if (form.sources.length === 0) {
-      setErr(t("feed.form_validation_source_required"));
-      return;
-    }
     setErr(null);
     setSaving(true);
     try {
-      await onSave({ ...form, keyword_expr: form.keyword_expr.trim() });
+      await onSave({
+        ...form,
+        keyword_expr: form.keyword_expr.trim(),
+        sources: enabledSources,
+      });
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -121,27 +119,13 @@ function SubscriptionForm({
         <div className="text-caption font-medium text-fg-1 mb-2">
           {t("feed.form_sources_label")}
         </div>
-        <div className="flex flex-wrap gap-2">
-          {ALL_SOURCES.map((s) => {
-            const checked = form.sources.includes(s.value);
-            return (
-              <button
-                key={s.value}
-                type="button"
-                role="checkbox"
-                aria-checked={checked}
-                onClick={() => toggleSource(s.value)}
-                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-pill border text-meta transition-colors duration-fast ease-khx ${
-                  checked
-                    ? "bg-indigo-soft border-indigo-muted text-indigo font-medium"
-                    : "bg-card border-border-default text-fg-2 hover:border-indigo-muted hover:text-fg-1"
-                }`}
-              >
-                {checked && <Icon icon={Check} size={12} />}
-                <span>{s.label}</span>
-              </button>
-            );
-          })}
+        <div className="flex items-start gap-2 flex-wrap rounded-card-sm bg-soft px-3 py-2 text-meta">
+          <span className="text-fg-2">{t("feed.sources_follow_settings")}</span>
+          <span className="text-fg-1">
+            {enabledSources
+              .map((v) => SOURCE_DEFS.find((s) => s.value === v)?.label ?? v)
+              .join(" · ")}
+          </span>
         </div>
       </div>
 

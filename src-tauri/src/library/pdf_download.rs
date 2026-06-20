@@ -370,3 +370,65 @@ pub async fn open_local_pdf(path: String) -> Result<(), String> {
         .await
         .map_err(|e| e.to_string())?
 }
+
+/// V2.2.6 — read a local PDF as base64 for the in-app pdf.js viewer.
+/// Returned as a base64 string (compact over IPC vs. a JSON number
+/// array). pdf.js decodes it to a `Uint8Array` and renders pages lazily.
+///
+/// `path` is a `papers.pdf_path` value, which may be relative (uploaded
+/// papers) or absolute (downloaded OA papers); both are resolved through
+/// the shared `resolve_pdf_path` helper.
+#[tauri::command]
+pub async fn read_pdf_bytes(app: tauri::AppHandle, path: String) -> Result<String, String> {
+    use base64::Engine;
+    let p = crate::config::paths::resolve_pdf_path(&app, &path);
+    if !p.exists() {
+        return Err(format!("文件不存在: {}", path));
+    }
+    tokio::task::spawn_blocking(move || {
+        let meta = std::fs::metadata(&p).map_err(|e| e.to_string())?;
+        const MAX_BYTES: u64 = 200 * 1024 * 1024; // 200MB hard cap
+        if meta.len() > MAX_BYTES {
+            return Err(format!(
+                "PDF 过大({} MB),暂不支持内置阅读",
+                meta.len() / 1024 / 1024
+            ));
+        }
+        let bytes = std::fs::read(&p).map_err(|e| e.to_string())?;
+        Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// V2.2.6 — open a local PDF through the OS "Open with" app picker so the
+/// user can choose WPS / Adobe / any installed application. `path` is a
+/// `papers.pdf_path` value (relative for uploaded papers, absolute for
+/// downloaded ones), resolved via the shared helper. On Windows this shows
+/// the native picker dialog; other platforms fall back to the default viewer.
+#[tauri::command]
+pub async fn open_pdf_with_app_picker(
+    app: tauri::AppHandle,
+    path: String,
+) -> Result<(), String> {
+    let p = crate::config::paths::resolve_pdf_path(&app, &path);
+    if !p.exists() {
+        return Err(format!("文件不存在: {}", path));
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let abs = p.to_string_lossy().into_owned();
+        std::process::Command::new("rundll32.exe")
+            .arg("shell32.dll,OpenAs_RunDLL")
+            .arg(&abs)
+            .spawn()
+            .map_err(|e| format!("无法打开「打开方式」对话框: {}", e))?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        tokio::task::spawn_blocking(move || opener::open(&p).map_err(|e| e.to_string()))
+            .await
+            .map_err(|e| e.to_string())?
+    }
+}

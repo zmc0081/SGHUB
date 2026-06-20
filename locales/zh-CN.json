@@ -76,6 +76,10 @@
     "sort_citation": "引用 (待支持)",
     "source_label": "数据源",
     "fulltext_pdf": "全文 PDF",
+    "open_with": "其它应用打开",
+    "open_with_browser": "默认浏览器打开",
+    "open_with_app": "用其它应用打开…",
+    "open_with_need_download": "请先下载 PDF,再用其它应用打开",
     "error_open_fulltext": "打开全文链接失败",
     "fallback_expanded": "已自动扩展检索源以获得更多结果"
   },
@@ -103,6 +107,7 @@
     "form_keyword_label": "关键词表达式",
     "form_keyword_placeholder": "如: \"LLM alignment\" OR \"RLHF\"",
     "form_sources_label": "数据源",
+    "sources_follow_settings": "跟随设置中的「文献数据源管理」:",
     "form_freq_label": "频率",
     "form_max_label": "每次最多",
     "form_freq_daily": "每天",
@@ -425,7 +430,10 @@
     "entry_sg_desc": "粘贴 API Key 即可使用。",
     "entry_sg_add_btn": "添加",
     "entry_buy_desc": "还没有 SG AI Store 配额?无需自己申请 API Key,购买即用。",
-    "entry_buy_btn": "前往 SG AI Store 购买"
+    "entry_buy_btn": "前往 SG AI Store 购买",
+    "store_section_title": "SG AI Store 商品",
+    "store_section_subtitle": "浏览可购买的模型套餐与配额,购买即用,无需自行申请 API Key。",
+    "store_section_empty": "暂无商品 —— 请点击「立即同步」获取最新套餐。"
   },
   "skill_gen": {
     "title": "用 AI 创建 Skill",
@@ -641,7 +649,42 @@
     "open_failed": "打开失败: {{detail}}",
     "download_cancelled": "已取消",
     "download_failed": "下载失败",
-    "cancel_title": "取消"
+    "cancel_title": "取消",
+    "translate": "翻译",
+    "translate_title": "翻译全文"
+  },
+  "pdf_viewer": {
+    "close": "关闭",
+    "outline": "目录",
+    "prev_page": "上一页",
+    "next_page": "下一页",
+    "page": "页码",
+    "zoom_in": "放大",
+    "zoom_out": "缩小",
+    "fit_width": "适应宽度",
+    "search": "页内搜索",
+    "search_placeholder": "在文档中搜索…",
+    "prev_match": "上一处",
+    "next_match": "下一处",
+    "loading": "正在加载 PDF…",
+    "load_failed": "PDF 加载失败:{{detail}}"
+  },
+  "translate": {
+    "title": "翻译",
+    "target_lang": "目标语言",
+    "toggle_mode": "切换显示模式",
+    "mode_replace": "整篇译文",
+    "mode_compare": "中外对照",
+    "retranslate": "重新翻译",
+    "copy": "复制译文",
+    "export": "导出译文",
+    "start": "开始翻译",
+    "retry": "重试",
+    "idle_hint": "使用已配置的默认模型翻译全文,保持结构与术语一致。",
+    "translating": "正在翻译…",
+    "copied": "译文已复制",
+    "copy_failed": "复制失败",
+    "exported": "译文已导出"
   },
   "favorite_button": {
     "favorited": "已收藏",
@@ -789,6 +832,23 @@
     "cancel": "取消",
     "switch_model": "换个模型",
     "top_up": "前往充值"
+  },
+  "privacy_consent": {
+    "title": "隐私协议",
+    "subtitle": "请阅读并同意以下隐私协议后,方可开始使用 SG Hub。",
+    "scroll_hint": "请向下滚动阅读至协议底部,「我已阅读并同意」按钮即可点击。",
+    "agree": "我已阅读并同意",
+    "exit": "退出",
+    "save_failed": "保存同意状态失败,本次仍可进入,下次启动会再次提示。"
+  },
+  "sources": {
+    "title": "文献数据源管理",
+    "subtitle": "在此统一配置检索与推送使用的数据源;启用的源将同时用于「文献检索」和「今日推送」。",
+    "loading": "加载中…",
+    "at_least_one": "请至少保留一个数据源",
+    "group_general": "通用",
+    "group_oa": "开放获取",
+    "group_cs": "计算机科学"
   },
   "onboarding": {
     "welcome_title": "欢迎使用 SG Hub",

@@ -13,6 +13,7 @@ pub mod scheduler;
 pub mod search;
 pub mod skill_engine;
 pub mod subscription;
+pub mod translate;
 pub mod updater;
 
 pub struct AppState {
@@ -112,6 +113,10 @@ pub fn run() {
             config::get_onboarding_status,
             config::complete_onboarding,
             config::onboarding_set_data_dir,
+            config::get_privacy_status,
+            config::set_privacy_agreed,
+            config::get_enabled_sources,
+            config::set_enabled_sources,
             updater::commands::get_updater_status,
             updater::commands::check_update_now,
             updater::commands::install_pending_update,
@@ -148,6 +153,8 @@ pub fn run() {
             library::pdf_download::download_paper_pdf,
             library::pdf_download::cancel_download,
             library::pdf_download::open_local_pdf,
+            library::pdf_download::read_pdf_bytes,
+            library::pdf_download::open_pdf_with_app_picker,
             library::uploader::upload_local_paper,
             library::uploader::upload_local_papers_batch,
             library::uploader::update_paper_metadata,
@@ -191,6 +198,7 @@ pub fn run() {
             ai_client::test_model_connection,
             ai_client::detect_ollama,
             ai_client::ai_chat_stream,
+            translate::translate_document,
             ai_client::usage::get_usage_stats_7days,
             ai_client::usage::get_usage_stats_n_days,
             ai_client::usage::rebuild_usage_stats,

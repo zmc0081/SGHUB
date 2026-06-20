@@ -28,7 +28,6 @@ import {
 import ProviderAnthropic from "../assets/icons/provider-anthropic.svg?react";
 import ProviderOpenAI from "../assets/icons/provider-openai.svg?react";
 import ProviderOllama from "../assets/icons/provider-ollama.svg?react";
-import EmptyModelsArt from "../assets/illustrations/empty-models.svg?react";
 import {
   api,
   type ModelConfig,
@@ -43,7 +42,7 @@ import { useToast } from "../hooks/useToast";
 import { confirmAsync } from "../components/DialogProvider";
 import { Icon } from "../components/Icon";
 import { Skeleton } from "../components/Skeleton";
-import { Stage } from "../components/Stage";
+import { AiStoreProducts } from "../components/AiStoreProducts";
 
 const PROVIDER_LABEL_KEY: Record<string, string> = {
   anthropic: "models.provider_label_anthropic",
@@ -1262,22 +1261,9 @@ export default function Models() {
             />
           )}
 
-          {models.length === 0 && !showAddForm && (
-            <Stage
-              intensity="soft"
-              className="rounded-card p-10 text-center"
-            >
-              <EmptyModelsArt
-                width={160}
-                height={120}
-                aria-hidden="true"
-                className="mx-auto text-indigo opacity-80"
-              />
-              <p className="text-caption text-fg-2 mt-4">
-                {t("models.empty_state_hint")}
-              </p>
-            </Stage>
-          )}
+          {/* V2.2.6 — SG AI Store product listing, directly below the
+              purchase-guidance button. Replaces the removed /store page. */}
+          {!showAddForm && <AiStoreProducts />}
 
           {models.map((m) => (
             <ModelRow

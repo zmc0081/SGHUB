@@ -98,10 +98,11 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "app"
-version = "2.2.5"
+version = "2.2.6"
 dependencies = [
  "async-stream",
  "async-trait",
+ "base64 0.21.7",
  "bytes",
  "chrono",
  "dirs 5.0.1",

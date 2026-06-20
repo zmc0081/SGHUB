@@ -60,6 +60,17 @@ function readCargoLockAppVersion(relPath) {
   throw new Error(`${relPath}: no [[package]] entry for name = "app"`);
 }
 
+/** Pull a version like `2.2.6` from a markdown file via a labelled regex.
+ *  Used for the privacy policy headers (zh/en) and CLAUDE.md, which must all
+ *  match the app version (the policy header is a release-gate per CLAUDE.md). */
+function readMarkdownVersion(relPath, regex, label) {
+  const abs = path.join(ROOT, relPath);
+  const text = fs.readFileSync(abs, "utf8");
+  const m = text.match(regex);
+  if (!m) throw new Error(`${relPath}: no version matched (${label})`);
+  return m[1].trim();
+}
+
 const checks = [
   { label: "package.json", read: () => readJsonVersion("package.json") },
   {
@@ -73,6 +84,30 @@ const checks = [
   {
     label: "src-tauri/Cargo.lock (app)",
     read: () => readCargoLockAppVersion("src-tauri/Cargo.lock"),
+  },
+  {
+    // Privacy policy header — MUST match the app version (CLAUDE.md release gate).
+    label: "privacy zh-CN.md",
+    read: () =>
+      readMarkdownVersion(
+        "src/assets/privacy/zh-CN.md",
+        /\*\*协议版本\*\*[：:]\s*v?(\d+\.\d+\.\d+)/i,
+        "协议版本",
+      ),
+  },
+  {
+    label: "privacy en-US.md",
+    read: () =>
+      readMarkdownVersion(
+        "src/assets/privacy/en-US.md",
+        /\*\*Version\*\*:\s*v?(\d+\.\d+\.\d+)/i,
+        "Version",
+      ),
+  },
+  {
+    label: "CLAUDE.md",
+    read: () =>
+      readMarkdownVersion("CLAUDE.md", /当前版本[：:]\s*V?(\d+\.\d+\.\d+)/i, "当前版本"),
   },
 ];
 

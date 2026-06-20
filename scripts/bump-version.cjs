@@ -76,6 +76,30 @@ patch(
   false,
 );
 
+// Privacy policy headers (zh + en) — the policy version MUST equal the app
+// version (CLAUDE.md release gate). Also refresh the effective date to today.
+const today = new Date().toISOString().slice(0, 10);
+patch(
+  "src/assets/privacy/zh-CN.md",
+  /(\*\*协议版本\*\*[：:]\s*v?)\d+\.\d+\.\d+/i,
+  (_m, a) => `${a}${next}`,
+);
+patch(
+  "src/assets/privacy/zh-CN.md",
+  /(\*\*生效日期\*\*[：:]\s*)\d{4}-\d{2}-\d{2}/i,
+  (_m, a) => `${a}${today}`,
+);
+patch(
+  "src/assets/privacy/en-US.md",
+  /(\*\*Version\*\*:\s*v?)\d+\.\d+\.\d+/i,
+  (_m, a) => `${a}${next}`,
+);
+patch(
+  "src/assets/privacy/en-US.md",
+  /(\*\*Effective\*\*:\s*)\d{4}-\d{2}-\d{2}/i,
+  (_m, a) => `${a}${today}`,
+);
+
 console.log(`✓ Bumped all version fields to ${next}`);
 console.log("Next:");
 console.log("  1. node scripts/check-version.cjs  # confirm alignment");
