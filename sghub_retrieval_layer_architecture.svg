@@ -1,0 +1,77 @@
+<svg viewBox="0 0 840 624" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, system-ui, -apple-system, Helvetica, Arial, sans-serif">
+  <rect x="0" y="0" width="840" height="624" rx="16" fill="#ffffff"/>
+
+  <!-- User Query -->
+  <rect x="320" y="20" width="200" height="42" rx="21" fill="#1e293b"/>
+  <text x="420" y="46" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="600">User Query</text>
+
+  <!-- arrow 1 -->
+  <line x1="420" y1="62" x2="420" y2="78" stroke="#94a3b8" stroke-width="2"/>
+  <polygon points="414,78 426,78 420,86" fill="#94a3b8"/>
+
+  <!-- (1) Multi-source Ingestion -->
+  <rect x="70" y="86" width="700" height="150" rx="14" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="88" y="114" fill="#312e81" font-size="15" font-weight="700">① Multi-source Ingestion</text>
+
+  <!-- source chips row 1 -->
+  <g font-size="12.5" font-weight="600" fill="#3730a3" text-anchor="middle">
+    <rect x="86"  y="128" width="160" height="28" rx="14" fill="#e0e7ff" stroke="#c7d2fe"/>
+    <text x="166" y="146">arXiv</text>
+    <rect x="258" y="128" width="160" height="28" rx="14" fill="#e0e7ff" stroke="#c7d2fe"/>
+    <text x="338" y="146">PubMed</text>
+    <rect x="430" y="128" width="160" height="28" rx="14" fill="#e0e7ff" stroke="#c7d2fe"/>
+    <text x="510" y="146">Semantic Scholar</text>
+    <rect x="602" y="128" width="160" height="28" rx="14" fill="#e0e7ff" stroke="#c7d2fe"/>
+    <text x="682" y="146">OpenAlex</text>
+    <!-- row 2 -->
+    <rect x="86"  y="164" width="160" height="28" rx="14" fill="#e0e7ff" stroke="#c7d2fe"/>
+    <text x="166" y="182">Crossref</text>
+    <rect x="258" y="164" width="160" height="28" rx="14" fill="#e0e7ff" stroke="#c7d2fe"/>
+    <text x="338" y="182">CORE</text>
+    <rect x="430" y="164" width="160" height="28" rx="14" fill="#e0e7ff" stroke="#c7d2fe"/>
+    <text x="510" y="182">DBLP</text>
+    <rect x="602" y="164" width="160" height="28" rx="14" fill="#e0e7ff" stroke="#c7d2fe"/>
+    <text x="682" y="182">DOAJ</text>
+  </g>
+  <text x="88" y="220" fill="#475569" font-size="12">parallel adapters · field normalization · rate-limit &amp; retry (+ planned Unpaywall)</text>
+
+  <!-- arrow 2 -->
+  <line x1="420" y1="236" x2="420" y2="250" stroke="#94a3b8" stroke-width="2"/>
+  <polygon points="414,250 426,250 420,258" fill="#94a3b8"/>
+
+  <!-- (2) Dedup & Merge -->
+  <rect x="120" y="258" width="600" height="72" rx="12" fill="#eef2ff" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="140" y="286" fill="#312e81" font-size="15" font-weight="700">② Dedup &amp; Merge</text>
+  <text x="140" y="312" fill="#475569" font-size="12">exact DOI match · fuzzy title/author · version clustering · best-field merge</text>
+
+  <!-- arrow 3 -->
+  <line x1="420" y1="330" x2="420" y2="344" stroke="#94a3b8" stroke-width="2"/>
+  <polygon points="414,344 426,344 420,352" fill="#94a3b8"/>
+
+  <!-- (3) Citation Enrichment (planned) -->
+  <rect x="120" y="352" width="600" height="72" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="140" y="380" fill="#475569" font-size="15" font-weight="700">③ Citation Enrichment</text>
+  <rect x="626" y="362" width="74" height="22" rx="11" fill="#e2e8f0"/>
+  <text x="663" y="377" text-anchor="middle" fill="#64748b" font-size="11" font-weight="600">Planned</text>
+  <text x="140" y="406" fill="#64748b" font-size="12">citation graph · citation counts · bidirectional links · related-paper recommendation</text>
+
+  <!-- arrow 4 -->
+  <line x1="420" y1="424" x2="420" y2="438" stroke="#94a3b8" stroke-width="2"/>
+  <polygon points="414,438 426,438 420,446" fill="#94a3b8"/>
+
+  <!-- (4) Semantic Search (planned) -->
+  <rect x="120" y="446" width="600" height="72" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="140" y="474" fill="#475569" font-size="15" font-weight="700">④ Semantic Search</text>
+  <rect x="626" y="456" width="74" height="22" rx="11" fill="#e2e8f0"/>
+  <text x="663" y="471" text-anchor="middle" fill="#64748b" font-size="11" font-weight="600">Planned</text>
+  <text x="140" y="500" fill="#64748b" font-size="12">embeddings · vector store · hybrid retrieval (BM25 + vector) · reranking</text>
+
+  <!-- arrow 5 -->
+  <line x1="420" y1="518" x2="420" y2="532" stroke="#94a3b8" stroke-width="2"/>
+  <polygon points="414,532 426,532 420,540" fill="#94a3b8"/>
+
+  <!-- Application Output -->
+  <rect x="170" y="540" width="500" height="64" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="1.5"/>
+  <text x="420" y="568" text-anchor="middle" fill="#065f46" font-size="15" font-weight="700">Application Output</text>
+  <text x="420" y="592" text-anchor="middle" fill="#047857" font-size="12">ranked results · AI summary / Q&amp;A · library management</text>
+</svg>
