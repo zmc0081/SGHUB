@@ -56,6 +56,7 @@ fn one_user(msg: &str) -> Vec<Message> {
     vec![Message {
         role: "user".into(),
         content: msg.into(),
+        images: Vec::new(),
     }]
 }
 

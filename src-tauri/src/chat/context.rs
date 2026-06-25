@@ -10,20 +10,25 @@
 //! messages until under (model.max_tokens * 0.8). Attachments inside the
 //! current input are NEVER dropped — only history messages.
 
-use crate::ai_client::{estimate_tokens, Message};
+use crate::ai_client::{estimate_tokens, ImageData, Message};
 use crate::skill_engine::find_skill;
 
-use super::attachment::{db_get_attachments, ChatAttachment};
+use super::attachment::ChatAttachment;
 use super::message::db_list_messages;
 
-/// Build the LLM-bound message list for this turn.
-pub(crate) fn build_messages_for_api(
+/// Build the LLM-bound message list from the session's persisted history.
+///
+/// The caller persists the user message (and links its attachments) BEFORE
+/// calling this, so the latest user turn is already in `history`. Each user
+/// message's attachment text is composed inline here, so the document context
+/// travels with the turn — including on regenerate / edit-and-resend, which
+/// reuse this same builder. (V2.2.7 — replaces the old `build_messages_for_api`
+/// which appended the current input a second time, duplicating the typed text.)
+pub(crate) fn build_messages_from_history(
     app: &tauri::AppHandle,
     pool: &crate::db::DbPool,
     session_id: &str,
     skill_name: Option<&str>,
-    current_input: &str,
-    attachment_ids: &[String],
     max_tokens: i64,
 ) -> Result<(Vec<Message>, i64), String> {
     let mut messages: Vec<Message> = Vec::new();
@@ -38,28 +43,35 @@ pub(crate) fn build_messages_for_api(
             messages.push(Message {
                 role: "system".into(),
                 content: cleaned,
+                images: Vec::new(),
             });
         }
     }
 
-    // 2. Past messages (ASC)
+    // 2. History (ASC); `db_list_messages` hydrates each message's attachments,
+    //    so we can inline a user message's attachment text into its content.
     let history = db_list_messages(pool, session_id, 500, None).map_err(|e| e.to_string())?;
     for m in history {
+        // Image attachments on a user turn become inline vision images; text
+        // attachments are composed into the message content (above).
+        let images = if m.role == "user" {
+            collect_images(&m.attachments)
+        } else {
+            Vec::new()
+        };
+        let content = if m.role == "user" && !m.attachments.is_empty() {
+            compose_user_input(&m.content, &m.attachments)
+        } else {
+            m.content
+        };
         messages.push(Message {
             role: m.role,
-            content: m.content,
+            content,
+            images,
         });
     }
 
-    // 3. Current input + attachments
-    let attachments = db_get_attachments(pool, attachment_ids).map_err(|e| e.to_string())?;
-    let composed_input = compose_user_input(current_input, &attachments);
-    messages.push(Message {
-        role: "user".into(),
-        content: composed_input,
-    });
-
-    // 4. Token budget — drop oldest non-system messages (skip 1st system + last user)
+    // 3. Token budget — drop oldest non-system messages (skip 1st system + last)
     let budget = (max_tokens as f64 * 0.8) as i64;
     let mut total: i64 = messages.iter().map(|m| estimate_tokens(&m.content)).sum();
     while total > budget {
@@ -86,6 +98,35 @@ pub(crate) fn build_messages_for_api(
     }
 
     Ok((messages, total))
+}
+
+/// Read image attachments off disk and base64-encode them for a vision turn.
+/// Best-effort: unreadable images are skipped (the text content still sends).
+fn collect_images(attachments: &[ChatAttachment]) -> Vec<ImageData> {
+    use base64::Engine;
+    let mut out = Vec::new();
+    for att in attachments {
+        if att.kind != "image" {
+            continue;
+        }
+        let Some(path) = &att.file_path else { continue };
+        let Ok(bytes) = std::fs::read(path) else { continue };
+        out.push(ImageData {
+            media_type: media_type_for(&att.file_name),
+            base64: base64::engine::general_purpose::STANDARD.encode(&bytes),
+        });
+    }
+    out
+}
+
+fn media_type_for(name: &str) -> String {
+    match name.rsplit('.').next().unwrap_or("").to_lowercase().as_str() {
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        _ => "image/png",
+    }
+    .to_string()
 }
 
 fn compose_user_input(text: &str, attachments: &[ChatAttachment]) -> String {

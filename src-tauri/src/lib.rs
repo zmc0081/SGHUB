@@ -213,6 +213,9 @@ pub fn run() {
             chat::upload_chat_attachment,
             chat::reference_paper_as_attachment,
             chat::send_chat_message,
+            chat::cancel_chat_stream,
+            chat::regenerate_message,
+            chat::edit_and_resend,
             // V2.2.1 Session 28 — AI Store (use full path: tauri::command
             // macros expose a hidden __cmd__ companion at the function's
             // original module path, which a `pub use` re-export doesn't

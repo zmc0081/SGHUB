@@ -26,6 +26,11 @@ interface ChatState {
   // Errors
   lastError: string | null;
 
+  // V2.2.7 — last replaced assistant content, keyed by session_id, so the
+  // freshest assistant reply can offer "view previous version" after a
+  // regenerate. In-memory only (cleared on reload / session switch).
+  previousVersions: Record<string, string>;
+
   // Actions
   loadSessions: () => Promise<void>;
   selectSession: (id: string | null) => Promise<void>;
@@ -47,6 +52,12 @@ interface ChatState {
   deleteSession: (id: string) => Promise<void>;
   renameSession: (id: string, title: string) => Promise<void>;
   pinSession: (id: string, pinned: boolean) => Promise<void>;
+  /** Stop the in-flight assistant stream (keeps generated content). */
+  stopStreaming: () => Promise<void>;
+  /** Regenerate an assistant reply; pass modelId to use a different model. */
+  regenerateMessage: (assistantId: string, modelId?: string | null) => Promise<void>;
+  /** Edit a user message and resend, truncating everything after it. */
+  editAndResend: (userId: string, content: string, modelId?: string | null) => Promise<void>;
   setError: (e: string | null) => void;
 }
 
@@ -61,6 +72,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingMessageId: null,
   streamingSessionId: null,
   lastError: null,
+  previousVersions: {},
 
   loadSessions: async () => {
     try {
@@ -211,6 +223,91 @@ export const useChatStore = create<ChatState>((set, get) => ({
       get().loadSessions();
     } catch (e) {
       set({ lastError: String(e) });
+    }
+  },
+
+  stopStreaming: async () => {
+    const mid = get().streamingMessageId;
+    if (!mid) return;
+    try {
+      await api.cancelChatStream(mid);
+    } catch (e) {
+      // best-effort; the backend may have already finished
+      console.warn("cancelChatStream failed", e);
+    }
+  },
+
+  regenerateMessage: async (assistantId, modelId) => {
+    const s = get();
+    const sid = s.currentSessionId;
+    if (!sid || s.streamingMessageId) return;
+    const list = s.messages[sid] ?? [];
+    const idx = list.findIndex((m) => m.id === assistantId);
+    const old = idx >= 0 ? list[idx] : null;
+    set((st) => ({
+      lastError: null,
+      // Remember the replaced reply so the UI can show "previous version".
+      previousVersions: old
+        ? { ...st.previousVersions, [sid]: old.content }
+        : st.previousVersions,
+      // Optimistically drop the old assistant reply (+ anything after) so the
+      // streaming placeholder appends cleanly; reconciled from DB on finish.
+      messages:
+        idx >= 0
+          ? { ...st.messages, [sid]: list.slice(0, idx) }
+          : st.messages,
+    }));
+    try {
+      const result = await api.regenerateMessage({
+        sessionId: sid,
+        assistantMessageId: assistantId,
+        modelConfigId: modelId ?? s.currentModel,
+      });
+      const detail = await api.getSessionDetail(result.session_id);
+      if (detail) {
+        set((st) => ({
+          messages: { ...st.messages, [result.session_id]: detail.messages },
+        }));
+      }
+    } catch (e) {
+      set({ lastError: String(e), streamingMessageId: null });
+    }
+  },
+
+  editAndResend: async (userId, content, modelId) => {
+    const s = get();
+    const sid = s.currentSessionId;
+    if (!sid || s.streamingMessageId) return;
+    const list = s.messages[sid] ?? [];
+    const idx = list.findIndex((m) => m.id === userId);
+    set((st) => ({
+      lastError: null,
+      // Optimistically apply the edit + truncate everything after this user msg.
+      messages:
+        idx >= 0
+          ? {
+              ...st.messages,
+              [sid]: list
+                .slice(0, idx + 1)
+                .map((m) => (m.id === userId ? { ...m, content } : m)),
+            }
+          : st.messages,
+    }));
+    try {
+      const result = await api.editAndResend({
+        sessionId: sid,
+        userMessageId: userId,
+        newContent: content,
+        modelConfigId: modelId ?? s.currentModel,
+      });
+      const detail = await api.getSessionDetail(result.session_id);
+      if (detail) {
+        set((st) => ({
+          messages: { ...st.messages, [result.session_id]: detail.messages },
+        }));
+      }
+    } catch (e) {
+      set({ lastError: String(e), streamingMessageId: null });
     }
   },
 

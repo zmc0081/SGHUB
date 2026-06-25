@@ -247,10 +247,12 @@ pub async fn translate_document(
             Message {
                 role: "system".into(),
                 content: system.clone(),
+                images: Vec::new(),
             },
             Message {
                 role: "user".into(),
                 content: user.clone(),
+                images: Vec::new(),
             },
         ];
         total_in += estimate_tokens(&system) + estimate_tokens(&user);

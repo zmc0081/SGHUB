@@ -3,7 +3,7 @@
 > 本文件是 Claude Code 的项目上下文,每次会话自动加载。
 > 详细设计见 /docs 目录下的 PRD、架构方案与实施方案。
 > 项目路径: D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub
-> 当前版本: V2.2.6
+> 当前版本: V2.2.7
 
 ## 产品定位
 
@@ -12,7 +12,7 @@
 2. 关键词订阅 + 定时本地推送(系统托盘通知)
 3. 文献数据库(多级文件夹 + 标签 + 智能文件夹 + 本地 PDF 上传与集中管理)
 4. AI 文献解析(多 Skill 结构化精读,流式输出)
-5. Chat 自由对话(多模型切换 + 附件 / Skill / 文献引用)
+5. Chat 自由对话(参考 Claude 网页:输入框模型版本下拉 + 附件 + Skill + 复制/重新生成/编辑后重发)
 6. BYOK 多模型配置中心(Claude / GPT / DeepSeek / Ollama 本地)
 7. AI Store(对接独立的 SG AI Store 中转服务,购买即用的大模型配额)
 
@@ -242,6 +242,44 @@ eslint src --max-warnings 0                              → clean
 - 折叠状态持久化到 config.toml,重启恢复
 - 底部固定版权信息:`Copyright © Star Technology. All Rights Reserved`(折叠态简化为 `© Star Technology`)
 - 所有导航图标用 Lucide,不用 emoji
+
+## Chat 模块(V2.2.7 增强,参考 Claude 网页)
+
+Chat 在 V2.0.1 Session 16 已建基础版(对话 + 流式),V2.2.7 对标 Claude 网页全面增强交互与功能,
+复用现有 chat 后端 / ai_client / skill_engine / PDF 提取,不重写底层。
+
+布局:左侧会话列表(新建/切换/重命名/删除,底部版权)+ 对话主区(消息流 + 底部输入框)。
+模型选择放输入框内(不设右侧面板),贴近 Claude 网页风格。
+
+输入框(底部工具条):
+- 左:[附件] [Skill] [模型版本下拉]
+- 右:[发送 / 停止]
+- 输入框上方:附件缩略片 + 已选 Skill 标签(均可删除)
+- 多行自适应,Enter 发送 / Shift+Enter 换行(设置可切换)
+
+模型/版本下拉(输入框内):
+- 列出"模型配置"已配置模型,按 provider 分组(Claude / GPT / DeepSeek / Ollama / SG AI Store)
+- 二级选具体模型版本(model_id);SG AI Store 显示余额徽章
+- 切换即时生效,记录到 chat 会话(切会话恢复其模型)
+
+消息操作:
+- 复制:每条消息悬浮复制(纯文本/Markdown);代码块单独复制
+- 重新生成:AI 回复下方,用相同上文重新请求,支持换模型重新生成,保留最近一版
+- 编辑后重发:用户消息可编辑,重发会截断该消息之后的对话并重新生成(confirmAsync 确认)
+
+附件:
+- PDF(复用 PDF 文本提取注入上下文)/ 文本(.txt/.md)/ 图片(.png/.jpg 走多模态 base64)
+- 图片需模型支持多模态,不支持时禁用或提示
+- 大文件做截断/分块避免超上下文
+- chat 消息结构支持 attachments;多模态消息按各 provider 格式组装
+
+Skill 调用:
+- 输入 "/" 唤起 Skill 选择(模糊搜索)或 [Skill] 按钮
+- 本轮以 Skill 的 prompt 模板处理(复用 skill_engine)
+- 可与附件组合(如用某 Skill 解读上传的 PDF)
+
+> 详细布局线框与元素规格见 SESSION_TASKS.md 的 Session 40(界面规格)。
+> 遵守 7 条硬规则:Lucide 图标 / token 颜色 / 无 emoji / confirmAsync/useToast / 双主题 / 不改基础设施。
 
 ## 文献数据库本地 PDF 管理(V2.2.2)
 

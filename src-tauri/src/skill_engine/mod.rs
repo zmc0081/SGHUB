@@ -278,6 +278,7 @@ pub async fn start_parse(
     let messages = vec![Message {
         role: "user".into(),
         content: prompt,
+        images: Vec::new(),
     }];
 
     // 3. Look up model config + key
