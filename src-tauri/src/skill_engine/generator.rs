@@ -185,6 +185,7 @@ async fn run_chat(
     let messages = vec![Message {
         role: "user".into(),
         content: prompt,
+        images: Vec::new(),
     }];
     let mut stream = provider
         .chat_stream(messages, &config)

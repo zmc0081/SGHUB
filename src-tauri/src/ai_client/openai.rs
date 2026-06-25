@@ -33,9 +33,31 @@ impl AiProvider for OpenAiCompatible {
         config: &ModelConfig,
     ) -> Result<TokenStream, AiError> {
         let url = format!("{}/chat/completions", config.endpoint.trim_end_matches('/'));
+        // V2.2.7 — build messages manually so vision turns can carry images
+        // as OpenAI's `content` parts array (text-only stays a plain string).
+        let api_messages: Vec<serde_json::Value> = messages
+            .iter()
+            .map(|m| {
+                if m.images.is_empty() {
+                    serde_json::json!({ "role": m.role, "content": m.content })
+                } else {
+                    let mut parts =
+                        vec![serde_json::json!({ "type": "text", "text": m.content })];
+                    for img in &m.images {
+                        parts.push(serde_json::json!({
+                            "type": "image_url",
+                            "image_url": {
+                                "url": format!("data:{};base64,{}", img.media_type, img.base64)
+                            },
+                        }));
+                    }
+                    serde_json::json!({ "role": m.role, "content": parts })
+                }
+            })
+            .collect();
         let body = serde_json::json!({
             "model": config.model_id,
-            "messages": messages,
+            "messages": api_messages,
             "stream": true,
             "max_tokens": config.max_tokens,
         });
@@ -301,6 +323,7 @@ mod tests {
                 vec![Message {
                     role: "user".into(),
                     content: "Hi".into(),
+                    images: Vec::new(),
                 }],
                 &cfg(&server.url()),
             )

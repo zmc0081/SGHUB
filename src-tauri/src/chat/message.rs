@@ -177,6 +177,46 @@ pub(crate) fn db_update_message_content(
     )
 }
 
+/// Overwrite a user message's content (edit-and-resend). No-op for non-user rows.
+pub(crate) fn db_update_user_content(
+    pool: &crate::db::DbPool,
+    message_id: &str,
+    content: &str,
+) -> rusqlite::Result<usize> {
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    conn.execute(
+        "UPDATE chat_messages SET content = ?1 WHERE id = ?2 AND role = 'user'",
+        params![content, message_id],
+    )
+}
+
+/// Delete messages after `message_id` within a session. UUID v7 ids are
+/// monotonic, so lexical id order equals chronological order — comparing ids
+/// is safe even when several messages share a second-precision `created_at`.
+/// `inclusive` also deletes `message_id` itself (used to drop an assistant
+/// reply before regenerating); exclusive keeps it (used after editing a user
+/// message). Returns the number of rows removed.
+pub(crate) fn db_delete_messages_after(
+    pool: &crate::db::DbPool,
+    session_id: &str,
+    message_id: &str,
+    inclusive: bool,
+) -> rusqlite::Result<usize> {
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let op = if inclusive { ">=" } else { ">" };
+    conn.execute(
+        &format!(
+            "DELETE FROM chat_messages WHERE session_id = ?1 AND id {} ?2",
+            op
+        ),
+        params![session_id, message_id],
+    )
+}
+
 // ============================================================
 // Tauri commands
 // ============================================================
@@ -248,5 +288,48 @@ mod tests {
         crate::chat::session::db_delete_session(&pool, &sid).unwrap();
         let msgs = db_list_messages(&pool, &sid, 10, None).unwrap();
         assert_eq!(msgs.len(), 0);
+    }
+
+    #[test]
+    fn delete_messages_after_exclusive_keeps_anchor() {
+        let (_t, pool, sid) = fresh();
+        let m1 = db_append_message(&pool, &sid, "user", "q1", None, 0, 0, None).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        db_append_message(&pool, &sid, "assistant", "a1", None, 0, 0, None).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        db_append_message(&pool, &sid, "user", "q2", None, 0, 0, None).unwrap();
+        // exclusive after m1 → drop the 2 messages after it, keep m1
+        let n = db_delete_messages_after(&pool, &sid, &m1.id, false).unwrap();
+        assert_eq!(n, 2);
+        let msgs = db_list_messages(&pool, &sid, 10, None).unwrap();
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].id, m1.id);
+    }
+
+    #[test]
+    fn delete_messages_after_inclusive_removes_anchor() {
+        let (_t, pool, sid) = fresh();
+        let m1 = db_append_message(&pool, &sid, "user", "q1", None, 0, 0, None).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        let m2 = db_append_message(&pool, &sid, "assistant", "a1", None, 0, 0, None).unwrap();
+        // inclusive from m2 → drop m2 (and anything after), keep m1
+        let n = db_delete_messages_after(&pool, &sid, &m2.id, true).unwrap();
+        assert_eq!(n, 1);
+        let msgs = db_list_messages(&pool, &sid, 10, None).unwrap();
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].id, m1.id);
+    }
+
+    #[test]
+    fn update_user_content_ignores_non_user() {
+        let (_t, pool, sid) = fresh();
+        let u = db_append_message(&pool, &sid, "user", "old", None, 0, 0, None).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        let a = db_append_message(&pool, &sid, "assistant", "reply", None, 0, 0, None).unwrap();
+        db_update_user_content(&pool, &u.id, "new").unwrap();
+        db_update_user_content(&pool, &a.id, "hacked").unwrap(); // no-op on assistant
+        let msgs = db_list_messages(&pool, &sid, 10, None).unwrap();
+        assert_eq!(msgs[0].content, "new");
+        assert_eq!(msgs[1].content, "reply");
     }
 }

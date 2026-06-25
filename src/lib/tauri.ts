@@ -875,6 +875,37 @@ export const api = {
   sendChatMessage: (input: ChatStreamInput) =>
     invoke<ChatStreamResult>("send_chat_message", { input }),
 
+  /** V2.2.7 — stop an in-flight assistant stream (keeps generated content). */
+  cancelChatStream: (messageId: string) =>
+    invoke<void>("cancel_chat_stream", { messageId }),
+
+  /** V2.2.7 — regenerate an assistant reply (drop it + after, re-run the turn).
+   *  Pass modelConfigId to regenerate with a different model. */
+  regenerateMessage: (args: {
+    sessionId: string;
+    assistantMessageId: string;
+    modelConfigId?: string | null;
+  }) =>
+    invoke<ChatStreamResult>("regenerate_message", {
+      sessionId: args.sessionId,
+      assistantMessageId: args.assistantMessageId,
+      modelConfigId: args.modelConfigId ?? null,
+    }),
+
+  /** V2.2.7 — edit a user message and resend (truncate everything after it). */
+  editAndResend: (args: {
+    sessionId: string;
+    userMessageId: string;
+    newContent: string;
+    modelConfigId?: string | null;
+  }) =>
+    invoke<ChatStreamResult>("edit_and_resend", {
+      sessionId: args.sessionId,
+      userMessageId: args.userMessageId,
+      newContent: args.newContent,
+      modelConfigId: args.modelConfigId ?? null,
+    }),
+
   // ============================================================
   // Library helpers — favorites + external URL + PDF download
   // ============================================================

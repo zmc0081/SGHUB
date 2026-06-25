@@ -1,6 +1,6 @@
 # SG Hub Privacy Policy
 
-**Version**: v2.2.6 · **Effective**: 2026-06-20
+**Version**: v2.2.7 · **Effective**: 2026-06-25
 
 SG Hub is an open-source (MIT) desktop literature manager that runs entirely on your computer. This document describes how SG Hub handles your data.
 
@@ -52,6 +52,7 @@ When you configure Anthropic / OpenAI / DeepSeek / Ollama / any OpenAI-compatibl
 - Requests go **directly** (HTTPS) from your computer to the `endpoint` you configured
 - **Nothing passes through any SG Hub server**
 - The request body contains: the paper title / abstract / full PDF text you selected, your Skill-rendered prompt, and model parameters
+- Chat attachments are included by type: text / PDF are extracted to text and added to the context; images are sent as multimodal (base64) to vision-capable models
 - Responses stream back to your computer and render token-by-token
 
 The full destination URL is visible in **Settings → Models** under each model card's `endpoint` field.

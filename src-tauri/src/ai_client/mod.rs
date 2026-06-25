@@ -72,10 +72,25 @@ pub struct TestResult {
 // Streaming chat — trait + types + errors
 // ============================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// V2.2.7 — one inline image for a multimodal (vision) turn.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ImageData {
+    /// e.g. "image/png", "image/jpeg"
+    pub media_type: String,
+    /// raw base64 (no `data:` prefix)
+    pub base64: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Message {
     pub role: String, // "system" | "user" | "assistant"
     pub content: String,
+    /// V2.2.7 — images attached to this turn (user, vision models). Empty for
+    /// text turns. `skip`ped from serde — each provider serialises images into
+    /// its own request shape (OpenAI image_url / Anthropic image block / Ollama
+    /// images[]), so a plain `Vec<Message>` still encodes as `{role,content}`.
+    #[serde(default, skip)]
+    pub images: Vec<ImageData>,
 }
 
 #[derive(Debug, Clone, Serialize)]

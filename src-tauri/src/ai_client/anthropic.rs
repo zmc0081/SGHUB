@@ -46,11 +46,38 @@ impl AiProvider for AnthropicProvider {
             .collect::<Vec<_>>()
             .join("\n\n");
 
+        // V2.2.7 — build messages manually so vision turns carry images as
+        // Anthropic image blocks (text-only stays a plain string content).
+        let api_messages: Vec<serde_json::Value> = msgs
+            .iter()
+            .map(|m| {
+                if m.images.is_empty() {
+                    serde_json::json!({ "role": m.role, "content": m.content })
+                } else {
+                    let mut blocks: Vec<serde_json::Value> = m
+                        .images
+                        .iter()
+                        .map(|img| {
+                            serde_json::json!({
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": img.media_type,
+                                    "data": img.base64,
+                                },
+                            })
+                        })
+                        .collect();
+                    blocks.push(serde_json::json!({ "type": "text", "text": m.content }));
+                    serde_json::json!({ "role": m.role, "content": blocks })
+                }
+            })
+            .collect();
         let mut body = serde_json::json!({
             "model": config.model_id,
             "max_tokens": config.max_tokens,
             "stream": true,
-            "messages": msgs,
+            "messages": api_messages,
         });
         if !system_str.is_empty() {
             body["system"] = serde_json::Value::String(system_str);
@@ -277,6 +304,7 @@ mod tests {
                 vec![Message {
                     role: "user".into(),
                     content: "Hi".into(),
+                    images: Vec::new(),
                 }],
                 &cfg(&server.url()),
             )
@@ -331,10 +359,12 @@ mod tests {
                     Message {
                         role: "system".into(),
                         content: "You are helpful.".into(),
+                        images: Vec::new(),
                     },
                     Message {
                         role: "user".into(),
                         content: "Hi".into(),
+                        images: Vec::new(),
                     },
                 ],
                 &cfg(&server.url()),

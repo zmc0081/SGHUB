@@ -26,6 +26,9 @@ export default function Chat() {
     loadSessions,
     appendStreamToken,
     finalizeStream,
+    regenerateMessage,
+    editAndResend,
+    previousVersions,
     lastError,
     setError,
   } = useChatStore();
@@ -120,6 +123,12 @@ export default function Chat() {
     ? (messages[currentSessionId] ?? [])
     : [];
 
+  // The freshest assistant reply is the only one that can show "previous
+  // version" (we keep at most one undo step per session).
+  const lastAssistantId = [...currentMessages]
+    .reverse()
+    .find((m) => m.role === "assistant")?.id;
+
   return (
     <div className="flex h-full bg-page text-fg-1">
       <SessionList />
@@ -201,6 +210,21 @@ export default function Chat() {
                 streaming={
                   streamingMessageId === m.id &&
                   streamingSessionId === m.session_id
+                }
+                onRegenerate={
+                  m.role === "assistant"
+                    ? (modelId) => void regenerateMessage(m.id, modelId)
+                    : undefined
+                }
+                onEdit={
+                  m.role === "user"
+                    ? (content) => void editAndResend(m.id, content)
+                    : undefined
+                }
+                previousVersion={
+                  currentSessionId && m.id === lastAssistantId
+                    ? (previousVersions[currentSessionId] ?? null)
+                    : null
                 }
               />
             ))

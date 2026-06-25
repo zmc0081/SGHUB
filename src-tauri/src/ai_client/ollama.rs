@@ -24,9 +24,25 @@ impl AiProvider for OllamaProvider {
         config: &ModelConfig,
     ) -> Result<TokenStream, AiError> {
         let url = format!("{}/api/chat", config.endpoint.trim_end_matches('/'));
+        // V2.2.7 — Ollama vision models take base64 images on the message's
+        // `images` array; text-only messages omit it.
+        let api_messages: Vec<serde_json::Value> = messages
+            .iter()
+            .map(|m| {
+                if m.images.is_empty() {
+                    serde_json::json!({ "role": m.role, "content": m.content })
+                } else {
+                    serde_json::json!({
+                        "role": m.role,
+                        "content": m.content,
+                        "images": m.images.iter().map(|i| i.base64.clone()).collect::<Vec<_>>(),
+                    })
+                }
+            })
+            .collect();
         let body = serde_json::json!({
             "model": config.model_id,
-            "messages": messages,
+            "messages": api_messages,
             "stream": true,
         });
 
@@ -321,6 +337,7 @@ mod tests {
                 vec![Message {
                     role: "user".into(),
                     content: "Hi".into(),
+                    images: Vec::new(),
                 }],
                 &cfg(&server.url()),
             )

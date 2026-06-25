@@ -754,6 +754,7 @@ pub async fn test_skill_with_paper(
     let messages = vec![Message {
         role: "user".into(),
         content: prompt,
+        images: Vec::new(),
     }];
 
     let pool = state.db_pool.clone();
