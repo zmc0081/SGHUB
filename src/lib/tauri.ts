@@ -89,6 +89,16 @@ export interface ModelConfig {
   subscription_expires_at: string | null;
   /** ISO 8601 — when balance was last refreshed. */
   balance_synced_at: string | null;
+
+  // V2.2.8 — authentication-method dimension (V008 migration).
+  /** "api_key" (default) | "adc" (Google ADC — no key stored). */
+  auth_type: string;
+  /** GCP project id (Vertex/ADC models). */
+  gcp_project_id: string | null;
+  /** Vertex region; "global" (default) or e.g. "us-central1". */
+  gcp_region: string | null;
+  /** Optional HTTP/SOCKS proxy for token + model calls. */
+  proxy_url: string | null;
 }
 
 /** Returned by ai_store_get_balance. */
@@ -114,6 +124,11 @@ export interface ModelConfigInput {
   model_id: string;
   max_tokens: number;
   api_key: string | null;
+  // V2.2.8 — auth-method fields (optional; backend defaults to api_key).
+  auth_type?: string;
+  gcp_project_id?: string | null;
+  gcp_region?: string | null;
+  proxy_url?: string | null;
 }
 
 // ============================================================

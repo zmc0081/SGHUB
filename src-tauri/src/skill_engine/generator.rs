@@ -19,7 +19,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 
-use crate::ai_client::{get_one as get_model_config, list_all, provider_for, AiError, Message};
+use crate::ai_client::{get_one as get_model_config, list_all, provider_for_config, AiError, Message};
 use crate::AppState;
 
 use super::uploader::{normalize_skill_content, validate_skill, SkillSpec};
@@ -159,7 +159,7 @@ async fn run_chat(
         .ok_or_else(|| format!("model `{}` not found", model_config_id))?;
     config.max_tokens = config.max_tokens.min(MAX_TOKENS_CAP);
 
-    let api_key: Option<String> = if config.provider == "ollama" {
+    let api_key: Option<String> = if !crate::ai_client::needs_api_key(&config) {
         None
     } else {
         match crate::keychain::get_api_key(model_config_id) {
@@ -169,7 +169,7 @@ async fn run_chat(
         }
     };
 
-    let provider = provider_for(&config.provider, api_key)
+    let provider = provider_for_config(&config, api_key)
         .map_err(|e| format!("model `{}`: {}", config.name, e))?;
 
     // V2.2.1 — log dispatch so non-default-model bugs surface in logs.

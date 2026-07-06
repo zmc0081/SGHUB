@@ -49,6 +49,10 @@ fn cfg(provider: &str, endpoint: &str, model_id: &str, is_default: bool) -> Mode
         remaining_tokens: None,
         subscription_expires_at: None,
         balance_synced_at: None,
+        auth_type: "api_key".into(),
+        gcp_project_id: None,
+        gcp_region: None,
+        proxy_url: None,
     }
 }
 

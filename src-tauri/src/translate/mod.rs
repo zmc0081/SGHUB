@@ -201,7 +201,7 @@ pub async fn translate_document(
         .find(|c| c.is_default)
         .ok_or_else(|| "未配置默认模型 — 请先在「模型配置」设置默认模型".to_string())?;
 
-    let api_key = if config.provider == "ollama" {
+    let api_key = if !ai_client::needs_api_key(&config) {
         None
     } else {
         match keychain::get_api_key(&config.id) {
@@ -233,7 +233,7 @@ pub async fn translate_document(
 
     for (i, chunk) in chunks.iter().enumerate() {
         let provider =
-            ai_client::provider_for(&config.provider, api_key.clone()).map_err(|e| e.to_string())?;
+            ai_client::provider_for_config(&config, api_key.clone()).map_err(|e| e.to_string())?;
         let user = if prev_tail.is_empty() {
             chunk.clone()
         } else {

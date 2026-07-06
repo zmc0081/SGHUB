@@ -178,10 +178,465 @@ Tauri 调用统一封装在 `src/lib/tauri.ts`;样式用 Tailwind utility,不写
 # 第三部分 · Session 任务记录(倒序排列)
 
 > 最新版本在最上方。<span style="color:#d00000">**红色版本标题 = 尚未上线(规划中)**</span>。
-> 已发布:V2.0.0 ~ V2.2.6(Session 1-39),全部已上线。
-> 规划中(未上线):V2.2.7(Session 40-41)。
+> 已发布:V2.0.0 ~ V2.2.8(Session 1-43),全部已上线。
+> 规划中(未上线):V2.2.9(Session 44-46)。
 
-## <span style="color:#d00000">●</span> M2.2.7 · Chat 模块交互与功能增强(参考 Claude 网页)(Week 40-41) <span style="color:#d00000">[未上线]</span>
+## <span style="color:#d00000">●</span> M2.2.9 · 解析任务后台化修复 + UI 微调 + 文献库按钮重排(Week 44-46) <span style="color:#d00000">[未上线]</span>
+
+> V2.2.9 基于已发布的 V2.2.8 继续迭代,包含 7 条需求:
+> ① AI 解析进行中输出区动效;② 侧栏版本号左对齐;③ 已连接模型展示区位置调整
+> (从 V2.2.8 的位置移至"两添加卡与购买引导行之间");
+> ④ 解析任务后台化(切菜单不中断、记录不丢失);⑤ Skill 解析无结果排查修复;
+> ⑥ 文献数据库"编辑"→"文件"(打开文件夹并定位);⑦ 文献库按钮重排与改名。
+>
+> 开工前必读 CLAUDE.md。遵守 7 条硬规则,提交前过 PR 自查 6 条。
+
+### 本次需求清单
+
+| 编号 | 需求 | 所属 Session |
+|------|------|-------------|
+| R1 | AI 解析进行中,输出区显示动效(音符跳动类简单效果) | Session 44 |
+| R2 | 侧栏底部版本号改为**左对齐**(当前为居中) | Session 44 |
+| R3 | 已连接大模型展示区位置调整:置于"添加自有模型 / SG AI Store Key"两并列卡 与 "前往 SG AI Store 购买"引导行**之间** | Session 44 |
+| R4 | 解析任务后台化:切换菜单解析继续不中断;解析记录切换后不消失 | Session 45 |
+| R5 | 排查修复:应用 Skill 解析任务中断、无生成结果(输出显示"尚未生成此维度") | Session 45 |
+| R6 | 文献数据库"编辑"按钮替换为"文件":点击打开本地文件夹并定位到该文件 | Session 46 |
+| R7 | 文献数据库按钮重排与改名(中英文同步):原文→来源(倒数第二)、打开PDF→查看(星标后) | Session 46 |
+
+> ⚠️ R7 排布说明:用户需求 7c 列出的最终排布未含"来源",但 7a 明确保留并置于删除之前。
+> 按 7a+7c 融合执行:**收藏、查看、AI精读、翻译、文件、移动、来源、删除**。
+> 若"来源"需移除,以用户后续确认为准。
+
+### 在开始 Session 44 之前
+
+确认 V2.2.8 已发布并稳定,本地分支已同步:
+```cmd
+cd D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub
+git checkout main
+git pull
+git checkout -b feature/v2.2.9
+```
+
+---
+
+### Session 44: 解析动效 + 侧栏版本号左对齐 + 已连接模型位置调整
+
+```
+读取 CLAUDE.md。本次任务三项 UI 调整(均为对 V2.2.8 已上线效果的微调/新增)。
+
+== R1:AI 解析进行中输出区动效 ==
+
+1. AI 解析页,解析进行中时,输出区(结果卡区域)显示轻量动效:
+   - 效果参考:音符跳动 / 律动条(equalizer bars)类的简单跳动效果
+     —— 3-5 根小竖条循环起伏,或圆点依次跳动
+   - 纯 CSS 动画实现(@keyframes),轻量无依赖
+   - 严格遵守硬规则:禁用 transition-all;循环动画用 CSS animation,
+     时长/缓动用设计系统 motion token;颜色用 token,不硬编码
+2. 动效状态机:
+   - 解析开始 → 显示动效 + "解析中…"文案
+   - 流式输出到达 → 动效保留在区块头部或随内容渐隐(以视觉协调为准)
+   - 解析完成/失败 → 动效停止移除
+   - 双主题下动效颜色都清晰
+
+== R2:侧栏版本号左对齐 ==
+
+3. 侧栏底部版本号(V2.2.8 已实现,当前居中显示):
+   - 改为**左对齐**,与版权信息文字左对齐一致
+   - 其余保持:从 tauri.conf.json 读取、小字号 text-tertiary、折叠态不显示
+
+== R3:已连接大模型展示区位置调整 ==
+
+4. 位置调整(V2.2.8 已实现该展示区,本次移动位置):
+   模型配置页中,移至"添加自有模型 / 已在 SG AI Store 购买?"两张并列卡 与
+   "还没有 SG AI Store 配额?…前往 SG AI Store 购买"引导整行 **之间**
+5. 展示形式保持/完善:
+   - 模型名胶囊列表:provider 图标(Lucide)+ 显示名;默认模型星标;ADC 型 "ADC" 小徽章
+   - 点击胶囊定位/滚动到下方对应模型卡片
+   - 无已连接模型时:空态引导文案或整区隐藏(以布局协调为准)
+
+== 测试 ==
+- 解析中动效流畅(无卡顿),完成后停止;双主题正常
+- 版本号左对齐,与设置一致,折叠隐藏
+- 已连接模型区位于两添加卡与购买行之间;胶囊点击定位;星标/ADC 徽章正常
+- PR 自查 6 条全过(尤其无 transition-all、无硬编码色);npm run build + eslint 0 warning
+```
+
+验证:
+- 三项 UI 调整落地
+- `git commit -m "feat: session 44 - parse animation, version align-left, connected models placement"`
+
+---
+
+### Session 45: 解析任务后台化(切页不中断)+ Skill 解析无结果排查修复
+
+```
+读取 CLAUDE.md。本次任务修复 AI 解析任务生命周期的两个严重问题(高优):
+问题 A(R4):解析进行中切换到其它菜单,任务中断;已完成的解析,切换菜单后记录也消失。
+问题 B(R5):应用 Skill 进行文献解析,任务中断、无生成结果——
+  界面输出区显示"(尚未生成此维度)",但 token 已消耗(如 out≈13k-26k)、耗时 200+ 秒。
+
+== R4:解析任务后台化与状态保持 ==
+
+1. 根因方向(先读代码确认):
+   - 解析的流式事件监听器(ai:token 等)很可能注册在 Parse 页面组件内,
+     组件卸载(切换菜单)时监听器销毁,甚至触发了取消逻辑
+   - 解析历史/当前结果可能只存在组件局部 state,卸载即丢
+2. 修复方案:
+   - 解析任务状态提升到全局 Zustand store(parseStore):
+     任务 id、状态(running/done/failed)、进度、流式缓冲、结果、历史列表
+   - 流式事件监听注册在 App 级(应用启动时注册一次),写入 parseStore;
+     Parse 页面只做展示与订阅——组件卸载不影响任务
+   - Rust 侧解析任务本就独立于前端页面运行,确认后端没有因前端断开而 abort;
+     若存在"页面卸载即调用取消 command"的逻辑,移除(取消只由用户点击停止触发)
+   - 切回 AI 解析页:恢复进行中任务的实时进度,或展示已完成结果
+   - 解析进行中切换菜单时,侧栏"AI 解析"项可加进行中指示(小动效点,复用 Session 44 R1 的动效元素)
+3. 解析记录持久化:
+   - 解析历史与结果写入 SQLite(ai_parse_results 表应已存在,确认落库时机),
+     历史列表从数据库读,不依赖组件内存
+   - 应用重启后历史仍在
+
+== R5:Skill 解析中断无结果排查 ==
+
+4. 现象复盘(用户实测):
+   - Skill: research-scientific-literature,模型 Google Vertex (Gemini)
+   - token 已消耗(in≈4952 / out≈13161-26324),耗时 219-267s,
+     但输出区显示"(尚未生成此维度)",解析历史里也无可查看的结果
+5. 排查步骤(按可能性排序):
+   a. 与 R4 同因:用户中途切过页面 → 监听器销毁,流式内容丢失、结果未写库
+      → R4 修复后回归验证此场景
+   b. 流式完成回调未触发/未落库:检查 stream done 事件 → 保存 ai_parse_results 的链路;
+      Vertex streamGenerateContent 的结束标志解析是否正确(与 OpenAI [DONE] 不同,
+      是 JSON 数组流结束/finishReason)
+   c. 超长输出:out≈26k tokens 属超长输出,检查:
+      * Vertex maxOutputTokens 配置是否导致截断(finishReason=MAX_TOKENS)
+      * 截断后 HTML 报告不完整 → 维度/Tab 切分解析失败 → 显示"尚未生成此维度"
+      → 对策:完成回调里无论 HTML 是否完整都保存原始输出;维度切分失败时
+        降级展示原始内容 + "报告可能不完整"提示,而不是显示空
+   d. 前端维度渲染逻辑:检查"输出"卡的维度切分/匹配规则,对 Skill 生成的
+      HTML/Markdown 结构变化是否过于严格
+   e. 超时:确认前端/后端是否存在固定超时(如 120s/300s)把长任务掐断
+6. 修复与兜底:
+   - 修根因(按排查结论)
+   - 兜底原则:**只要模型有输出,必须可见可查**——原始输出始终落库,
+     维度化展示失败时降级为原文展示,绝不显示空结果
+   - 失败时错误信息明确(截断/超时/解析失败分类),日志记录 finishReason 与原始响应片段
+7. 回归测试矩阵:
+   - 长输出 Skill(>10k tokens 输出)× 解析全程停留页面 / 中途切页再回
+   - Vertex ADC 与 api_key 型模型各跑一遍
+   - 解析中断电/杀进程后重启:历史不丢(已完成部分)
+
+== 测试 ==
+- 解析进行中切换任意菜单再切回:任务继续、进度/结果恢复;完成后记录仍在
+- 应用重启后解析历史可查
+- 长输出 Skill 解析:结果完整可见;若被截断,降级展示 + 明确提示,不再出现空的"尚未生成此维度"
+- 侧栏进行中指示正常
+- PR 自查 6 条全过;cargo test + npm run build + eslint 0 warning
+```
+
+验证:
+- 解析任务切页不中断、记录持久;Skill 解析无结果问题根因修复 + 兜底生效
+- `git commit -m "fix: session 45 - background parse tasks, skill parse result loss"`
+
+---
+
+### Session 46: 文献数据库按钮重排与改名(文件/来源/查看)
+
+```
+读取 CLAUDE.md。本次任务调整文献数据库文献卡片的操作按钮:功能替换、重排与改名,
+中英文语言包同步(五语言包都更新,以中英为主对照)。
+
+== 现状(改前)==
+收藏星标、AI 精读、原文、翻译、打开 PDF、移动、编辑、删除
+
+== 目标(改后,最终排布)==
+**收藏、查看、AI 精读、翻译、文件、移动、来源、删除**
+
+| 按钮 | 变更 | 说明 |
+|------|------|------|
+| 收藏(星标) | 位置不变(第 1) | 不变 |
+| 查看 | "打开 PDF"改名 + 移位 | 移到收藏星标之后(第 2);英文 Open PDF → View |
+| AI 精读 | 顺延 | 不变,第 3 |
+| 翻译 | 顺延 | 不变,第 4 |
+| 文件 | "编辑"按钮替换(R6) | 第 5;功能改为:打开本地文件夹并定位到该文件;英文 Edit → File |
+| 移动 | 顺延 | 第 6 |
+| 来源 | "原文"改名 + 移位 | 倒数第 2(第 7);英文 Original → Source |
+| 删除 | 位置不变(最后) | 不变 |
+
+== R6:"文件"按钮实现 ==
+
+1. 功能:点击后在系统文件管理器中打开该文献 PDF 所在文件夹,并**选中/定位**该文件
+   - Windows:explorer /select,"{pdf_path}"
+   - macOS:open -R "{pdf_path}"
+   - 实现:Tauri command(如 reveal_in_folder(path)),或 tauri-plugin-opener 的 reveal 能力
+2. 可用性判断:
+   - 文献有本地 PDF(pdf_path 存在且文件在磁盘上)→ 按钮可用
+   - 无本地 PDF → 按钮禁用(灰态)+ tooltip 说明"暂无本地文件"
+   - 文件已被移动/删除 → 点击时 useToast 提示"文件不存在",并提供清理/重新下载引导
+3. 原"编辑"(元数据编辑)功能去向:
+   - 元数据编辑不删除,入口收纳:移入卡片"更多"菜单(若有)或双击标题进入编辑,
+     读现有交互结构选最协调方案 —— 确保编辑元数据能力仍可达
+4. 图标:Lucide(如 FolderOpen),不用 emoji
+
+== R7:重排与改名 ==
+
+5. 按上表调整按钮顺序与文案;
+   i18n 五语言包同步(zh-CN/zh-TW/en-US/ja-JP/fr-FR),英文对照:
+   - 查看 → View;来源 → Source;文件 → File
+6. 一致性:文献检索结果卡的"原文/全文 PDF/翻译"语义与文献库不完全相同,
+   本期只改文献数据库,检索页保持不变(避免语义混淆);验证时与用户确认
+
+== 测试 ==
+- 按钮排布 = 收藏、查看、AI精读、翻译、文件、移动、来源、删除
+- "文件":有本地 PDF 时打开资源管理器并选中文件(Windows/macOS 都验);无文件禁用;文件丢失提示
+- "查看"打开内置 PDF 阅读器;"来源"打开文献来源链接(原"原文"行为)
+- 元数据编辑入口仍可达
+- 中英文文案正确;五语言包同步
+- PR 自查 6 条全过;npm run build + eslint 0 warning
+```
+
+验证:
+- 文献数据库按钮按最终排布落地,"文件"定位本地文件功能可用,中英文同步
+- `git commit -m "feat: session 46 - library card buttons rearrange and rename"`
+
+---
+
+### V2.2.9 收尾:Beta + 发布
+
+1. 合并 feature/v2.2.9 → Beta tag → prerelease → 测试
+2. Beta 重点:解析任务切页不中断与长输出 Skill 结果完整性(核心)、
+   动效与两处 UI 微调、文献库按钮新排布与"文件"定位(双平台)
+3. 发布前跑 check-version(版本号统一检查)
+4. 正式发布:`git tag v2.2.9 && git push --tags`
+
+---
+
+## V2.2.9 Session 速查 <span style="color:#d00000">[未上线]</span>
+
+| Session | 主题 | 对应需求 | 预估时长 |
+|---------|------|---------|---------|
+| 44 | 解析动效 + 侧栏版本号左对齐 + 已连接模型位置调整 | R1/R2/R3 | 0.5 周 |
+| 45 | 解析任务后台化 + Skill 解析无结果排查修复 | R4/R5 | 1 周 |
+| 46 | 文献数据库按钮重排与改名(文件/来源/查看) | R6/R7 | 0.5 周 |
+
+**总计**: 约 2 周
+
+**核心改进**:
+- 解析任务后台化:切菜单不中断、记录持久化;"模型有输出必须可见可查"兜底(维度化失败降级原文)
+- AI 解析进行中律动动效(纯 CSS,遵守 motion token 规范)
+- 侧栏版本号左对齐;已连接模型区移至"两添加卡与购买行之间"
+- 文献库按钮最终排布:收藏、查看、AI精读、翻译、文件、移动、来源、删除;
+  "文件"= 打开文件夹并定位(explorer /select · open -R)
+
+**关键提醒**:
+- R7 排布按 7a+7c 融合(来源保留在倒数第二),如需移除以用户确认为准
+- 元数据"编辑"能力不删除,入口收纳到更多菜单/双击,保持可达
+- Session 45 为高优修复,不依赖 44,可优先执行
+- 严格遵守 CLAUDE.md UI 设计规范(动效禁 transition-all),提交前过 PR 自查 6 条
+
+---
+
+## M2.2.8 · Vertex(ADC 免密)接入 + 模型显示与版本号 UI 调整(Week 42-43)【已发布】
+
+> V2.2.8 包含:① Google Vertex(Gemini)以 ADC 免密方式接入,模型配置新增"认证方式"维度;
+> ② 已连接大模型的显示位置调整(移至 Token 消耗图标上方,更醒目);
+> ③ 侧栏底部版权信息下方新增版本号行(与设置一致,折叠态隐藏)。
+>
+> 开工前必读 CLAUDE.md(AI Client 设计要点 / 认证方式维度 / 版本号统一更新检查)。
+> 遵守 7 条硬规则,提交前过 PR 自查 6 条。
+
+### 本次需求清单
+
+| 编号 | 需求 | 所属 Session |
+|------|------|-------------|
+| R1 | 模型配置新增"认证方式"维度:ADC 免密 与 API Key 并存,老配置默认 API Key 不受影响 | Session 42 |
+| R2 | ADC 免密调用:不填不存 Key,后端自动获取并刷新访问令牌 | Session 42 |
+| R3 | ADC 配置字段:项目 ID、区域(默认 global)、代理地址;隐藏 API Key 输入框 | Session 42 |
+| R4 | 预设模板 "Google Vertex (Gemini)":一键填端点、模型清单与区域 | Session 42 |
+| R5 | 测试连接:ADC 型真实发起最小请求验证;凭证缺失提示先完成本地登录授权 | Session 42 |
+| R6 | 兼容企业代理转发 | Session 42 |
+| R7 | 已连接大模型显示位置调整至 Token 消耗图标上方 | Session 43 |
+| R8 | 侧栏底部版权下新增版本号行(与设置一致,折叠态隐藏) | Session 43 |
+
+### 在开始 Session 42 之前
+
+```cmd
+cd D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub
+git checkout main
+git pull
+git checkout -b feature/v2.2.8
+```
+
+---
+
+### Session 42: Google Vertex(Gemini)ADC 免密接入
+
+```
+读取 CLAUDE.md(AI Client 设计要点)。本次任务为模型配置引入"认证方式"维度,
+新增 ADC(Application Default Credentials)免密类型,并实现 Google Vertex (Gemini) 接入。
+
+== R1:认证方式维度(数据模型)==
+
+1. migration(V0XX__auth_type.sql):
+   ALTER TABLE model_configs ADD COLUMN auth_type TEXT NOT NULL DEFAULT 'api_key';
+   ALTER TABLE model_configs ADD COLUMN gcp_project_id TEXT;
+   ALTER TABLE model_configs ADD COLUMN gcp_region TEXT DEFAULT 'global';
+   ALTER TABLE model_configs ADD COLUMN proxy_url TEXT;
+   - auth_type:'api_key'(默认)| 'adc'
+   - 老配置自动归为 api_key 型,行为完全不变(向后兼容,回归测试确认)
+2. ADC 型约束:不写 keychain、不校验 Key 存在;api_key 型逻辑保持原样
+
+== R2:ADC 免密调用(Rust 后端)==
+
+3. 新建 src-tauri/src/ai_client/vertex.rs(实现 AiProvider trait):
+   - ADC 凭证链(按序探测):
+     a. 环境变量 GOOGLE_APPLICATION_CREDENTIALS 指向的服务账号 JSON
+     b. 用户 ADC 文件:Windows %APPDATA%\gcloud\application_default_credentials.json
+        (macOS/Linux: ~/.config/gcloud/application_default_credentials.json)
+   - 令牌获取与自动刷新:
+     * authorized_user 凭证:用 refresh_token POST https://oauth2.googleapis.com/token 换 access_token
+     * service_account 凭证:JWT 签名换 token(scope: https://www.googleapis.com/auth/cloud-platform)
+     * 可选用 gcp_auth crate 简化(纯 Rust,覆盖上述凭证链);若引入需确认许可证兼容 MIT
+   - token 内存缓存,过期前 5 分钟自动刷新;刷新失败自动重试一次后报错
+   - 过期无需人工干预(R2 核心验收点)
+4. Vertex 请求:
+   - endpoint 规则:
+     * region=global:https://aiplatform.googleapis.com/v1/projects/{project}/locations/global/publishers/google/models/{model}:streamGenerateContent
+     * 区域化:https://{region}-aiplatform.googleapis.com/v1/projects/{project}/locations/{region}/...
+   - Header:Authorization: Bearer {access_token}
+   - 流式解析 streamGenerateContent 响应,对齐现有 chat_stream 的 token 流接口
+   - 路由:ai_client/mod.rs 按 auth_type + provider 分发到 VertexProvider
+
+== R6:企业代理兼容 ==
+
+5. reqwest ClientBuilder 支持 proxy:
+   - 模型配置的 proxy_url 非空时:Proxy::all(proxy_url)(支持 http/https/socks5)
+   - 为空时走系统代理/直连
+   - 令牌获取(oauth2.googleapis.com)与模型调用(aiplatform)都要走该代理
+   - 参考环境:Sangfor VPN + 本地代理(如 http://127.0.0.1:10809)
+
+== R3 + R4:前端配置表单与预设 ==
+
+6. 添加/编辑模型表单(src/pages/Models.tsx):
+   - 新增"认证方式"选择:API Key(默认)/ ADC 免密
+   - 选 ADC 时:隐藏 API Key 输入框;显示 项目 ID(必填)、区域(默认 global,可改)、
+     代理地址(选填,占位提示 http://127.0.0.1:10809)
+   - 选 API Key 时:表单与现状完全一致
+7. 预设模板新增 "Google Vertex (Gemini)":
+   - 一键预填:auth_type=adc、endpoint 规则、区域 global、
+     模型清单(gemini-2.5-pro / gemini-2.5-flash 等,以当前实际型号为准,可下拉选)
+   - 用户只需填项目 ID(与可选代理)即可保存
+8. 模型卡片(参考现有卡片样式):
+   - ADC 型徽章显示 "ADC 免密"(替代 api_key 型的 "Key 已存 Windows Credential Manager")
+   - 徽章用 Lucide 图标 + token 颜色,无 emoji
+
+== R5:测试连接(ADC 真实验证)==
+
+9. test_model_connection 按 auth_type 分流:
+   - api_key 型:保持现有逻辑
+   - adc 型:真实发起一次最小请求(generateContent, maxOutputTokens=1 或 countTokens),
+     走完整链路(凭证→令牌→代理→endpoint),返回延迟与结果
+   - 错误分类与提示:
+     * 凭证缺失/无效 → 提示"未找到本地 ADC 凭证,请先运行:
+       gcloud auth application-default login 完成本地登录授权"
+     * 项目/权限错误 → 提示检查项目 ID 与 Vertex AI API 启用状态
+     * 网络/代理错误 → 提示检查代理地址
+   - 提示用 useToast/对话框组件,禁用 window.*
+
+== 测试 ==
+- 老配置(api_key 型)回归:行为不变
+- ADC 型:不存 Key;令牌自动获取/过期自动刷新(可临时改短缓存验证)
+- 预设一键创建 Vertex 模型,填项目 ID 即可用;Chat/AI 解析中流式正常
+- 测试连接:ADC 真实请求;三类错误提示正确(删凭证文件模拟缺失)
+- 代理:配置 proxy_url 后令牌与调用均经代理(抓包/日志验证)
+- PR 自查 6 条全过;cargo test + npm run build + eslint 0 warning
+```
+
+验证:
+- Vertex(Gemini)以 ADC 免密接入可用,认证方式维度落地,老配置零影响
+- `git commit -m "feat: session 42 - vertex adc auth support"`
+
+---
+
+### Session 43: 已连接模型显示位置调整 + 侧栏版本号
+
+```
+读取 CLAUDE.md。本次任务两项 UI 调整。
+
+== R7:已连接大模型显示位置调整 ==
+
+1. 现状与目标:
+   - 先读代码定位"Token 消耗"图标/统计的实际位置(模型配置页顶部统计区:
+     已配置模型 / 近 7 天调用 / 近 7 天 Token 三卡)
+   - 目标:把"已连接的大模型"从仅显示数量,升级为**显示具体模型名**(徽章/胶囊列表),
+     位置调整到 Token 消耗图标/统计的**上方**,一眼可见已连接哪些模型
+2. 实现建议(按实际结构适配):
+   - 统计区上方新增一行"已连接模型":模型名胶囊(provider 图标 + 名称,默认模型加星标),
+     ADC 型带 "ADC" 小徽章
+   - 点击胶囊可快速定位到下方对应模型卡片
+   - 原"已配置模型"数量卡可保留或合并入该行(以布局协调为准)
+3. 遵守设计系统:Lucide 图标、token 颜色、无 emoji、双主题
+
+== R8:侧栏底部版本号 ==
+
+4. 在侧栏底部版权信息(Copyright © Star Technology. All Rights Reserved)**下方**
+   新增一行版本号(如 "V2.2.8"):
+   - 版本号从 tauri.conf.json 读取(app.getVersion() / tauri api),**不硬编码**,
+     与设置中"当前版本"同源,天然一致(满足版本号统一更新检查)
+   - 样式:小字号(10-11px)、text-tertiary、居中,与版权行视觉统一
+5. 折叠态处理:
+   - 侧栏折叠时**不显示版本号**(与版权简化逻辑一致:折叠态版权简化为 © Star Technology
+     或隐藏,版本号直接隐藏)
+   - 展开/折叠切换时无布局跳动
+
+== 测试 ==
+- 模型配置页:已连接模型名在 Token 统计上方清晰展示;点击定位;默认模型星标;ADC 徽章
+- 侧栏展开:版权下方显示版本号,与设置页版本一致;折叠:版本号隐藏,布局稳定
+- 双主题正常;PR 自查 6 条全过;npm run build + eslint 0 warning
+```
+
+验证:
+- 已连接模型醒目展示于 Token 统计上方;侧栏底部版本号与设置一致且折叠隐藏
+- `git commit -m "feat: session 43 - connected models placement + sidebar version"`
+
+---
+
+### V2.2.8 收尾:Beta + 发布
+
+1. 合并 feature/v2.2.8 → Beta tag → prerelease → 测试
+2. Beta 重点:ADC 令牌自动刷新稳定性、代理环境(Sangfor VPN)真实验证、老配置回归、
+   两项 UI 在双主题与折叠态的表现
+3. 发布前跑 check-version(版本号统一检查,含侧栏新增显示位)
+4. 正式发布:`git tag v2.2.8 && git push --tags`
+
+---
+
+## V2.2.8 Session 速查(已发布)
+
+| Session | 主题 | 对应需求 | 预估时长 |
+|---------|------|---------|---------|
+| 42 | Google Vertex(Gemini)ADC 免密接入 | R1-R6 | 1-1.5 周 |
+| 43 | 已连接模型显示位置调整 + 侧栏版本号 | R7/R8 | 0.5 周 |
+
+**总计**: 约 1.5-2 周
+
+**核心改进**:
+- 模型配置新增"认证方式"维度(API Key / ADC 免密),老配置零影响
+- ADC:不填不存 Key,令牌自动获取与刷新;项目 ID / 区域(默认 global)/ 代理地址三字段
+- "Google Vertex (Gemini)" 预设一键接入;测试连接对 ADC 真实发起最小请求
+- 企业代理全链路兼容(令牌 + 调用)
+- 已连接大模型名移至 Token 消耗上方醒目展示
+- 侧栏底部版权下新增版本号(同源 tauri.conf.json,折叠隐藏)
+
+**关键提醒**:
+- ADC 凭证缺失时引导:gcloud auth application-default login
+- 若引入 gcp_auth crate 需确认许可证兼容 MIT
+- 版本号显示不硬编码,纳入既有 check-version 统一检查
+- 严格遵守 CLAUDE.md UI 设计规范,提交前过 PR 自查 6 条
+
+---
+
+
+## M2.2.7 · Chat 模块交互与功能增强(参考 Claude 网页)(Week 40-41)【已发布】
 
 > V2.2.7 把 Chat 模块对标 Claude 网页版,全面增强交互与功能:附件上传、Skill 调用、
 > 消息复制 / 重新生成 / 编辑后重发、输入框旁的模型与版本下拉选择。
@@ -411,7 +866,7 @@ D. 模型下拉展开态(点击模型按钮弹出):
 
 ---
 
-## V2.2.7 Session 速查 <span style="color:#d00000">[未上线]</span>
+## V2.2.7 Session 速查(已发布)
 
 | Session | 主题 | 对应需求 | 预估时长 |
 |---------|------|---------|---------|
@@ -3923,5 +4378,7 @@ Rust 侧 (src-tauri/src/):
 | V2.2.4 | 34 | 首次启动引导(数据目录 + 模型配置,可跳过) | 已发布 |
 | V2.2.5 | 35-36 | 打包发布完善(Logo/签名/安装卸载/版本一致)+ 设置简化 + 模型配置 UI 优化 | 已发布 |
 | V2.2.6 | 37-39 | 内置 PDF 阅读器 + 全文翻译 + 检索状态保持 + AI Store 并入模型配置页 + 强制阅读隐私协议 | 已发布 |
-| V2.2.7 | 40-41 | Chat 模块交互与功能增强(参考 Claude 网页):附件 / Skill / 模型版本下拉 / 复制 / 重新生成 / 编辑后重发 | 规划中 |
+| V2.2.7 | 40-41 | Chat 模块交互与功能增强(参考 Claude 网页):附件 / Skill / 模型版本下拉 / 复制 / 重新生成 / 编辑后重发 | 已发布 |
+| V2.2.8 | 42-43 | Google Vertex(Gemini)ADC 免密接入 + 已连接模型显示调整 + 侧栏版本号 | 已发布 |
+| V2.2.9 | 44-46 | 解析任务后台化修复 + 解析动效 + UI 微调 + 文献库按钮重排(文件/来源/查看) | 规划中 |
 

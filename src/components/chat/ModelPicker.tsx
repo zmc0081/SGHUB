@@ -8,7 +8,7 @@ import { api, type ModelConfig } from "../../lib/tauri";
 import { useT } from "../../hooks/useT";
 import { Icon } from "../Icon";
 
-const PROVIDER_ORDER = ["anthropic", "openai", "ollama", "custom"];
+const PROVIDER_ORDER = ["anthropic", "openai", "vertex", "ollama", "custom"];
 
 function groupLabel(provider: string, customLabel: string): string {
   switch (provider) {
@@ -16,6 +16,8 @@ function groupLabel(provider: string, customLabel: string): string {
       return "Claude";
     case "openai":
       return "OpenAI";
+    case "vertex":
+      return "Google Vertex";
     case "ollama":
       return "Ollama";
     default:
