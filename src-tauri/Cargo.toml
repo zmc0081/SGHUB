@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "2.2.7"
+version = "2.2.8"
 description = "A Tauri App"
 authors = ["you"]
 license = ""
@@ -29,7 +29,12 @@ r2d2 = "0.8"
 r2d2_sqlite = "0.25"
 refinery = { version = "0.8", features = ["rusqlite"] }
 thiserror = "1"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip", "stream"] }
+# V2.2.8 — "system-proxy" honours the OS proxy (Windows WinINET / macOS) when
+# no explicit per-model proxy_url is set; without it `default-features = false`
+# meant "always direct", which breaks Google endpoints behind corporate VPNs.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip", "stream", "socks", "system-proxy"] }
+# V2.2.8 — service-account JWT signing for Google ADC (RS256). MIT licensed.
+jsonwebtoken = "9"
 roxmltree = "0.20"
 keyring = { version = "3", default-features = false }
 chrono = { version = "0.4", default-features = false, features = ["clock"] }

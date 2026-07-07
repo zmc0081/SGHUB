@@ -1,6 +1,9 @@
 // i18n: 本组件文案已国际化 (V2.1.0)
 // V2.2.1 — collapse/expand support + bottom copyright footer (Session 26)
+// V2.2.8 — version line under the copyright (from tauri.conf.json, never
+// hard-coded — same source as Settings, so the release version-check holds).
 import { useEffect, useState, ComponentType, SVGProps } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Bot,
@@ -160,7 +163,17 @@ export default function Sidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [unread, setUnread] = useState(0);
   const [collapsed, setCollapsed] = useState<boolean>(loadCollapsedPref);
+  const [version, setVersion] = useState<string>("");
   const t = useT();
+
+  // App version for the footer — read once from the runtime (embedded from
+  // tauri.conf.json at build time). Empty until resolved; renders nothing
+  // rather than a stale/hard-coded number.
+  useEffect(() => {
+    getVersion()
+      .then(setVersion)
+      .catch(() => {});
+  }, []);
 
   // Poll the unread subscription count. Refresh when navigating to /feed
   // so the badge clears immediately after user opens it.
@@ -261,7 +274,18 @@ export default function Sidebar() {
           collapsed ? "py-2 text-center" : "px-5 py-3 text-left leading-snug"
         }`}
       >
-        {collapsed ? "©" : "Copyright © Star Technology. All Rights Reserved"}
+        {collapsed ? (
+          "©"
+        ) : (
+          <>
+            <div>Copyright © Star Technology. All Rights Reserved</div>
+            {/* V2.2.8 — version line (hidden when collapsed; reserved height
+                even while the async version resolves, so no layout jump). */}
+            <div className="mt-0.5 text-center tabular-nums min-h-[14px]">
+              {version ? `V${version}` : ""}
+            </div>
+          </>
+        )}
       </div>
     </aside>
   );

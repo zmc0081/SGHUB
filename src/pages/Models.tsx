@@ -13,10 +13,12 @@ import {
   AlertTriangle,
   Bot,
   Check,
+  Cloud,
   ExternalLink,
   Loader2,
   Pencil,
   RefreshCw,
+  ShieldCheck,
   Star,
   Store,
   TestTube,
@@ -49,7 +51,15 @@ const PROVIDER_LABEL_KEY: Record<string, string> = {
   openai: "models.provider_label_openai",
   ollama: "models.provider_label_ollama",
   custom: "models.provider_label_custom",
+  vertex: "models.provider_label_vertex",
 };
+
+/** V2.2.8 — Gemini model ids offered in the Vertex preset dropdown. */
+const VERTEX_MODEL_IDS = [
+  "gemini-2.5-pro",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
+];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const PROVIDER_ICON: Record<string, ComponentType<any>> = {
@@ -57,9 +67,10 @@ const PROVIDER_ICON: Record<string, ComponentType<any>> = {
   openai: ProviderOpenAI,
   ollama: ProviderOllama,
   custom: Wrench,
+  vertex: Cloud,
 };
 
-const PROVIDERS = ["anthropic", "openai", "ollama", "custom"];
+const PROVIDERS = ["anthropic", "openai", "ollama", "vertex", "custom"];
 
 const EMPTY_INPUT: ModelConfigInput = {
   name: "",
@@ -68,6 +79,10 @@ const EMPTY_INPUT: ModelConfigInput = {
   model_id: "",
   max_tokens: 8192,
   api_key: null,
+  auth_type: "api_key",
+  gcp_project_id: null,
+  gcp_region: null,
+  proxy_url: null,
 };
 
 // ════════════════════════════════════════════════════════════════
@@ -164,24 +179,80 @@ function ProviderIconBox({ provider }: { provider: string }) {
   );
 }
 
+/** V2.2.8 (R7) — connected-models strip ABOVE the token stats: one pill per
+ *  configured model (provider icon + name; star = default; ADC badge for
+ *  keyless configs). Clicking a pill scrolls to that model's card below. */
+function ConnectedModels({ models }: { models: ModelConfig[] }) {
+  const t = useT();
+  const locate = (id: string) => {
+    document
+      .getElementById(`model-card-${id}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+  return (
+    <div className="mb-6">
+      <div className="flex items-baseline justify-between mb-3">
+        <span className="text-meta uppercase tracking-wide-brand text-fg-3">
+          {t("models.connected_title")}
+        </span>
+        <span className="text-meta text-fg-3 tabular-nums">
+          {models.length}
+        </span>
+      </div>
+      {models.length === 0 ? (
+        <div className="text-meta text-fg-3">
+          {t("models.connected_empty")}
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {models.map((m) => {
+            const Comp = PROVIDER_ICON[m.provider] ?? Bot;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => locate(m.id)}
+                title={t("models.connected_locate_title")}
+                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-pill border border-border-default bg-card text-meta text-fg-1 hover:border-indigo hover:text-indigo transition-colors duration-fast ease-khx max-w-[240px]"
+              >
+                <Icon icon={Comp} size={14} className="shrink-0" />
+                <span className="truncate font-medium">{m.name}</span>
+                {m.is_default && (
+                  <Icon
+                    icon={Star}
+                    size={12}
+                    fill="currentColor"
+                    strokeWidth={1.5}
+                    className="shrink-0 text-warning-fg-strong"
+                  />
+                )}
+                {m.auth_type === "adc" && (
+                  <span className="shrink-0 rounded-pill px-1.5 py-0.5 text-micro font-medium bg-badge-improve-bg text-badge-improve-fg">
+                    ADC
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StatsCards({
-  models,
   stats,
   onRebuild,
 }: {
-  models: ModelConfig[];
   stats: UsageStats7Days | null;
   onRebuild: () => void;
 }) {
   const t = useT();
   const totalTokens =
     (stats?.total_tokens_in ?? 0) + (stats?.total_tokens_out ?? 0);
+  // V2.2.8 (R7) — the "configured models" count card was replaced by the
+  // ConnectedModels strip above, which shows the actual model names.
   const cards = [
-    {
-      label: t("models.stat_configured_models"),
-      value: String(models.length),
-      hint: t("models.stat_configured_models_hint"),
-    },
     {
       label: t("models.stat_calls_7d"),
       value: String(stats?.total_call_count ?? 0),
@@ -209,7 +280,7 @@ function StatsCards({
           <span>{t("models.stat_rebuild")}</span>
         </button>
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         {cards.map((c) => (
           <div
             key={c.label}
@@ -630,7 +701,19 @@ function ModelRow({
             <span className="mx-1.5 text-fg-3">·</span>
             {model.max_tokens.toLocaleString()} tokens
           </div>
-          {model.keychain_ref ? (
+          {model.auth_type === "adc" ? (
+            // V2.2.8 — ADC configs authenticate via local Google credentials;
+            // nothing is stored in the keychain.
+            <div className="text-meta text-success-fg mt-1 inline-flex items-center gap-1">
+              <Icon icon={ShieldCheck} size="xs" />
+              <span>{t("models.adc_badge")}</span>
+              {model.gcp_project_id && (
+                <span className="text-fg-3 font-mono">
+                  · {model.gcp_project_id}
+                </span>
+              )}
+            </div>
+          ) : model.keychain_ref ? (
             <div className="text-meta text-success-fg mt-1 inline-flex items-center gap-1">
               <Icon icon={Check} size="xs" />
               <span>{t("models.key_stored")}</span>
@@ -882,6 +965,18 @@ function ModelForm({
             ))}
           </select>
         </Field>
+        {/* V2.2.8 — authentication method: API Key (default) vs Google ADC. */}
+        <Field label={t("models.auth_type_label")} className="col-span-2">
+          <select
+            value={form.auth_type ?? "api_key"}
+            onChange={(e) => update("auth_type", e.target.value)}
+            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+            style={{ fontSize: "13px" }}
+          >
+            <option value="api_key">{t("models.auth_api_key")}</option>
+            <option value="adc">{t("models.auth_adc")}</option>
+          </select>
+        </Field>
         <Field label="Endpoint" className="col-span-2">
           <input
             value={form.endpoint}
@@ -895,10 +990,18 @@ function ModelForm({
           <input
             value={form.model_id}
             onChange={(e) => update("model_id", e.target.value)}
-            placeholder="claude-opus-4-7"
+            placeholder={form.provider === "vertex" ? "gemini-2.5-pro" : "claude-opus-4-7"}
+            list={form.provider === "vertex" ? "vertex-model-ids" : undefined}
             className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
             style={{ fontSize: "13px" }}
           />
+          {form.provider === "vertex" && (
+            <datalist id="vertex-model-ids">
+              {VERTEX_MODEL_IDS.map((m) => (
+                <option key={m} value={m} />
+              ))}
+            </datalist>
+          )}
         </Field>
         <Field label="Max Tokens">
           <input
@@ -909,31 +1012,68 @@ function ModelForm({
             style={{ fontSize: "13px" }}
           />
         </Field>
-        <Field
-          label={
-            isEdit
-              ? t("models.form_api_key_edit_label")
-              : t("models.form_api_key_label")
-          }
-          className="col-span-2"
-        >
-          <input
-            type="password"
-            value={form.api_key ?? ""}
-            onChange={(e) => update("api_key", e.target.value)}
-            placeholder={
-              form.provider === "ollama"
-                ? t("models.form_local_no_key")
-                : "sk-..."
+        {form.auth_type === "adc" ? (
+          <>
+            {/* V2.2.8 — ADC: no API key. Project id (required) + region +
+                optional corporate proxy. */}
+            <Field label={t("models.gcp_project_label")}>
+              <input
+                value={form.gcp_project_id ?? ""}
+                onChange={(e) => update("gcp_project_id", e.target.value)}
+                placeholder="my-project-123"
+                className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+                style={{ fontSize: "13px" }}
+              />
+            </Field>
+            <Field label={t("models.gcp_region_label")}>
+              <input
+                value={form.gcp_region ?? "global"}
+                onChange={(e) => update("gcp_region", e.target.value)}
+                placeholder="global"
+                className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+                style={{ fontSize: "13px" }}
+              />
+            </Field>
+            <Field label={t("models.proxy_label")} className="col-span-2">
+              <input
+                value={form.proxy_url ?? ""}
+                onChange={(e) => update("proxy_url", e.target.value)}
+                placeholder="http://127.0.0.1:10809"
+                className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+                style={{ fontSize: "13px" }}
+              />
+              <div className="text-meta text-fg-3 mt-1.5">
+                {t("models.adc_note")}
+              </div>
+            </Field>
+          </>
+        ) : (
+          <Field
+            label={
+              isEdit
+                ? t("models.form_api_key_edit_label")
+                : t("models.form_api_key_label")
             }
-            disabled={form.provider === "ollama"}
-            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus disabled:bg-soft disabled:text-fg-3 disabled:cursor-not-allowed transition-colors duration-fast ease-khx"
-            style={{ fontSize: "13px" }}
-          />
-          <div className="text-meta text-fg-3 mt-1.5">
-            {t("models.key_storage_note")}
-          </div>
-        </Field>
+            className="col-span-2"
+          >
+            <input
+              type="password"
+              value={form.api_key ?? ""}
+              onChange={(e) => update("api_key", e.target.value)}
+              placeholder={
+                form.provider === "ollama"
+                  ? t("models.form_local_no_key")
+                  : "sk-..."
+              }
+              disabled={form.provider === "ollama"}
+              className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus disabled:bg-soft disabled:text-fg-3 disabled:cursor-not-allowed transition-colors duration-fast ease-khx"
+              style={{ fontSize: "13px" }}
+            />
+            <div className="text-meta text-fg-3 mt-1.5">
+              {t("models.key_storage_note")}
+            </div>
+          </Field>
+        )}
       </div>
 
       {err && (
@@ -957,7 +1097,13 @@ function ModelForm({
         <button
           type="button"
           onClick={submit}
-          disabled={saving || !form.name || !form.endpoint || !form.model_id}
+          disabled={
+            saving ||
+            !form.name ||
+            !form.endpoint ||
+            !form.model_id ||
+            (form.auth_type === "adc" && !form.gcp_project_id?.trim())
+          }
           className="inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill shadow-btn bg-navy text-fg-inverse hover:bg-navy-hover disabled:opacity-50 transition-colors duration-fast ease-khx font-medium text-caption"
         >
           {saving && <Icon icon={Loader2} size="sm" className="animate-spin" />}
@@ -1165,6 +1311,10 @@ function ModelEditForm({
     model_id: model.model_id,
     max_tokens: model.max_tokens,
     api_key: null,
+    auth_type: model.auth_type ?? "api_key",
+    gcp_project_id: model.gcp_project_id,
+    gcp_region: model.gcp_region,
+    proxy_url: model.proxy_url,
   };
   return (
     <ModelForm
@@ -1233,7 +1383,10 @@ export default function Models() {
         <p className="text-meta text-fg-2 mt-1">{t("models.subtitle")}</p>
       </header>
 
-      <StatsCards models={models} stats={stats} onRebuild={onRebuild} />
+      {/* V2.2.8 (R7) — connected model names, above the token stats. */}
+      <ConnectedModels models={models} />
+
+      <StatsCards stats={stats} onRebuild={onRebuild} />
 
       {loading && (
         <div className="flex flex-col gap-3">
@@ -1266,12 +1419,14 @@ export default function Models() {
           {!showAddForm && <AiStoreProducts />}
 
           {models.map((m) => (
-            <ModelRow
-              key={m.id}
-              model={m}
-              onChanged={refresh}
-              usage={usageByModel.get(m.id)}
-            />
+            // Anchor for the ConnectedModels strip's click-to-locate.
+            <div key={m.id} id={`model-card-${m.id}`}>
+              <ModelRow
+                model={m}
+                onChanged={refresh}
+                usage={usageByModel.get(m.id)}
+              />
+            </div>
           ))}
 
           {showAddForm && (

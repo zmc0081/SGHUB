@@ -725,7 +725,7 @@ pub async fn test_skill_with_paper(
     model_config_id: String,
 ) -> Result<crate::ai_client::TestResult, String> {
     use crate::ai_client::{
-        get_one as get_model_config, provider_for, AiError, Message, TestResult, TokenPayload,
+        get_one as get_model_config, provider_for_config, AiError, Message, TestResult, TokenPayload,
     };
     use futures::StreamExt;
     use std::time::Instant;
@@ -766,7 +766,7 @@ pub async fn test_skill_with_paper(
         .ok_or_else(|| format!("model `{}` not found", model_config_id))?;
     config.max_tokens = config.max_tokens.min(1500);
 
-    let api_key: Option<String> = if config.provider == "ollama" {
+    let api_key: Option<String> = if !crate::ai_client::needs_api_key(&config) {
         None
     } else {
         match crate::keychain::get_api_key(&model_config_id) {
@@ -776,7 +776,7 @@ pub async fn test_skill_with_paper(
         }
     };
 
-    let provider = provider_for(&config.provider, api_key)
+    let provider = provider_for_config(&config, api_key)
         .map_err(|e| format!("model `{}`: {}", config.name, e))?;
 
     // V2.2.1 — log dispatch so non-default-model bugs surface in logs.

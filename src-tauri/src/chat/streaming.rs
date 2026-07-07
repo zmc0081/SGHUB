@@ -12,7 +12,7 @@ use std::sync::{Mutex, OnceLock};
 use serde::{Deserialize, Serialize};
 
 use crate::ai_client::{
-    estimate_tokens, get_one as get_model_config, provider_for, usage::record_usage, AiError,
+    estimate_tokens, get_one as get_model_config, provider_for_config, usage::record_usage, AiError,
 };
 use crate::keychain;
 use crate::AppState;
@@ -130,7 +130,7 @@ async fn stream_assistant_turn(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("model `{}` not found", model_id))?;
 
-    let api_key: Option<String> = if config.provider == "ollama" {
+    let api_key: Option<String> = if !crate::ai_client::needs_api_key(&config) {
         None
     } else {
         match keychain::get_api_key(&model_id) {
@@ -185,7 +185,7 @@ async fn stream_assistant_turn(
     crate::ai_client::pre_flight_balance_check(&config).map_err(|e| e.to_string())?;
 
     // 5. Open the stream
-    let provider = provider_for(&config.provider, api_key)
+    let provider = provider_for_config(&config, api_key)
         .map_err(|e| format!("model `{}`: {}", config.name, e))?;
     log::info!(
         "chat_stream: session={} provider={} endpoint={} model_id={} name={}",

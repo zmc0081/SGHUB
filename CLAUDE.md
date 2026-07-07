@@ -3,7 +3,7 @@
 > 本文件是 Claude Code 的项目上下文,每次会话自动加载。
 > 详细设计见 /docs 目录下的 PRD、架构方案与实施方案。
 > 项目路径: D:\2-WORK\恒星\项目\学术文献管理系统\SG_Hub
-> 当前版本: V2.2.7
+> 当前版本: V2.2.8
 
 ## 产品定位
 
@@ -241,6 +241,8 @@ eslint src --max-warnings 0                              → clean
 - 支持折叠 / 伸缩:展开态约 220px(图标 + 文字),折叠态约 60px(仅图标 + hover tooltip)
 - 折叠状态持久化到 config.toml,重启恢复
 - 底部固定版权信息:`Copyright © Star Technology. All Rights Reserved`(折叠态简化为 `© Star Technology`)
+- 版权下方一行版本号(V2.2.8 新增):从 tauri.conf.json 读取,与设置页同源一致,不硬编码;
+  **折叠态不显示版本号**
 - 所有导航图标用 Lucide,不用 emoji
 
 ## Chat 模块(V2.2.7 增强,参考 Claude 网页)
@@ -300,6 +302,15 @@ Skill 调用:
 集中管理能力:本地上传与在线检索 / 推送文献统一管理(文件夹归类、标签、阅读状态、FTS 检索、
 批量操作);来源徽章区分(本地 / arXiv / PubMed / OpenAlex / Semantic Scholar);
 上传方式支持文件选择器多选 + 拖拽。
+
+文献卡片按钮排布(V2.2.9 定稿,中英对照):
+**收藏(星标)、查看(View,内置阅读器)、AI 精读、翻译、文件(File,打开文件夹并定位:
+Windows explorer /select · macOS open -R)、移动、来源(Source,原"原文")、删除**。
+"文件"在无本地 PDF 时禁用;元数据编辑入口收纳到更多菜单/双击,能力保留。
+
+解析任务约定(V2.2.9):解析任务后台运行,切换菜单不中断;流式监听注册在 App 级,
+状态在全局 parseStore;结果与历史持久化 SQLite;**模型有输出必须可见可查**,
+维度化展示失败时降级原文展示,不显示空结果。
 
 ## AI Store(V2.2.6 起并入模型配置页)
 
@@ -467,6 +478,19 @@ pub trait AiProvider: Send + Sync {
 - `OpenAiCompatible`: POST /chat/completions (覆盖 OpenAI / DeepSeek / LM Studio / Azure / SG AI Store 网关)
 - `AnthropicProvider`: POST /messages (Claude 专属 API)
 - `OllamaProvider`: POST /api/chat (本地,无需 Key)
+- `VertexProvider`: Google Vertex AI streamGenerateContent (Gemini,支持 ADC 免密,V2.2.8)
+
+认证方式维度(V2.2.8,model_configs.auth_type):
+- `api_key`(默认):现有方式,Key 存 OS keychain;老配置自动归此类,行为不变
+- `adc`(免密):不填不存 Key。后端按 ADC 凭证链自动获取并刷新访问令牌
+  (环境变量 GOOGLE_APPLICATION_CREDENTIALS → 用户 ADC 文件
+   %APPDATA%\gcloud\application_default_credentials.json),过期自动刷新无需人工干预
+- ADC 型配置字段:gcp_project_id(必填)/ gcp_region(默认 global)/ proxy_url(选填)
+- Vertex endpoint:global 用 aiplatform.googleapis.com,区域化用 {region}-aiplatform.googleapis.com
+- 企业代理:proxy_url 非空时,令牌获取与模型调用全链路经 reqwest Proxy 转发
+- 测试连接:ADC 型真实发起最小请求验证;凭证缺失提示
+  `gcloud auth application-default login`
+- 预设模板 "Google Vertex (Gemini)":一键填端点/模型清单/区域,用户只填项目 ID
 
 流式输出通过 Tauri Event 推送到前端:
 ```rust

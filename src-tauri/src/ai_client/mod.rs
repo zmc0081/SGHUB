@@ -14,6 +14,7 @@ pub mod anthropic;
 pub mod ollama;
 pub mod openai;
 pub mod usage;
+pub mod vertex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelConfig {
@@ -45,6 +46,27 @@ pub struct ModelConfig {
     /// ISO 8601 timestamp — when balance fields were last refreshed.
     #[serde(default)]
     pub balance_synced_at: Option<String>,
+
+    // ── V2.2.8 — authentication-method dimension (V008 migration) ──
+    /// "api_key" (default; key in OS keychain) | "adc" (Google Application
+    /// Default Credentials — no key stored, token fetched/refreshed locally).
+    #[serde(default = "default_auth_type")]
+    pub auth_type: String,
+    /// GCP project id (required for Vertex / ADC models).
+    #[serde(default)]
+    pub gcp_project_id: Option<String>,
+    /// Vertex region; "global" (default) or a regional endpoint like
+    /// "us-central1".
+    #[serde(default)]
+    pub gcp_region: Option<String>,
+    /// Optional HTTP/SOCKS proxy (e.g. "http://127.0.0.1:10809") applied to
+    /// BOTH token exchange and model calls for this config.
+    #[serde(default)]
+    pub proxy_url: Option<String>,
+}
+
+fn default_auth_type() -> String {
+    "api_key".into()
 }
 
 /// Form-style payload from the frontend. `api_key` is optional: present means
@@ -58,6 +80,32 @@ pub struct ModelConfigInput {
     pub model_id: String,
     pub max_tokens: i32,
     pub api_key: Option<String>,
+    // V2.2.8 — auth-method fields. Absent in older frontends → api_key type.
+    #[serde(default = "default_auth_type")]
+    pub auth_type: String,
+    #[serde(default)]
+    pub gcp_project_id: Option<String>,
+    #[serde(default)]
+    pub gcp_region: Option<String>,
+    #[serde(default)]
+    pub proxy_url: Option<String>,
+}
+
+impl Default for ModelConfigInput {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            provider: String::new(),
+            endpoint: String::new(),
+            model_id: String::new(),
+            max_tokens: 0,
+            api_key: None,
+            auth_type: default_auth_type(),
+            gcp_project_id: None,
+            gcp_region: None,
+            proxy_url: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -153,6 +201,20 @@ pub trait AiProvider: Send + Sync {
     ) -> Result<TokenStream, AiError>;
 }
 
+/// V2.2.8 — auth-type-aware dispatch: any ADC-auth config routes to Vertex
+/// regardless of its `provider` string (covers legacy "custom" rows that a
+/// user flips to ADC in the edit form). Everything else falls through to the
+/// provider-string dispatch below. Production callers use THIS entry.
+pub fn provider_for_config(
+    cfg: &ModelConfig,
+    api_key: Option<String>,
+) -> Result<Box<dyn AiProvider>, AiError> {
+    if cfg.auth_type == "adc" {
+        return Ok(Box::new(vertex::VertexProvider));
+    }
+    provider_for(&cfg.provider, api_key)
+}
+
 /// Map a `ModelConfig.provider` string to a concrete `AiProvider` impl.
 /// "openai" / "custom" → OpenAI-compatible (DeepSeek / LM Studio / Azure all fit here).
 pub fn provider_for(
@@ -167,8 +229,19 @@ pub fn provider_for(
             api_key.unwrap_or_default(),
         ))),
         "ollama" => Ok(Box::new(ollama::OllamaProvider)),
+        // V2.2.8 — Google Vertex (Gemini) via ADC. No api_key: the provider
+        // resolves Application Default Credentials and mints/refreshes its
+        // own access token; project/region/proxy come from the ModelConfig
+        // passed to `chat_stream`.
+        "vertex" => Ok(Box::new(vertex::VertexProvider)),
         other => Err(AiError::UnknownProvider(other.to_string())),
     }
+}
+
+/// V2.2.8 — whether this config needs an API key from the keychain.
+/// Ollama (local) and ADC-auth configs (Google token-based) never do.
+pub(crate) fn needs_api_key(cfg: &ModelConfig) -> bool {
+    cfg.provider != "ollama" && cfg.auth_type != "adc"
 }
 
 /// Categorize an HTTP response status into our error enum (or success).
@@ -205,6 +278,7 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: "claude-opus-4-7".into(),
             max_tokens: 200000,
             api_key: None,
+            ..Default::default()
         },
         ModelConfigInput {
             name: "GPT-5".into(),
@@ -213,6 +287,7 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: "gpt-5".into(),
             max_tokens: 128000,
             api_key: None,
+            ..Default::default()
         },
         ModelConfigInput {
             name: "DeepSeek V3".into(),
@@ -221,6 +296,7 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: "deepseek-chat".into(),
             max_tokens: 64000,
             api_key: None,
+            ..Default::default()
         },
         ModelConfigInput {
             name: "Ollama Llama 3 (8B,本地)".into(),
@@ -229,6 +305,7 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: "llama3:8b".into(),
             max_tokens: 8192,
             api_key: None,
+            ..Default::default()
         },
         // V2.2.1 Session 29 — SG AI Store preset. Endpoint substring
         // auto-tags this row as is_sg_ai_store=1 on insert, which in
@@ -242,6 +319,22 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             model_id: String::new(),
             max_tokens: 128000,
             api_key: None,
+            ..Default::default()
+        },
+        // V2.2.8 — Google Vertex (Gemini) via ADC. No API key: the user only
+        // fills in their GCP project id (and an optional proxy). The endpoint
+        // shown here is informational — the real URL is built per-request
+        // from project + region by VertexProvider.
+        ModelConfigInput {
+            name: "Google Vertex (Gemini)".into(),
+            provider: "vertex".into(),
+            endpoint: "https://aiplatform.googleapis.com".into(),
+            model_id: "gemini-2.5-pro".into(),
+            max_tokens: 65536,
+            api_key: None,
+            auth_type: "adc".into(),
+            gcp_region: Some("global".into()),
+            ..Default::default()
         },
     ]
 }
@@ -275,13 +368,19 @@ fn row_to_config(row: &rusqlite::Row) -> rusqlite::Result<ModelConfig> {
         remaining_tokens: row.get(12)?,
         subscription_expires_at: row.get(13)?,
         balance_synced_at: row.get(14)?,
+        // V008 — auth-method columns.
+        auth_type: row.get(15)?,
+        gcp_project_id: row.get(16)?,
+        gcp_region: row.get(17)?,
+        proxy_url: row.get(18)?,
     })
 }
 
 const SELECT_COLS: &str = "id, name, provider, endpoint, model_id, max_tokens, \
                            is_default, keychain_ref, created_at, updated_at, \
                            is_sg_ai_store, balance_cny, remaining_tokens, \
-                           subscription_expires_at, balance_synced_at";
+                           subscription_expires_at, balance_synced_at, \
+                           auth_type, gcp_project_id, gcp_region, proxy_url";
 
 /// V2.2.1 Session 29 — endpoint substring check used to auto-tag
 /// SG AI Store models. Keep the matcher loose (just "sgaistore.com")
@@ -380,8 +479,9 @@ fn insert(pool: &crate::db::DbPool, cfg: &ModelConfig) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO model_configs \
          (id, name, provider, endpoint, model_id, max_tokens, is_default, keychain_ref, \
-          created_at, updated_at, is_sg_ai_store) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+          created_at, updated_at, is_sg_ai_store, auth_type, gcp_project_id, gcp_region, \
+          proxy_url) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
         params![
             cfg.id,
             cfg.name,
@@ -394,6 +494,10 @@ fn insert(pool: &crate::db::DbPool, cfg: &ModelConfig) -> rusqlite::Result<()> {
             cfg.created_at,
             cfg.updated_at,
             cfg.is_sg_ai_store as i64,
+            cfg.auth_type,
+            cfg.gcp_project_id,
+            cfg.gcp_region,
+            cfg.proxy_url,
         ],
     )?;
     Ok(())
@@ -409,8 +513,9 @@ fn update(pool: &crate::db::DbPool, id: &str, input: &ModelConfigInput) -> rusql
     conn.execute(
         "UPDATE model_configs \
          SET name = ?1, provider = ?2, endpoint = ?3, model_id = ?4, \
-             max_tokens = ?5, updated_at = ?6 \
-         WHERE id = ?7",
+             max_tokens = ?5, updated_at = ?6, auth_type = ?7, \
+             gcp_project_id = ?8, gcp_region = ?9, proxy_url = ?10 \
+         WHERE id = ?11",
         params![
             input.name,
             input.provider,
@@ -418,6 +523,10 @@ fn update(pool: &crate::db::DbPool, id: &str, input: &ModelConfigInput) -> rusql
             input.model_id,
             input.max_tokens,
             now,
+            input.auth_type,
+            input.gcp_project_id,
+            input.gcp_region,
+            input.proxy_url,
             id,
         ],
     )
@@ -472,7 +581,9 @@ pub async fn add_model_config(
 ) -> Result<ModelConfig, String> {
     let id = uuid::Uuid::now_v7().to_string();
     let now = now_iso();
-    let has_key = input.api_key.is_some();
+    // V2.2.8 — ADC configs never store a key (keychain untouched).
+    let is_adc = input.auth_type == "adc";
+    let has_key = !is_adc && input.api_key.is_some();
     let is_sg_ai_store = is_sg_ai_store_endpoint(&input.endpoint);
     let cfg = ModelConfig {
         id: id.clone(),
@@ -490,6 +601,10 @@ pub async fn add_model_config(
         remaining_tokens: None,
         subscription_expires_at: None,
         balance_synced_at: None,
+        auth_type: input.auth_type.clone(),
+        gcp_project_id: input.gcp_project_id.clone(),
+        gcp_region: input.gcp_region.clone(),
+        proxy_url: input.proxy_url.clone(),
     };
 
     let pool = state.db_pool.clone();
@@ -499,9 +614,11 @@ pub async fn add_model_config(
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())?;
 
-    if let Some(key) = input.api_key {
-        if !key.is_empty() {
-            keychain::set_api_key(&id, &key).map_err(|e| e.to_string())?;
+    if !is_adc {
+        if let Some(key) = input.api_key {
+            if !key.is_empty() {
+                keychain::set_api_key(&id, &key).map_err(|e| e.to_string())?;
+            }
         }
     }
 
@@ -532,12 +649,15 @@ pub async fn update_model_config(
         return Err(format!("model `{}` not found", id));
     }
 
-    if let Some(key) = input.api_key {
-        if key.is_empty() {
-            // explicit empty string → clear the key
-            let _ = keychain::delete_api_key(&id);
-        } else {
-            keychain::set_api_key(&id, &key).map_err(|e| e.to_string())?;
+    // V2.2.8 — ADC configs never touch the keychain on edit either.
+    if input.auth_type != "adc" {
+        if let Some(key) = input.api_key {
+            if key.is_empty() {
+                // explicit empty string → clear the key
+                let _ = keychain::delete_api_key(&id);
+            } else {
+                keychain::set_api_key(&id, &key).map_err(|e| e.to_string())?;
+            }
         }
     }
 
@@ -620,8 +740,8 @@ pub async fn test_model_connection(
         .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("model `{}` not found", model_id))?;
 
-    // 2. Pull API key from keychain if needed
-    let api_key = if config.provider == "ollama" {
+    // 2. Pull API key from keychain if needed (Ollama and ADC configs don't).
+    let api_key = if !needs_api_key(&config) {
         None
     } else {
         match keychain::get_api_key(&model_id) {
@@ -645,27 +765,37 @@ pub async fn test_model_connection(
         }
     };
 
-    // 3. Dispatch to provider-specific test
+    // 3. Dispatch to provider-specific test. ADC configs take the Vertex path
+    //    (real credentials → token → proxy → generateContent round trip).
     let started = Instant::now();
-    let result: Result<String, String> = match config.provider.as_str() {
-        "anthropic" => {
-            anthropic::test_connection(
-                &config.endpoint,
-                &config.model_id,
-                api_key.as_deref().unwrap_or(""),
-            )
-            .await
+    let result: Result<String, String> = if config.auth_type == "adc"
+        || config.provider == "vertex"
+    {
+        vertex::test_connection(&config).await
+    } else {
+        match config.provider.as_str() {
+            "anthropic" => {
+                anthropic::test_connection(
+                    &config.endpoint,
+                    &config.model_id,
+                    api_key.as_deref().unwrap_or(""),
+                )
+                .await
+            }
+            // "custom" is OpenAI-compatible — same routing as `provider_for`
+            // (this branch was missing, so custom configs could never be
+            // connection-tested; V2.2.8 fix).
+            "openai" | "custom" => {
+                openai::test_connection(
+                    &config.endpoint,
+                    &config.model_id,
+                    api_key.as_deref().unwrap_or(""),
+                )
+                .await
+            }
+            "ollama" => ollama::test_connection(&config.endpoint).await,
+            other => Err(format!("unsupported provider `{}`", other)),
         }
-        "openai" => {
-            openai::test_connection(
-                &config.endpoint,
-                &config.model_id,
-                api_key.as_deref().unwrap_or(""),
-            )
-            .await
-        }
-        "ollama" => ollama::test_connection(&config.endpoint).await,
-        other => Err(format!("unsupported provider `{}`", other)),
     };
     let latency = started.elapsed().as_millis() as u64;
 
@@ -739,7 +869,7 @@ pub async fn ai_chat_stream(
         .ok_or_else(|| format!("model `{}` not found", model_id))?;
 
     // 2. Pull API key (released as soon as provider holds it)
-    let api_key = if config.provider == "ollama" {
+    let api_key = if !needs_api_key(&config) {
         None
     } else {
         match keychain::get_api_key(&model_id) {
@@ -756,7 +886,7 @@ pub async fn ai_chat_stream(
     pre_flight_balance_check(&config).map_err(|e| e.to_string())?;
 
     // 3. Dispatch
-    let provider = provider_for(&config.provider, api_key)
+    let provider = provider_for_config(&config, api_key)
         .map_err(|e| format!("model `{}`: {}", config.name, e))?;
 
     // 4. Estimate input tokens
@@ -861,6 +991,7 @@ mod tests {
             model_id: "test-model".into(),
             max_tokens: 1024,
             api_key: None,
+            ..Default::default()
         }
     }
 
@@ -887,6 +1018,10 @@ mod tests {
             remaining_tokens: None,
             subscription_expires_at: None,
             balance_synced_at: None,
+            auth_type: "api_key".into(),
+            gcp_project_id: None,
+            gcp_region: None,
+            proxy_url: None,
         }
     }
 
@@ -1003,19 +1138,28 @@ mod tests {
     }
 
     #[test]
-    fn presets_are_five_with_distinct_providers() {
+    fn presets_cover_all_providers() {
         let p = get_model_presets();
-        // V2.2.1 Session 29: 5th preset added — SG AI Store
-        // (openai-compatible endpoint, distinguishes via the
-        // sgaistore.com substring, not via a new provider kind).
-        assert_eq!(p.len(), 5);
+        // V2.2.1 Session 29: SG AI Store (openai-compatible, detected via
+        // the sgaistore.com substring). V2.2.8: Google Vertex (Gemini, ADC).
+        assert_eq!(p.len(), 6);
         let providers: std::collections::HashSet<_> =
             p.iter().map(|x| x.provider.clone()).collect();
-        // anthropic + openai (GPT-5, DeepSeek, SG AI Store) + ollama = 3 unique
         assert!(providers.contains("anthropic"));
         assert!(providers.contains("openai"));
         assert!(providers.contains("ollama"));
+        assert!(providers.contains("vertex"));
         // SG AI Store preset detected by endpoint, not provider field.
         assert!(p.iter().any(|x| x.endpoint.contains("sgaistore.com")));
+        // V2.2.8 — the Vertex preset is ADC-typed (no key) with a global
+        // region default; every other preset stays api_key-typed.
+        let vertex = p.iter().find(|x| x.provider == "vertex").unwrap();
+        assert_eq!(vertex.auth_type, "adc");
+        assert_eq!(vertex.gcp_region.as_deref(), Some("global"));
+        assert!(vertex.api_key.is_none());
+        assert!(p
+            .iter()
+            .filter(|x| x.provider != "vertex")
+            .all(|x| x.auth_type == "api_key"));
     }
 }

@@ -1,6 +1,6 @@
 # SG Hub Privacy Policy
 
-**Version**: v2.2.7 · **Effective**: 2026-06-25
+**Version**: v2.2.8 · **Effective**: 2026-07-07
 
 SG Hub is an open-source (MIT) desktop literature manager that runs entirely on your computer. This document describes how SG Hub handles your data.
 
@@ -47,13 +47,15 @@ Each key is bound to its model-config UUID. Deleting a model clears the correspo
 
 ## 3. AI model calls (BYOK mode)
 
-When you configure Anthropic / OpenAI / DeepSeek / Ollama / any OpenAI-compatible service with your own API key:
+When you configure Anthropic / OpenAI / DeepSeek / Google Vertex / Ollama / any OpenAI-compatible service:
 
 - Requests go **directly** (HTTPS) from your computer to the `endpoint` you configured
 - **Nothing passes through any SG Hub server**
 - The request body contains: the paper title / abstract / full PDF text you selected, your Skill-rendered prompt, and model parameters
 - Chat attachments are included by type: text / PDF are extracted to text and added to the context; images are sent as multimodal (base64) to vision-capable models
 - Responses stream back to your computer and render token-by-token
+
+**Google Vertex (keyless ADC, since v2.2.8)**: with the ADC auth method, SG Hub reads your local Google credentials (the Application Default Credentials created by `gcloud auth application-default login`, or the service-account file pointed to by `GOOGLE_APPLICATION_CREDENTIALS`), exchanges them for a short-lived access token at Google OAuth (`oauth2.googleapis.com`), and calls Vertex AI with it. The credential file and token are used **in memory on your machine only** — never written to any SG Hub file or log, and never sent to SG Hub or any third party; when a proxy is configured, both the token exchange and model calls go through it directly to Google.
 
 The full destination URL is visible in **Settings → Models** under each model card's `endpoint` field.
 
@@ -131,7 +133,7 @@ Logs **are not uploaded anywhere**. If you want to share logs for debugging, ple
 
 | Destination | Trigger | Data sent |
 |---|---|---|
-| → Model provider (Anthropic / OpenAI / DeepSeek / Ollama, etc.) | AI Parse / Chat / Skill test / Full-text translation | Selected paper / PDF text + prompt + model parameters |
+| → Model provider (Anthropic / OpenAI / DeepSeek / Google Vertex / Ollama, etc.) | AI Parse / Chat / Skill test / Full-text translation | Selected paper / PDF text + prompt + model parameters |
 | → arXiv / Semantic Scholar / PubMed / OpenAlex / Crossref / CORE / DBLP / DOAJ | Literature search / subscription | Search keywords |
 | → GitHub Releases | Auto-update | Current version number |
 | → sgaistore.com (optional) | Using an SG AI Store model | Same as model provider + usage metadata |
