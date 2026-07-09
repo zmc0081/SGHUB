@@ -5,9 +5,11 @@ import { useSearch } from "@tanstack/react-router";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import {
   AlertTriangle,
+  ArrowLeft,
   Brain,
   ChevronDown,
   Check,
+  Download,
   Loader2,
   Upload,
   X,
@@ -16,13 +18,14 @@ import {
   api,
   type ModelConfig,
   type Paper,
+  type ParseOverviewItem,
   type ParseResult,
   type PartialMetadata,
   type Skill,
   type SkillSummary,
-  type TokenPayload,
   type UploadProgressPayload,
 } from "../lib/tauri";
+import { useParseStore } from "../stores/parseStore";
 import { PaperPicker } from "../components/PaperPicker";
 import { PaperMetadataEditor } from "../components/PaperMetadataEditor";
 import { Icon } from "../components/Icon";
@@ -32,6 +35,7 @@ import {
   isInsufficientBalanceError,
 } from "../components/InsufficientBalanceDialog";
 import { useT } from "../hooks/useT";
+import { useToast } from "../hooks/useToast";
 
 /**
  * Split a streaming markdown response by `## ` headings into a Map of
@@ -59,6 +63,30 @@ function parseSections(text: string): Map<string, string> {
   return sections;
 }
 
+/** V2.2.9 (Session 45) — pull the embedded HTML document out of a raw model
+ *  response (skills like research-scientific-literature emit a full HTML
+ *  report, often preceded by prose). Tolerates a missing closing tag
+ *  (truncated output) by taking everything from the opening tag onward. */
+function extractHtmlDocument(text: string): string | null {
+  const lower = text.toLowerCase();
+  let start = lower.indexOf("<!doctype html");
+  if (start === -1) start = lower.indexOf("<html");
+  if (start === -1) return null;
+  const end = lower.lastIndexOf("</html>");
+  return end > start ? text.slice(start, end + "</html>".length) : text.slice(start);
+}
+
+/** Windows-safe, length-capped export filename:
+ *  `Research by {model} - {paper title}.html` (user-specified rule). */
+function htmlExportName(modelName: string, paperTitle: string): string {
+  const clean = (s: string) =>
+    s.replace(/[\\/:*?"<>|]/g, " ").replace(/\s+/g, " ").trim();
+  const model = clean(modelName) || "AI";
+  let title = clean(paperTitle) || "Paper";
+  if (title.length > 60) title = title.slice(0, 60).trim();
+  return `Research by ${model} - ${title}.html`;
+}
+
 function formatRelative(
   iso: string,
   t: (k: string, opts?: Record<string, unknown>) => string,
@@ -74,6 +102,30 @@ function formatRelative(
   if (diff < 86400)
     return t("parse.time_ago_hours", { count: Math.round(diff / 3600) });
   return t("parse.time_ago_days", { count: Math.round(diff / 86400) });
+}
+
+/** V2.2.9 (R1) — lightweight equalizer-bar motion shown at the top of the
+ *  output area while a parse is streaming. Pure CSS (`animate-eq` keyframes
+ *  in tailwind.config.js, khx easing, token colors); staggered per-bar
+ *  delays create the bounce. Unmounts when the parse finishes or fails. */
+function ParsingIndicator() {
+  const t = useT();
+  return (
+    <div className="flex items-center gap-3 mb-4 px-4 py-3 rounded-card-sm border border-border-default bg-card">
+      <span className="flex items-end gap-0.5 h-4" aria-hidden="true">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <span
+            key={i}
+            className="w-1 h-4 rounded-pill bg-indigo origin-bottom animate-eq"
+            style={{ animationDelay: `${i * 120}ms` }}
+          />
+        ))}
+      </span>
+      <span className="text-caption text-fg-2">
+        {t("parse.parsing_indicator")}
+      </span>
+    </div>
+  );
 }
 
 function DimensionCard({
@@ -150,6 +202,7 @@ function RawOutput({
 
 export default function Parse() {
   const t = useT();
+  const toast = useToast();
   const search = useSearch({ from: "/parse" }) as {
     paper_id?: string;
     skill?: string;
@@ -160,17 +213,38 @@ export default function Parse() {
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [models, setModels] = useState<ModelConfig[]>([]);
   const [history, setHistory] = useState<ParseResult[]>([]);
+  // V2.2.9 — paper-level history: the sidebar opens on a grouped-by-paper
+  // list (newest first); clicking a paper drills into its runs, with a back
+  // button to return.
+  const [overview, setOverview] = useState<ParseOverviewItem[]>([]);
+  const [historyView, setHistoryView] = useState<"overview" | "detail">(
+    "overview",
+  );
 
-  const [paperId, setPaperId] = useState<string>("");
-  const [skillName, setSkillName] = useState<string>("");
-  const [modelId, setModelId] = useState<string>("");
-
-  const [output, setOutput] = useState<string>("");
-  const [streaming, setStreaming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [startedAt, setStartedAt] = useState<number | null>(null);
-  const [finishedAt, setFinishedAt] = useState<number | null>(null);
-  const [tokensOut, setTokensOut] = useState(0);
+  // V2.2.9 (Session 45, R4) — task + selection state lives in the global
+  // parseStore so navigating away doesn't lose the stream (the app-level
+  // ParseListener keeps writing) and returning restores everything.
+  const paperId = useParseStore((s) => s.paperId);
+  const skillName = useParseStore((s) => s.skillName);
+  const modelId = useParseStore((s) => s.modelId);
+  const taskPaperId = useParseStore((s) => s.taskPaperId);
+  const rawOutputState = useParseStore((s) => s.output);
+  const rawRunning = useParseStore((s) => s.running);
+  const error = useParseStore((s) => s.error);
+  const startedAt = useParseStore((s) => s.startedAt);
+  const finishedAt = useParseStore((s) => s.finishedAt);
+  const rawTokensOut = useParseStore((s) => s.tokensOut);
+  // V2.2.9 — the output belongs to `taskPaperId`; only surface it when the
+  // picker matches, so switching papers doesn't show another paper's result
+  // (switching back restores it — nothing is cleared).
+  const outputForThisPaper = taskPaperId !== "" && taskPaperId === paperId;
+  const output = outputForThisPaper ? rawOutputState : "";
+  const streaming = rawRunning && outputForThisPaper;
+  const tokensOut = outputForThisPaper ? rawTokensOut : 0;
+  const setPaperId = useParseStore((s) => s.setPaperId);
+  const setSkillName = useParseStore((s) => s.setSkillName);
+  const setModelId = useParseStore((s) => s.setModelId);
+  const setError = useParseStore((s) => s.setError);
 
   // V2.2.1 Session 29 — pop the recharge dialog on SG AI Store balance gate.
   const [insufficientOpen, setInsufficientOpen] = useState(false);
@@ -200,7 +274,6 @@ export default function Parse() {
     pdfPath: string | null;
   } | null>(null);
 
-  const outputRef = useRef("");
   const startBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -259,36 +332,40 @@ export default function Parse() {
         });
       }, 100);
     }
-  }, [search.paper_id, papers]);
+  }, [search.paper_id, papers, setPaperId]);
 
-  useEffect(() => {
-    let unlisten: UnlistenFn | undefined;
-    listen<TokenPayload>("parse:token", (event) => {
-      const { text, done } = event.payload;
-      if (text) {
-        outputRef.current += text;
-        setOutput(outputRef.current);
-        setTokensOut((n) => n + Math.ceil(text.length / 4));
-      }
-      if (done) {
-        setStreaming(false);
-        setFinishedAt(Date.now());
-      }
-    }).then((u) => {
-      unlisten = u;
-    });
-    return () => {
-      unlisten?.();
-    };
-  }, []);
-
+  // Streaming tokens arrive via the app-level ParseListener → parseStore;
+  // this page only renders. Refresh the history whenever a run finishes
+  // (the backend persists the result on `done` regardless of the UI).
   useEffect(() => {
     if (!paperId) {
       setHistory([]);
       return;
     }
     api.getParseHistory(paperId).then(setHistory).catch(() => setHistory([]));
-  }, [paperId]);
+  }, [paperId, streaming]);
+
+  // V2.2.9 — paper-grouped history list: load on entry and refresh whenever
+  // a run finishes (rawRunning true → false).
+  useEffect(() => {
+    if (rawRunning) return;
+    api.getParseOverview().then(setOverview).catch(() => setOverview([]));
+  }, [rawRunning]);
+
+  // Drill into one paper's runs from the overview list. Also syncs the
+  // top picker to that paper (fetching it if it's not in the recent list).
+  const openOverviewPaper = async (item: ParseOverviewItem) => {
+    if (!papers.some((p) => p.id === item.paper_id)) {
+      try {
+        const p = await api.getPaper(item.paper_id);
+        if (p) setPapers((prev) => [p, ...prev]);
+      } catch {
+        /* history stays viewable even if the paper row is gone */
+      }
+    }
+    setPaperId(item.paper_id);
+    setHistoryView("detail");
+  };
 
   const selectedPaper = useMemo(
     () => papers.find((p) => p.id === paperId),
@@ -306,27 +383,18 @@ export default function Parse() {
       .catch((e) => console.warn("getSkillDetail", e));
   }, [skillName]);
 
-  const startParse = async () => {
+  const startParse = () => {
     if (!paperId || !skillName || !modelId) {
       setError(t("parse.validation_pick_all"));
       return;
     }
-    setError(null);
-    setOutput("");
-    outputRef.current = "";
-    setTokensOut(0);
-    setStartedAt(Date.now());
-    setFinishedAt(null);
-    setStreaming(true);
-    try {
-      await api.startParse(paperId, skillName, modelId);
-    } catch (e) {
-      setError(String(e));
-      setStreaming(false);
-      setFinishedAt(Date.now());
-    } finally {
-      api.getParseHistory(paperId).then(setHistory).catch(() => {});
-    }
+    // Remember which model produces this result (HTML export filename).
+    useParseStore
+      .getState()
+      .setResultModelName(models.find((m) => m.id === modelId)?.name ?? "");
+    // The invoke lives in the store, so navigating away mid-parse doesn't
+    // orphan the completion handling; history reloads via the effect above.
+    void useParseStore.getState().startParse();
   };
 
   useEffect(() => {
@@ -436,15 +504,47 @@ export default function Parse() {
     } catch {
       /* not JSON, keep raw */
     }
-    setOutput(text);
-    outputRef.current = text;
-    setStreaming(false);
-    setStartedAt(null);
-    setFinishedAt(null);
-    setTokensOut(h.tokens_out);
+    useParseStore
+      .getState()
+      .loadResult(text, h.tokens_out, h.model_name, h.paper_id);
+  };
+
+  // V2.2.9 — download the embedded HTML report as a standalone file.
+  // Filename rule: `Research by {model} - {paper title}.html`.
+  const htmlDoc = useMemo(
+    () => (output && !streaming ? extractHtmlDocument(output) : null),
+    [output, streaming],
+  );
+  const downloadHtml = async () => {
+    if (!htmlDoc) return;
+    const modelName =
+      useParseStore.getState().resultModelName ||
+      models.find((m) => m.id === modelId)?.name ||
+      "AI";
+    const fileName = htmlExportName(modelName, selectedPaper?.title ?? "");
+    try {
+      const path = await api.exportTextFile(fileName, htmlDoc);
+      toast.success(t("parse.html_exported", { path }));
+      // V2.2.9 — reveal the exported file in the OS file manager right away.
+      await api.revealInFolder(path);
+    } catch (e) {
+      toast.danger(String(e));
+    }
   };
 
   const sections = useMemo(() => parseSections(output), [output]);
+
+  // V2.2.9 (Session 45, R5) — dimension fallback. Skills that emit HTML (or
+  // any structure without `## ` headings) produce an empty section map, which
+  // used to render every card as "尚未生成此维度" even though the model DID
+  // produce (and the backend saved) a full response. If the split yields no
+  // usable section, degrade to the raw output view instead of showing blanks.
+  const dimensionsUsable =
+    !!selectedSkill &&
+    selectedSkill.output_dimensions.length > 0 &&
+    selectedSkill.output_dimensions.some(
+      (d) => (sections.get(d.title) ?? "").length > 0,
+    );
   const tokensIn = useMemo(() => {
     if (!selectedPaper) return 0;
     const approx =
@@ -454,8 +554,9 @@ export default function Parse() {
       4;
     return Math.ceil(approx);
   }, [selectedPaper]);
-  const elapsedMs =
-    startedAt && finishedAt
+  const elapsedMs = !outputForThisPaper
+    ? 0
+    : startedAt && finishedAt
       ? finishedAt - startedAt
       : startedAt
         ? Date.now() - startedAt
@@ -467,42 +568,84 @@ export default function Parse() {
         aria-label="Parse history"
         className="w-parse-history border-r border-border-default bg-soft overflow-y-auto p-3"
       >
-        <div className="text-meta uppercase tracking-wide-brand text-fg-3 mb-3 px-2">
-          {t("parse.history")}
-        </div>
-        {!paperId && (
-          <div className="text-meta text-fg-3 px-2">
-            {t("parse.select_paper_first")}
-          </div>
-        )}
-        {paperId && history.length === 0 && (
-          <div className="text-meta text-fg-3 px-2">
-            {t("parse.no_history")}
-          </div>
-        )}
-        <div className="flex flex-col gap-2">
-          {history.map((h) => (
+        {/* V2.2.9 — two-level history: papers first (grouped, newest
+            activity on top), drill into one paper's runs, back to return. */}
+        {historyView === "overview" ? (
+          <>
+            <div className="text-meta uppercase tracking-wide-brand text-fg-3 mb-3 px-2">
+              {t("parse.history")}
+            </div>
+            {overview.length === 0 && (
+              <div className="text-meta text-fg-3 px-2">
+                {t("parse.overview_empty")}
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              {overview.map((o) => (
+                <button
+                  key={o.paper_id}
+                  type="button"
+                  onClick={() => void openOverviewPaper(o)}
+                  className="text-left text-meta px-3 py-2 rounded-card-sm bg-card border border-border-default hover:border-indigo-muted hover:bg-indigo-soft transition-colors duration-fast ease-khx"
+                >
+                  <div className="font-medium text-fg-1 line-clamp-2">
+                    {o.paper_title}
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-micro text-fg-3 mt-1">
+                    <span className="tabular-nums">
+                      {t("parse.overview_count", { count: o.count })}
+                    </span>
+                    <span className="shrink-0">
+                      {formatRelative(o.latest_created_at, t)}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
             <button
-              key={h.id}
               type="button"
-              onClick={() => loadHistoryItem(h)}
-              className="text-left text-meta px-3 py-2 rounded-card-sm bg-card border border-border-default hover:border-indigo-muted hover:bg-indigo-soft transition-colors duration-fast ease-khx"
+              onClick={() => setHistoryView("overview")}
+              className="inline-flex items-center gap-1.5 text-meta text-fg-2 hover:text-indigo mb-3 px-2 transition-colors duration-fast ease-khx"
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-indigo truncate">
-                  {h.skill_name}
-                </span>
-                <span className="text-micro text-fg-3 shrink-0">
-                  {formatRelative(h.created_at, t)}
-                </span>
-              </div>
-              <div className="text-micro text-fg-3 mt-1 tabular-nums">
-                {h.model_name} · in≈{h.tokens_in} · out≈{h.tokens_out} ·{" "}
-                {(h.duration_ms / 1000).toFixed(1)}s
-              </div>
+              <Icon icon={ArrowLeft} size="xs" />
+              <span>{t("parse.history_back")}</span>
             </button>
-          ))}
-        </div>
+            <div className="text-meta text-fg-2 font-medium px-2 mb-3 line-clamp-2">
+              {selectedPaper?.title ?? paperId}
+            </div>
+            {history.length === 0 && (
+              <div className="text-meta text-fg-3 px-2">
+                {t("parse.no_history")}
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              {history.map((h) => (
+                <button
+                  key={h.id}
+                  type="button"
+                  onClick={() => loadHistoryItem(h)}
+                  className="text-left text-meta px-3 py-2 rounded-card-sm bg-card border border-border-default hover:border-indigo-muted hover:bg-indigo-soft transition-colors duration-fast ease-khx"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-indigo truncate">
+                      {h.skill_name}
+                    </span>
+                    <span className="text-micro text-fg-3 shrink-0">
+                      {formatRelative(h.created_at, t)}
+                    </span>
+                  </div>
+                  <div className="text-micro text-fg-3 mt-1 tabular-nums">
+                    {h.model_name} · in≈{h.tokens_in} · out≈{h.tokens_out} ·{" "}
+                    {(h.duration_ms / 1000).toFixed(1)}s
+                  </div>
+                </button>
+              ))}
+            </div>
+          </>
+        )}
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden bg-page">
@@ -517,7 +660,11 @@ export default function Parse() {
             </label>
             <PaperPicker
               selectedId={paperId}
-              onSelect={(p) => setPaperId(p?.id ?? "")}
+              onSelect={(p) => {
+                setPaperId(p?.id ?? "");
+                // Picking a paper focuses the sidebar on its runs.
+                if (p?.id) setHistoryView("detail");
+              }}
               recentFallback={papers.map((p) => ({
                 id: p.id,
                 title: p.title,
@@ -774,26 +921,64 @@ export default function Parse() {
             </Stage>
           )}
 
-          {(output || streaming) &&
-            selectedSkill &&
-            selectedSkill.output_dimensions.length > 0 && (
-              <div className="grid grid-cols-2 gap-4">
-                {selectedSkill.output_dimensions.map((d) => (
-                  <DimensionCard
-                    key={d.key}
-                    dimension={d}
-                    content={sections.get(d.title) ?? ""}
-                    streaming={streaming}
-                  />
-                ))}
-              </div>
-            )}
+          {/* V2.2.9 (R1) — parse-in-progress motion at the top of the output
+              area; removed automatically on finish/error (streaming=false). */}
+          {streaming && <ParsingIndicator />}
 
-          {(output || streaming) &&
-            (!selectedSkill ||
-              selectedSkill.output_dimensions.length === 0) && (
+          {(output || streaming) && dimensionsUsable && (
+            <div className="grid grid-cols-2 gap-4">
+              {selectedSkill!.output_dimensions.map((d) => (
+                <DimensionCard
+                  key={d.key}
+                  dimension={d}
+                  content={sections.get(d.title) ?? ""}
+                  streaming={streaming}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* V2.2.9 (R5) — fallback: no usable dimension sections (e.g. the
+              skill emitted an HTML report). The model's output is always
+              shown raw rather than a wall of empty dimension cards. */}
+          {(output || streaming) && !dimensionsUsable && (
+            <>
+              {!streaming &&
+                output &&
+                selectedSkill &&
+                selectedSkill.output_dimensions.length > 0 && (
+                  <div className="rounded-card-sm bg-info-bg border border-info-border text-fg-1 px-4 py-3 flex items-center gap-2 text-caption mb-4 flex-wrap">
+                    <Icon
+                      icon={AlertTriangle}
+                      size="sm"
+                      className="flex-shrink-0 text-info-fg"
+                    />
+                    <span className="flex-1 min-w-[200px]">
+                      {/* V2.2.9 — an HTML report is a SUCCESS, not a failure;
+                          word the notice accordingly. */}
+                      {t(
+                        htmlDoc
+                          ? "parse.html_report_notice"
+                          : "parse.dimension_fallback_notice",
+                      )}
+                    </span>
+                    {/* V2.2.9 — the output IS an HTML report: offer it as a
+                        downloadable standalone file. */}
+                    {htmlDoc && (
+                      <button
+                        type="button"
+                        onClick={() => void downloadHtml()}
+                        className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-pill border border-info-border bg-card text-meta font-medium text-info-fg hover:border-indigo hover:text-indigo transition-colors duration-fast ease-khx"
+                      >
+                        <Icon icon={Download} size="xs" />
+                        <span>{t("parse.download_html")}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               <RawOutput text={output} streaming={streaming} />
-            )}
+            </>
+          )}
         </div>
 
         <div className="border-t border-border-default px-8 py-2 bg-card text-meta text-fg-2 flex items-center gap-4 tabular-nums">

@@ -252,6 +252,14 @@ export interface SkillGenTokenPayload {
   attempt: number;
 }
 
+/** V2.2.9 — parse history grouped by paper (AI-parse entry list). */
+export interface ParseOverviewItem {
+  paper_id: string;
+  paper_title: string;
+  count: number;
+  latest_created_at: string;
+}
+
 export interface ParseResult {
   id: string;
   paper_id: string;
@@ -640,6 +648,9 @@ export const api = {
   exportTextFile: (suggestedName: string, content: string) =>
     invoke<string>("export_text_file", { suggestedName, content }),
 
+  /** V2.2.9 — open the OS file manager with `path` selected. */
+  revealInFolder: (path: string) => invoke<void>("reveal_in_folder", { path }),
+
   getRecentPapers: (limit: number) =>
     invoke<Paper[]>("get_recent_papers", { limit }),
 
@@ -728,6 +739,10 @@ export const api = {
 
   getParseHistory: (paperId: string) =>
     invoke<ParseResult[]>("get_parse_history", { paperId }),
+
+  /** V2.2.9 — parse history grouped by paper, newest activity first. */
+  getParseOverview: () =>
+    invoke<ParseOverviewItem[]>("get_parse_overview"),
 
   // Subscriptions
   createSubscription: (input: SubscriptionInput) =>

@@ -90,3 +90,11 @@ logs/
 # fill these in locally; do not commit binary PNGs to keep repo lean.
 # ============================================================
 docs/screenshots/
+
+# ============================================================
+# 内部开发文档 — 强制约束:不上传 GitHub(仅保留本地)
+# CLAUDE.md 是 Claude Code 项目上下文;SESSION_TASKS.md 是内部开发任务清单。
+# 两者已从 git 跟踪移除(git rm --cached),同步代码时不会推送。
+# ============================================================
+CLAUDE.md
+docs/SESSION_TASKS.md

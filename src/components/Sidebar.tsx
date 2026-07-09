@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/tauri";
 import { useT } from "../hooks/useT";
+import { useParseStore } from "../stores/parseStore";
 import { Icon } from "./Icon";
 import { LogoMark, LogoLockup } from "./BrandLogo";
 
@@ -90,6 +91,7 @@ function SidebarItem({
   collapsed,
   label,
   newBadgeLabel,
+  parsing,
 }: {
   item: NavItem;
   active: boolean;
@@ -97,6 +99,8 @@ function SidebarItem({
   collapsed: boolean;
   label: string;
   newBadgeLabel: string;
+  /** V2.2.9 (Session 45) — a parse task is streaming (AI 解析 item only). */
+  parsing?: boolean;
 }) {
   const stateClass = active
     ? "text-sidebar-fg-active bg-white/[0.08]"
@@ -142,6 +146,27 @@ function SidebarItem({
         </span>
       )}
 
+      {/* V2.2.9 (Session 45) — parse-in-progress indicator: mini equalizer
+          bars (the R1 motion element) in expanded mode, a pulsing dot when
+          collapsed. Stops with the task (conditional render). */}
+      {!collapsed && parsing && (
+        <span className="flex items-end gap-px h-2.5 shrink-0" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className="w-0.5 h-2.5 rounded-pill bg-sidebar-bar origin-bottom animate-eq"
+              style={{ animationDelay: `${i * 120}ms` }}
+            />
+          ))}
+        </span>
+      )}
+      {collapsed && parsing && (
+        <span
+          aria-hidden="true"
+          className="absolute bottom-2 right-2 w-1.5 h-1.5 rounded-pill bg-sidebar-bar animate-pulse"
+        />
+      )}
+
       {/* Collapsed mode: tiny status dot only */}
       {collapsed && item.badge === "unread" && unread > 0 && (
         <span
@@ -164,6 +189,7 @@ export default function Sidebar() {
   const [unread, setUnread] = useState(0);
   const [collapsed, setCollapsed] = useState<boolean>(loadCollapsedPref);
   const [version, setVersion] = useState<string>("");
+  const parseRunning = useParseStore((s) => s.running);
   const t = useT();
 
   // App version for the footer — read once from the runtime (embedded from
@@ -242,6 +268,7 @@ export default function Sidebar() {
             collapsed={collapsed}
             label={t(item.labelKey)}
             newBadgeLabel={newBadgeLabel}
+            parsing={item.to === "/parse" && parseRunning}
           />
         ))}
       </nav>
@@ -280,8 +307,9 @@ export default function Sidebar() {
           <>
             <div>Copyright © Star Technology. All Rights Reserved</div>
             {/* V2.2.8 — version line (hidden when collapsed; reserved height
-                even while the async version resolves, so no layout jump). */}
-            <div className="mt-0.5 text-center tabular-nums min-h-[14px]">
+                even while the async version resolves, so no layout jump).
+                V2.2.9 (R2) — left-aligned to match the copyright line. */}
+            <div className="mt-0.5 tabular-nums min-h-[14px]">
               {version ? `V${version}` : ""}
             </div>
           </>

@@ -6,11 +6,15 @@ import { DialogProvider } from "./components/DialogProvider";
 import { OnboardingGate } from "./components/onboarding/OnboardingGate";
 import { PrivacyGate } from "./components/PrivacyGate";
 import { PdfReaderOverlay } from "./components/pdf/PdfReaderOverlay";
+import { ParseListener } from "./components/ParseListener";
 
 export default function App({ children }: { children: ReactNode }) {
   return (
     <ToastProvider>
       <DialogProvider>
+        {/* V2.2.9 (Session 45) — app-level parse stream subscriber; keeps
+            AI-parse tasks flowing into the global store across page switches. */}
+        <ParseListener />
         <PrivacyGate>
         <OnboardingGate>
           <div className="h-screen flex flex-col bg-page text-fg-1">

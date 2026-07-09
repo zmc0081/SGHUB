@@ -1,6 +1,6 @@
 # SG Hub Privacy Policy
 
-**Version**: v2.2.8 · **Effective**: 2026-07-07
+**Version**: v2.2.9 · **Effective**: 2026-07-08
 
 SG Hub is an open-source (MIT) desktop literature manager that runs entirely on your computer. This document describes how SG Hub handles your data.
 

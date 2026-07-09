@@ -350,6 +350,16 @@ fn parse_vertex_line(line: &str) -> Option<String> {
         return None;
     }
     let v: serde_json::Value = serde_json::from_str(data).ok()?;
+    // V2.2.9 (Session 45, R5) — surface abnormal finish reasons in the log so
+    // truncated long outputs (MAX_TOKENS etc.) are diagnosable from logs/.
+    if let Some(reason) = v
+        .pointer("/candidates/0/finishReason")
+        .and_then(|r| r.as_str())
+    {
+        if reason != "STOP" {
+            log::warn!("vertex: stream finished with finishReason={}", reason);
+        }
+    }
     let parts = v
         .pointer("/candidates/0/content/parts")?
         .as_array()?

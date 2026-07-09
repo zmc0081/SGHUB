@@ -271,11 +271,14 @@ pub(crate) fn estimate_tokens(s: &str) -> i64 {
 #[tauri::command]
 pub fn get_model_presets() -> Vec<ModelConfigInput> {
     vec![
+        // V2.2.9 (Session 47) — preset model ids refreshed; last verified
+        // 2026-07-09. The form also offers 自定义…, so this never blocks
+        // newer models.
         ModelConfigInput {
-            name: "Claude Opus 4.7".into(),
+            name: "Claude Opus 4.8".into(),
             provider: "anthropic".into(),
             endpoint: "https://api.anthropic.com".into(),
-            model_id: "claude-opus-4-7".into(),
+            model_id: "claude-opus-4-8".into(),
             max_tokens: 200000,
             api_key: None,
             ..Default::default()
@@ -299,10 +302,10 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             ..Default::default()
         },
         ModelConfigInput {
-            name: "Ollama Llama 3 (8B,本地)".into(),
+            name: "Ollama Llama 3.3 (本地)".into(),
             provider: "ollama".into(),
             endpoint: "http://localhost:11434".into(),
-            model_id: "llama3:8b".into(),
+            model_id: "llama3.3".into(),
             max_tokens: 8192,
             api_key: None,
             ..Default::default()
@@ -329,7 +332,7 @@ pub fn get_model_presets() -> Vec<ModelConfigInput> {
             name: "Google Vertex (Gemini)".into(),
             provider: "vertex".into(),
             endpoint: "https://aiplatform.googleapis.com".into(),
-            model_id: "gemini-2.5-pro".into(),
+            model_id: "gemini-3.5-flash".into(),
             max_tokens: 65536,
             api_key: None,
             auth_type: "adc".into(),
