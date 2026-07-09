@@ -27,13 +27,16 @@ SG Hub is an open-source (MIT) desktop client for researchers that brings discov
 - **Multi-source search** — 8 sources in parallel (arXiv / PubMed / Semantic Scholar / OpenAlex / Crossref / CORE / DBLP / DOAJ), with DOI lookup, fuzzy title matching, and cross-source dedup & merge
 - **Unified data sources** — a single global toggle in Settings; Literature Search and Today's Feed both query the same enabled set, so the three stay consistent
 - **Subscriptions & notifications** — keyword subscriptions + scheduled local push (system tray)
-- **Literature database** — nested folders + tags + smart folders + local PDF upload & management
+- **Literature database** — nested folders + tags + local PDF upload & management; per-paper actions: View (built-in reader) / AI deep-read / Translate / File (reveal in folder) / Source / Move / Delete
 - **Built-in PDF reader** — open PDFs in-app (pdf.js) with paging / zoom / fit-width / outline / in-page search / selectable text
 - **Full-text translation** — LLM-powered, academic-grade translation that preserves structure (replace or side-by-side compare)
 - **Open with external app** — hand a paper's local PDF to WPS / Adobe / any installed app, or the full-text link to the default browser
-- **AI paper analysis** — structured deep-reading via multiple Skills, streaming output
-- **Free-form chat** — switch models, attach files, use Skills and paper references
-- **Model config (BYOK)** — Claude / GPT / DeepSeek / local Ollama; API keys stored in the OS keychain
+- **AI paper analysis** — deep-reading via Skills with streaming output; tasks keep running in the background across page switches, history is grouped by paper and persisted, and HTML reports are downloadable in one click (revealed in the file manager)
+- **Bundled research Skill** — ships with `research-scientific-literature`: a professor-grade deep-read that produces an interactive tabbed HTML report
+- **Claude-style chat** — in-composer model picker (grouped by provider, balance badges), copy / regenerate (with another model) / edit-and-resend / stop streaming, attachments (PDF / text / images via vision), and a "/" Skill palette
+- **Model config (BYOK)** — Claude / GPT / DeepSeek / **Google Vertex (Gemini)** / local Ollama; API keys stored in the OS keychain
+- **Keyless Google ADC** — use Vertex Gemini with local Application Default Credentials: no API key stored, tokens auto-refresh, corporate proxy supported (per-model or system proxy)
+- **Fresh model presets + custom input** — per-provider model-id presets (kept current, e.g. Gemini 3.5 Flash) plus a free-form "Custom…" entry so new models are never blocked
 - **AI Store** — ready-to-use model quotas from the standalone SG AI Store, integrated into the Models page
 - **Privacy-first** — mandatory privacy-policy consent on first launch; data stays local by default
 

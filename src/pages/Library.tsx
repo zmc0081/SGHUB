@@ -465,9 +465,13 @@ function PaperRow({
           )}
         </div>
 
-        {/* Draggable body — the title/author/abstract block is the drag handle */}
+        {/* Draggable body — the title/author/abstract block is the drag handle.
+            V2.2.9 (Session 46) — metadata editing moved off the button row;
+            double-click the title to open the editor. */}
         <div
           className="cursor-grab active:cursor-grabbing"
+          onDoubleClick={() => onEdit(paper)}
+          title={t("library.dblclick_edit_hint")}
           {...listeners}
           {...attributes}
         >
@@ -490,7 +494,10 @@ function PaperRow({
           onClick={(e) => e.stopPropagation()}
           className="flex items-center gap-2 flex-wrap"
         >
-          <PaperActions paper={paper} size="sm" />
+          {/* V2.2.9 (Session 46) — final order:
+              收藏 · 查看 · AI 精读 · 翻译 · 文件 · 来源 · 移动 · 删除.
+              Metadata editing moved to double-click on the title. */}
+          <PaperActions paper={paper} size="sm" variant="library" />
           <button
             type="button"
             onClick={() => onMove(paper)}
@@ -499,15 +506,6 @@ function PaperRow({
           >
             <Icon icon={FolderInput} size="xs" />
             <span>{t("library.move_btn")}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onEdit(paper)}
-            className={actionBtn}
-            title={t("library.edit_metadata_btn")}
-          >
-            <Icon icon={Pencil} size="xs" />
-            <span>{t("library.edit_metadata_btn")}</span>
           </button>
           <button
             type="button"

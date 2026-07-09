@@ -104,11 +104,22 @@ const checks = [
         "Version",
       ),
   },
-  {
-    label: "CLAUDE.md",
-    read: () =>
-      readMarkdownVersion("CLAUDE.md", /当前版本[：:]\s*V?(\d+\.\d+\.\d+)/i, "当前版本"),
-  },
+  // CLAUDE.md is a LOCAL-ONLY internal doc (gitignored, never pushed — see
+  // .gitignore). Check it strictly when present (local runs), skip when the
+  // checkout doesn't have it (CI).
+  ...(fs.existsSync(path.join(ROOT, "CLAUDE.md"))
+    ? [
+        {
+          label: "CLAUDE.md",
+          read: () =>
+            readMarkdownVersion(
+              "CLAUDE.md",
+              /当前版本[：:]\s*V?(\d+\.\d+\.\d+)/i,
+              "当前版本",
+            ),
+        },
+      ]
+    : []),
 ];
 
 const results = [];

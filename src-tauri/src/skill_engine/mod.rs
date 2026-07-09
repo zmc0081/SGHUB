@@ -23,9 +23,14 @@ pub mod uploader;
 // Built-in skills — embedded at compile time
 // ============================================================
 
+// V2.2.9 (Session 46 follow-up) — research-scientific-literature (the HTML
+// deep-read report skill) replaces general_read as the shipped default.
+// `skills/general_read.yaml` stays in the repo ONLY as the skill-generator's
+// few-shot example (see generator::EXAMPLE_SKILL_YAML); it is no longer
+// offered as a built-in skill.
 const BUILTIN_SKILLS: &[(&str, &str)] = &[(
-    "general_read",
-    include_str!("../../../skills/general_read.yaml"),
+    "research-scientific-literature",
+    include_str!("../../../skills/research-scientific-literature.yaml"),
 )];
 
 // ============================================================
@@ -155,8 +160,17 @@ pub fn load_user_skills(app: &tauri::AppHandle) -> Vec<Skill> {
 }
 
 pub fn load_all_skills(app: &tauri::AppHandle) -> Vec<Skill> {
-    let mut all = load_builtin_skills();
-    all.extend(load_user_skills(app));
+    // V2.2.9 — dedupe by name, BUILTIN wins: a user who once uploaded a
+    // skill that now ships built-in (e.g. research-scientific-literature)
+    // sees the single built-in entry (labelled 内置), and future built-in
+    // updates take effect automatically. Rename a user copy to customise.
+    let builtin = load_builtin_skills();
+    let mut all = builtin.clone();
+    all.extend(
+        load_user_skills(app)
+            .into_iter()
+            .filter(|u| !builtin.iter().any(|b| b.name == u.name)),
+    );
     all
 }
 
@@ -234,6 +248,29 @@ pub async fn get_parse_history(
 ) -> Result<Vec<ParseResult>, String> {
     let pool = state.db_pool.clone();
     tokio::task::spawn_blocking(move || db_list_parse_results(&pool, &paper_id))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
+}
+
+/// V2.2.9 (Session 45) — parse history grouped by paper, newest first. Feeds
+/// the AI-parse page's paper-level history list shown on entry (before any
+/// paper is picked).
+#[derive(Debug, Clone, Serialize)]
+pub struct ParseOverviewItem {
+    pub paper_id: String,
+    /// Falls back to the paper id when the paper row is gone.
+    pub paper_title: String,
+    pub count: i64,
+    pub latest_created_at: String,
+}
+
+#[tauri::command]
+pub async fn get_parse_overview(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<ParseOverviewItem>, String> {
+    let pool = state.db_pool.clone();
+    tokio::task::spawn_blocking(move || db_parse_overview(&pool))
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())
@@ -484,6 +521,33 @@ fn db_list_parse_results(
     Ok(rows)
 }
 
+/// Group ai_parse_results by paper (newest activity first). LEFT JOIN keeps
+/// rows whose paper was deleted — the result is still viewable.
+fn db_parse_overview(pool: &crate::db::DbPool) -> rusqlite::Result<Vec<ParseOverviewItem>> {
+    let conn = pool
+        .get()
+        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+    let mut stmt = conn.prepare(
+        "SELECT r.paper_id, COALESCE(p.title, r.paper_id) AS title, \
+                COUNT(*) AS n, MAX(r.created_at) AS latest \
+         FROM ai_parse_results r \
+         LEFT JOIN papers p ON p.id = r.paper_id \
+         GROUP BY r.paper_id \
+         ORDER BY latest DESC",
+    )?;
+    let rows: Vec<ParseOverviewItem> = stmt
+        .query_map([], |row| {
+            Ok(ParseOverviewItem {
+                paper_id: row.get(0)?,
+                paper_title: row.get(1)?,
+                count: row.get(2)?,
+                latest_created_at: row.get(3)?,
+            })
+        })?
+        .collect::<rusqlite::Result<_>>()?;
+    Ok(rows)
+}
+
 // ============================================================
 // Tests
 // ============================================================
@@ -495,15 +559,22 @@ mod tests {
     use tempfile::TempDir;
 
     #[test]
-    fn loads_builtin_general_read() {
+    fn loads_builtin_research_skill() {
+        // V2.2.9 — research-scientific-literature is the shipped default;
+        // general_read was retired from the builtin list (its yaml remains
+        // only as the generator's few-shot example).
         let skills = load_builtin_skills();
-        assert!(!skills.is_empty(), "general_read.yaml should be embedded");
-        let g = skills.iter().find(|s| s.name == "general_read").unwrap();
-        assert_eq!(g.display_name, "通用精读");
+        assert!(!skills.is_empty(), "builtin skill should be embedded");
+        assert!(skills.iter().all(|s| s.name != "general_read"));
+        let g = skills
+            .iter()
+            .find(|s| s.name == "research-scientific-literature")
+            .unwrap();
+        assert_eq!(g.display_name, "Research Scientific Literature");
         assert_eq!(g.source, "builtin");
-        assert_eq!(g.output_dimensions.len(), 6);
         assert!(g.prompt_template.contains("{{title}}"));
         assert!(g.prompt_template.contains("{{full_text}}"));
+        assert!(g.prompt_template.contains("{{language}}"));
     }
 
     #[test]
@@ -594,5 +665,38 @@ mod tests {
         assert_eq!(r.tokens_in, 100);
         assert_eq!(r.tokens_out, 50);
         assert_eq!(r.duration_ms, 1234);
+    }
+
+    #[test]
+    fn parse_overview_groups_by_paper_newest_first() {
+        let tmp = TempDir::new().unwrap();
+        let pool = init_at(tmp.path()).unwrap();
+        let conn = pool.get().unwrap();
+        conn.execute(
+            "INSERT INTO papers (id, title, authors, source) VALUES \
+             ('p1', 'Paper One', '[]', 'arxiv'), ('p2', 'Paper Two', '[]', 'arxiv')",
+            [],
+        )
+        .unwrap();
+        // p1: two runs (older); p2: one run (newer)
+        conn.execute(
+            "INSERT INTO ai_parse_results \
+             (id, paper_id, skill_name, model_name, result_json, tokens_in, tokens_out, cost_est, duration_ms, created_at) VALUES \
+             ('r1','p1','s','m','{}',1,1,0,1,'2026-01-01T00:00:00Z'), \
+             ('r2','p1','s','m','{}',1,1,0,1,'2026-01-02T00:00:00Z'), \
+             ('r3','p2','s','m','{}',1,1,0,1,'2026-01-03T00:00:00Z')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+
+        let ov = db_parse_overview(&pool).unwrap();
+        assert_eq!(ov.len(), 2);
+        assert_eq!(ov[0].paper_id, "p2"); // newest activity first
+        assert_eq!(ov[0].count, 1);
+        assert_eq!(ov[1].paper_id, "p1");
+        assert_eq!(ov[1].count, 2);
+        assert_eq!(ov[1].paper_title, "Paper One");
+        assert_eq!(ov[1].latest_created_at, "2026-01-02T00:00:00Z");
     }
 }

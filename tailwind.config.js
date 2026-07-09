@@ -224,6 +224,18 @@ export default {
         decelerate: "cubic-bezier(0, 0, 0.2, 1)",
         accelerate: "cubic-bezier(0.4, 0, 1, 1)",
       },
+      // V2.2.9 (R1) — equalizer-bar loop for the AI-parse "in progress"
+      // indicator. Easing = the khx motion token curve; the 900ms cycle is
+      // a loop period (transition tokens above cover one-shot transitions).
+      keyframes: {
+        eq: {
+          "0%, 100%": { transform: "scaleY(0.35)" },
+          "50%": { transform: "scaleY(1)" },
+        },
+      },
+      animation: {
+        eq: "eq 900ms cubic-bezier(0.4, 0, 0.2, 1) infinite",
+      },
 
       zIndex: {
         base: "0",

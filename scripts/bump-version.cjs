@@ -68,13 +68,16 @@ patch(
   (_m, a, b) => `${a}${next}${b}`,
 );
 
-// CLAUDE.md — the "当前版本: VX.Y.Z" line (best-effort; don't fail if absent).
-patch(
-  "CLAUDE.md",
-  /(当前版本:\s*V)\d+\.\d+\.\d+/,
-  (_m, a) => `${a}${next}`,
-  false,
-);
+// CLAUDE.md — the "当前版本: VX.Y.Z" line. Local-only doc (gitignored);
+// skip entirely when the file isn't in this checkout (e.g. CI).
+if (fs.existsSync(path.join(ROOT, "CLAUDE.md"))) {
+  patch(
+    "CLAUDE.md",
+    /(当前版本:\s*V)\d+\.\d+\.\d+/,
+    (_m, a) => `${a}${next}`,
+    false,
+  );
+}
 
 // Privacy policy headers (zh + en) — the policy version MUST equal the app
 // version (CLAUDE.md release gate). Also refresh the effective date to today.

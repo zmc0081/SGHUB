@@ -1015,6 +1015,46 @@ pub async fn export_text_file(
     Ok(path.to_string_lossy().into_owned())
 }
 
+/// V2.2.9 (Session 45) — open the OS file manager with `path` selected
+/// (Windows `explorer /select,` · macOS `open -R`; other platforms fall back
+/// to opening the parent directory). Used by "download HTML report" so the
+/// exported file is revealed immediately.
+#[tauri::command]
+pub async fn reveal_in_folder(path: String) -> Result<(), String> {
+    let p = std::path::PathBuf::from(&path);
+    if !p.exists() {
+        return Err(format!("文件不存在: {}", path));
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg("/select,")
+            .arg(&p)
+            .spawn()
+            .map_err(|e| format!("打开资源管理器失败: {}", e))?;
+        Ok(())
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg("-R")
+            .arg(&p)
+            .spawn()
+            .map_err(|e| format!("打开访达失败: {}", e))?;
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        let parent = p
+            .parent()
+            .map(|d| d.to_path_buf())
+            .ok_or_else(|| "无法定位父目录".to_string())?;
+        tokio::task::spawn_blocking(move || opener::open(&parent).map_err(|e| e.to_string()))
+            .await
+            .map_err(|e| e.to_string())?
+    }
+}
+
 #[tauri::command]
 pub async fn set_read_status(
     state: tauri::State<'_, AppState>,

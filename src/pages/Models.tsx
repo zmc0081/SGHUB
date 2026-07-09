@@ -41,6 +41,7 @@ import {
 } from "../lib/tauri";
 import { useT } from "../hooks/useT";
 import { useToast } from "../hooks/useToast";
+import { presetsFor } from "../lib/modelPresets";
 import { confirmAsync } from "../components/DialogProvider";
 import { Icon } from "../components/Icon";
 import { Skeleton } from "../components/Skeleton";
@@ -54,12 +55,8 @@ const PROVIDER_LABEL_KEY: Record<string, string> = {
   vertex: "models.provider_label_vertex",
 };
 
-/** V2.2.8 — Gemini model ids offered in the Vertex preset dropdown. */
-const VERTEX_MODEL_IDS = [
-  "gemini-2.5-pro",
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
-];
+/** V2.2.9 (Session 47) — sentinel value for the "自定义…" model-id option. */
+const CUSTOM_MODEL_ID = "__custom__";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const PROVIDER_ICON: Record<string, ComponentType<any>> = {
@@ -176,67 +173,6 @@ function ProviderIconBox({ provider }: { provider: string }) {
     <span className="shrink-0 w-11 h-11 rounded-icon bg-indigo-soft text-indigo flex items-center justify-center">
       <Icon icon={Comp} size={22} />
     </span>
-  );
-}
-
-/** V2.2.8 (R7) — connected-models strip ABOVE the token stats: one pill per
- *  configured model (provider icon + name; star = default; ADC badge for
- *  keyless configs). Clicking a pill scrolls to that model's card below. */
-function ConnectedModels({ models }: { models: ModelConfig[] }) {
-  const t = useT();
-  const locate = (id: string) => {
-    document
-      .getElementById(`model-card-${id}`)
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
-  return (
-    <div className="mb-6">
-      <div className="flex items-baseline justify-between mb-3">
-        <span className="text-meta uppercase tracking-wide-brand text-fg-3">
-          {t("models.connected_title")}
-        </span>
-        <span className="text-meta text-fg-3 tabular-nums">
-          {models.length}
-        </span>
-      </div>
-      {models.length === 0 ? (
-        <div className="text-meta text-fg-3">
-          {t("models.connected_empty")}
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          {models.map((m) => {
-            const Comp = PROVIDER_ICON[m.provider] ?? Bot;
-            return (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => locate(m.id)}
-                title={t("models.connected_locate_title")}
-                className="inline-flex items-center gap-1.5 h-8 px-3 rounded-pill border border-border-default bg-card text-meta text-fg-1 hover:border-indigo hover:text-indigo transition-colors duration-fast ease-khx max-w-[240px]"
-              >
-                <Icon icon={Comp} size={14} className="shrink-0" />
-                <span className="truncate font-medium">{m.name}</span>
-                {m.is_default && (
-                  <Icon
-                    icon={Star}
-                    size={12}
-                    fill="currentColor"
-                    strokeWidth={1.5}
-                    className="shrink-0 text-warning-fg-strong"
-                  />
-                )}
-                {m.auth_type === "adc" && (
-                  <span className="shrink-0 rounded-pill px-1.5 py-0.5 text-micro font-medium bg-badge-improve-bg text-badge-improve-fg">
-                    ADC
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -892,22 +828,50 @@ function ModelForm({
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // V2.2.9 (Session 47, R8) — model id = preset dropdown + "自定义…" input.
+  // A saved id that isn't in the (refreshable) preset list opens in custom
+  // mode with the value echoed back, so list refreshes never break old rows.
+  const idPresets = presetsFor(form.provider, form.endpoint);
+  const [customId, setCustomId] = useState<boolean>(
+    () =>
+      initial.model_id !== "" &&
+      !presetsFor(initial.provider, initial.endpoint).includes(
+        initial.model_id,
+      ),
+  );
+
   const update = <K extends keyof ModelConfigInput>(
     k: K,
     v: ModelConfigInput[K],
   ) => setForm((f) => ({ ...f, [k]: v }));
 
+  const changeProvider = (provider: string) => {
+    setForm((f) => {
+      const next = { ...f, provider };
+      setCustomId(
+        next.model_id !== "" &&
+          !presetsFor(provider, next.endpoint).includes(next.model_id),
+      );
+      return next;
+    });
+  };
+
   const applyPreset = (presetIndex: number) => {
     if (presetIndex < 0) return;
     const p = presets[presetIndex];
     setForm({ ...p, api_key: form.api_key });
+    setCustomId(
+      p.model_id !== "" &&
+        !presetsFor(p.provider, p.endpoint).includes(p.model_id),
+    );
   };
 
   const submit = async () => {
     setErr(null);
     setSaving(true);
     try {
-      await onSave(form);
+      // 自定义输入校验:去首尾空格(非空由按钮禁用保证)。
+      await onSave({ ...form, model_id: form.model_id.trim() });
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -954,7 +918,7 @@ function ModelForm({
         <Field label="Provider">
           <select
             value={form.provider}
-            onChange={(e) => update("provider", e.target.value)}
+            onChange={(e) => changeProvider(e.target.value)}
             className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
             style={{ fontSize: "13px" }}
           >
@@ -987,20 +951,48 @@ function ModelForm({
           />
         </Field>
         <Field label="Model ID">
-          <input
-            value={form.model_id}
-            onChange={(e) => update("model_id", e.target.value)}
-            placeholder={form.provider === "vertex" ? "gemini-2.5-pro" : "claude-opus-4-7"}
-            list={form.provider === "vertex" ? "vertex-model-ids" : undefined}
-            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+          {/* V2.2.9 (R8) — preset dropdown + 自定义… manual input. */}
+          <select
+            value={customId ? CUSTOM_MODEL_ID : form.model_id}
+            onChange={(e) => {
+              if (e.target.value === CUSTOM_MODEL_ID) {
+                setCustomId(true);
+              } else {
+                setCustomId(false);
+                update("model_id", e.target.value);
+              }
+            }}
+            className="w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
             style={{ fontSize: "13px" }}
-          />
-          {form.provider === "vertex" && (
-            <datalist id="vertex-model-ids">
-              {VERTEX_MODEL_IDS.map((m) => (
-                <option key={m} value={m} />
-              ))}
-            </datalist>
+          >
+            {!customId && form.model_id === "" && (
+              <option value="">{t("models.model_id_pick")}</option>
+            )}
+            {idPresets.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+            {/* keep a saved preset id selectable even if it was dropped
+                from the refreshed list */}
+            {!customId &&
+              form.model_id !== "" &&
+              !idPresets.includes(form.model_id) && (
+                <option value={form.model_id}>{form.model_id}</option>
+              )}
+            <option value={CUSTOM_MODEL_ID}>
+              {t("models.model_id_custom")}
+            </option>
+          </select>
+          {customId && (
+            <input
+              value={form.model_id}
+              onChange={(e) => update("model_id", e.target.value)}
+              placeholder={t("models.model_id_custom_placeholder")}
+              autoFocus
+              className="mt-2 w-full px-input-x py-input-y rounded-pill border border-border-default bg-card text-fg-1 placeholder:text-fg-3 font-mono focus:outline-none focus:border-border-focus focus:shadow-focus transition-colors duration-fast ease-khx"
+              style={{ fontSize: "13px" }}
+            />
           )}
         </Field>
         <Field label="Max Tokens">
@@ -1101,7 +1093,7 @@ function ModelForm({
             saving ||
             !form.name ||
             !form.endpoint ||
-            !form.model_id ||
+            !form.model_id.trim() ||
             (form.auth_type === "adc" && !form.gcp_project_id?.trim())
           }
           className="inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill shadow-btn bg-navy text-fg-inverse hover:bg-navy-hover disabled:opacity-50 transition-colors duration-fast ease-khx font-medium text-caption"
@@ -1186,29 +1178,35 @@ function ModelEntryCards({
         {/* Card B — paste SG AI Store key */}
         <SgAiStoreKeyCard onAdded={onAdded} />
       </div>
-
-      {/* Bottom row — purchase guidance (no key yet) */}
-      <section className="bg-card rounded-card shadow-card p-5 border border-indigo-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-start gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-icon bg-indigo-soft text-indigo flex items-center justify-center flex-shrink-0">
-            <Icon icon={Store} size="sm" />
-          </div>
-          <p className="text-meta text-fg-2 leading-relaxed">
-            {t("models.entry_buy_desc")}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            void api.openExternalUrl(SG_AI_STORE_BUY_URL).catch(() => {});
-          }}
-          className="self-start sm:self-auto flex-shrink-0 inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill bg-navy text-fg-inverse text-caption font-medium shadow-btn hover:bg-navy-hover hover:shadow-btn-hover hover:-translate-y-px transition-[background,box-shadow,transform] duration-fast ease-khx"
-        >
-          <Icon icon={ExternalLink} size="sm" />
-          <span>{t("models.entry_buy_btn")}</span>
-        </button>
-      </section>
     </div>
+  );
+}
+
+/** V2.2.9 (R3) — purchase-guidance row, split out of ModelEntryCards so the
+ *  connected-model cards can sit BETWEEN the two add cards and this row. */
+function PurchaseGuidanceRow() {
+  const t = useT();
+  return (
+    <section className="bg-card rounded-card shadow-card p-5 border border-indigo-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex items-start gap-3 min-w-0">
+        <div className="w-9 h-9 rounded-icon bg-indigo-soft text-indigo flex items-center justify-center flex-shrink-0">
+          <Icon icon={Store} size="sm" />
+        </div>
+        <p className="text-meta text-fg-2 leading-relaxed">
+          {t("models.entry_buy_desc")}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          void api.openExternalUrl(SG_AI_STORE_BUY_URL).catch(() => {});
+        }}
+        className="self-start sm:self-auto flex-shrink-0 inline-flex items-center gap-2 px-btn-x py-btn-y rounded-pill bg-navy text-fg-inverse text-caption font-medium shadow-btn hover:bg-navy-hover hover:shadow-btn-hover hover:-translate-y-px transition-[background,box-shadow,transform] duration-fast ease-khx"
+      >
+        <Icon icon={ExternalLink} size="sm" />
+        <span>{t("models.entry_buy_btn")}</span>
+      </button>
+    </section>
   );
 }
 
@@ -1383,9 +1381,6 @@ export default function Models() {
         <p className="text-meta text-fg-2 mt-1">{t("models.subtitle")}</p>
       </header>
 
-      {/* V2.2.8 (R7) — connected model names, above the token stats. */}
-      <ConnectedModels models={models} />
-
       <StatsCards stats={stats} onRebuild={onRebuild} />
 
       {loading && (
@@ -1414,20 +1409,22 @@ export default function Models() {
             />
           )}
 
+          {/* V2.2.9 (R3) — the connected-model cards sit BETWEEN the two
+              add cards above and the purchase-guidance row below. */}
+          {models.map((m) => (
+            <ModelRow
+              key={m.id}
+              model={m}
+              onChanged={refresh}
+              usage={usageByModel.get(m.id)}
+            />
+          ))}
+
+          {!showAddForm && <PurchaseGuidanceRow />}
+
           {/* V2.2.6 — SG AI Store product listing, directly below the
               purchase-guidance button. Replaces the removed /store page. */}
           {!showAddForm && <AiStoreProducts />}
-
-          {models.map((m) => (
-            // Anchor for the ConnectedModels strip's click-to-locate.
-            <div key={m.id} id={`model-card-${m.id}`}>
-              <ModelRow
-                model={m}
-                onChanged={refresh}
-                usage={usageByModel.get(m.id)}
-              />
-            </div>
-          ))}
 
           {showAddForm && (
             <ModelForm

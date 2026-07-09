@@ -19,12 +19,14 @@ import {
   AlertTriangle,
   Brain,
   Download,
-  FileText,
+  ExternalLink,
+  Eye,
   FolderOpen,
   Languages,
   X,
 } from "lucide-react";
 import {
+  api,
   type DownloadProgressPayload,
   type Paper,
 } from "../lib/tauri";
@@ -46,6 +48,10 @@ interface Props {
    *  e.g. the search store — so the card keeps showing "打开 PDF" after the
    *  component unmounts and remounts on navigation. */
   onLocalPath?: (paperId: string, path: string) => void;
+  /** V2.2.9 (Session 46) — "library" renders the 文献数据库 layout:
+   *  收藏 → 查看 → AI 精读 → 翻译 → 文件 → 来源 (the host appends 移动/删除).
+   *  "default" keeps the Search/Feed layout untouched. */
+  variant?: "default" | "library";
 }
 
 /** Open-access heuristic — same gate the backend uses for `pdf_url_for`. */
@@ -60,6 +66,7 @@ export function PaperActions({
   showFavorite = true,
   size = "sm",
   onLocalPath,
+  variant = "default",
 }: Props) {
   const t = useT();
   const nav = useAppNavigation();
@@ -192,6 +199,45 @@ export function PaperActions({
     );
   };
 
+  // V2.2.9 (Session 46) — "查看" (library variant): open the built-in reader;
+  // an OA paper without a local file is downloaded first, then opened.
+  const onView = async () => {
+    let path = localPath;
+    if (!path) {
+      if (!isLikelyOA(paper)) return; // button is disabled in that case
+      setError(null);
+      setDownloading(true);
+      setProgress(0);
+      try {
+        path = await nav.downloadPaperPdf(paper.id);
+        commitLocalPath(path);
+      } catch (e) {
+        setError(String(e));
+        setTimeout(() => setError(null), 4200);
+        return;
+      } finally {
+        setDownloading(false);
+      }
+    }
+    usePdfReaderStore.getState().openReader({
+      path,
+      title: paper.title,
+      paperId: paper.id,
+    });
+  };
+
+  // V2.2.9 (Session 46) — "文件" (library variant): reveal the local PDF in
+  // the OS file manager. A moved/deleted file surfaces the backend error.
+  const onRevealFile = async () => {
+    if (!localPath) return;
+    try {
+      await api.revealInFolder(localPath);
+    } catch {
+      setError(t("paper_actions.file_missing"));
+      setTimeout(() => setError(null), 4200);
+    }
+  };
+
   // Sizing tokens (sm = Library dense rows, md = Search/Feed cards).
   const isSm = size === "sm";
   const iconSize = isSm ? "xs" : "sm";
@@ -208,6 +254,135 @@ export function PaperActions({
 
   const oa = isLikelyOA(paper);
 
+  // Shared error pill + download-progress block used by both variants.
+  const errorPill = error && (
+    <span
+      role="alert"
+      aria-live="polite"
+      title={error}
+      className="inline-flex items-center gap-1 rounded-pill px-2 py-0.5 bg-danger-bg text-danger-fg text-meta transition-opacity duration-base ease-khx"
+    >
+      <Icon icon={AlertTriangle} size="xs" />
+      <span>{error.length > 30 ? error.slice(0, 30) + "…" : error}</span>
+    </span>
+  );
+  const progressBlock = (
+    <div
+      className={`inline-flex items-center gap-2 ${btnHeight} ${btnPadX} rounded-pill border border-border-default ${btnTextSize}`}
+    >
+      <div
+        className={`${progressBarW} h-1 rounded-pill bg-navy-soft overflow-hidden`}
+      >
+        <div
+          role="progressbar"
+          aria-valuenow={Math.max(0, progress)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="h-full bg-indigo transition-[width] duration-base ease-khx"
+          style={{ width: progress >= 0 ? `${progress}%` : "30%" }}
+        />
+      </div>
+      <span className="text-meta text-fg-2 tabular-nums">
+        {progress >= 0 ? `${progress}%` : "…"}
+      </span>
+      <button
+        type="button"
+        onClick={onCancel}
+        aria-label={t("paper_actions.cancel_title")}
+        title={t("paper_actions.cancel_title")}
+        className="text-danger-fg hover:bg-danger-bg rounded-pill p-0.5 transition-colors duration-fast ease-khx"
+      >
+        <Icon icon={X} size="xs" />
+      </button>
+    </div>
+  );
+
+  // ── V2.2.9 (Session 46) — 文献数据库 layout ─────────────────────────
+  // 收藏 → 查看 → AI 精读 → 翻译 → 文件 → 来源 (host appends 移动/删除).
+  if (variant === "library") {
+    const canView = !!localPath || oa;
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        {showFavorite && (
+          <FavoriteButton paperId={paper.id} variant="compact" size={size} />
+        )}
+
+        {/* 查看 — built-in reader; OA without a local file downloads first. */}
+        {downloading ? (
+          progressBlock
+        ) : (
+          <button
+            type="button"
+            onClick={() => void onView()}
+            disabled={!canView}
+            aria-label={t("paper_actions.view")}
+            title={
+              canView
+                ? t("paper_actions.view_title")
+                : t("paper_actions.not_oa_title")
+            }
+            className={`${btnBase} ${canView ? btnNormal : btnDisabled}`}
+          >
+            <Icon icon={Eye} size={iconSize} />
+            <span>{t("paper_actions.view")}</span>
+          </button>
+        )}
+
+        <button
+          type="button"
+          aria-label={t("paper_actions.ai_read")}
+          onClick={onOpenParse}
+          className={`${btnBase} ${btnNormal}`}
+        >
+          <Icon icon={Brain} size={iconSize} />
+          <span>{t("paper_actions.ai_read")}</span>
+        </button>
+
+        <button
+          type="button"
+          aria-label={t("paper_actions.translate_title")}
+          onClick={onTranslate}
+          className={`${btnBase} ${btnNormal}`}
+          title={t("paper_actions.translate_title")}
+        >
+          <Icon icon={Languages} size={iconSize} />
+          <span>{t("paper_actions.translate")}</span>
+        </button>
+
+        {/* 文件 — reveal the local PDF in the OS file manager. */}
+        <button
+          type="button"
+          onClick={() => void onRevealFile()}
+          disabled={!localPath}
+          aria-label={t("paper_actions.file")}
+          title={
+            localPath
+              ? t("paper_actions.file_title")
+              : t("paper_actions.file_no_local")
+          }
+          className={`${btnBase} ${localPath ? btnNormal : btnDisabled}`}
+        >
+          <Icon icon={FolderOpen} size={iconSize} />
+          <span>{t("paper_actions.file")}</span>
+        </button>
+
+        {/* 来源 — the paper's source page (was "原文"). */}
+        <button
+          type="button"
+          aria-label={t("paper_actions.source")}
+          onClick={onOpenExternal}
+          className={`${btnBase} ${btnNormal}`}
+          title={t("paper_actions.source_title")}
+        >
+          <Icon icon={ExternalLink} size={iconSize} />
+          <span>{t("paper_actions.source")}</span>
+        </button>
+
+        {errorPill}
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {showFavorite && (
@@ -222,17 +397,6 @@ export function PaperActions({
       >
         <Icon icon={Brain} size={iconSize} />
         <span>{t("paper_actions.ai_read")}</span>
-      </button>
-
-      <button
-        type="button"
-        aria-label={t("paper_actions.view_source_title")}
-        onClick={onOpenExternal}
-        className={`${btnBase} ${btnNormal}`}
-        title={t("paper_actions.view_source_title")}
-      >
-        <Icon icon={FileText} size={iconSize} />
-        <span>{t("paper_actions.view_source")}</span>
       </button>
 
       <button
@@ -257,34 +421,7 @@ export function PaperActions({
           <span>{t("paper_actions.open_pdf")}</span>
         </button>
       ) : downloading ? (
-        <div
-          className={`inline-flex items-center gap-2 ${btnHeight} ${btnPadX} rounded-pill border border-border-default ${btnTextSize}`}
-        >
-          <div
-            className={`${progressBarW} h-1 rounded-pill bg-navy-soft overflow-hidden`}
-          >
-            <div
-              role="progressbar"
-              aria-valuenow={Math.max(0, progress)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              className="h-full bg-indigo transition-[width] duration-base ease-khx"
-              style={{ width: progress >= 0 ? `${progress}%` : "30%" }}
-            />
-          </div>
-          <span className="text-meta text-fg-2 tabular-nums">
-            {progress >= 0 ? `${progress}%` : "…"}
-          </span>
-          <button
-            type="button"
-            onClick={onCancel}
-            aria-label={t("paper_actions.cancel_title")}
-            title={t("paper_actions.cancel_title")}
-            className="text-danger-fg hover:bg-danger-bg rounded-pill p-0.5 transition-colors duration-fast ease-khx"
-          >
-            <Icon icon={X} size="xs" />
-          </button>
-        </div>
+        progressBlock
       ) : (
         <button
           type="button"
@@ -307,17 +444,20 @@ export function PaperActions({
         </button>
       )}
 
-      {error && (
-        <span
-          role="alert"
-          aria-live="polite"
-          title={error}
-          className="inline-flex items-center gap-1 rounded-pill px-2 py-0.5 bg-danger-bg text-danger-fg text-meta transition-opacity duration-base ease-khx"
-        >
-          <Icon icon={AlertTriangle} size="xs" />
-          <span>{error.length > 30 ? error.slice(0, 30) + "…" : error}</span>
-        </span>
-      )}
+      {/* V2.2.9 — "来源" (was 原文), moved after the PDF button to match
+          the 文献数据库 wording. */}
+      <button
+        type="button"
+        aria-label={t("paper_actions.source")}
+        onClick={onOpenExternal}
+        className={`${btnBase} ${btnNormal}`}
+        title={t("paper_actions.source_title")}
+      >
+        <Icon icon={ExternalLink} size={iconSize} />
+        <span>{t("paper_actions.source")}</span>
+      </button>
+
+      {errorPill}
     </div>
   );
 }
