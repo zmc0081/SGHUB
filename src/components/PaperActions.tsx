@@ -54,8 +54,9 @@ interface Props {
   variant?: "default" | "library";
 }
 
-/** Open-access heuristic — same gate the backend uses for `pdf_url_for`. */
-function isLikelyOA(paper: Paper): boolean {
+/** Open-access heuristic — same gate the backend uses for `pdf_url_for`.
+ *  Exported (V2.2.10, Session 48) so title-click view shares the exact gate. */
+export function isLikelyOA(paper: Paper): boolean {
   if (paper.source === "arxiv" && paper.source_id) return true;
   if (paper.source_url?.toLowerCase().endsWith(".pdf")) return true;
   return false;
@@ -319,7 +320,7 @@ export function PaperActions({
             title={
               canView
                 ? t("paper_actions.view_title")
-                : t("paper_actions.not_oa_title")
+                : t("paper_actions.view_no_pdf")
             }
             className={`${btnBase} ${canView ? btnNormal : btnDisabled}`}
           >
@@ -388,6 +389,25 @@ export function PaperActions({
       {showFavorite && (
         <FavoriteButton paperId={paper.id} variant="compact" size={size} />
       )}
+
+      {/* V2.2.10 (Session 48, R1) — 查看 between 收藏 and AI 精读, same
+          behaviour as the 文献数据库 button (local → open; OA → download
+          then open, progress shows on the PDF slot; neither → disabled). */}
+      <button
+        type="button"
+        onClick={() => void onView()}
+        disabled={downloading || (!localPath && !oa)}
+        aria-label={t("paper_actions.view")}
+        title={
+          localPath || oa
+            ? t("paper_actions.view_title")
+            : t("paper_actions.view_no_pdf")
+        }
+        className={`${btnBase} ${localPath || oa ? btnNormal : btnDisabled}`}
+      >
+        <Icon icon={Eye} size={iconSize} />
+        <span>{t("paper_actions.view")}</span>
+      </button>
 
       <button
         type="button"

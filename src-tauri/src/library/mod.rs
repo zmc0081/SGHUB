@@ -8,6 +8,7 @@ use crate::search::Paper;
 use crate::AppState;
 
 pub mod metadata_extractor;
+pub mod annotations;
 pub mod pdf_download;
 pub mod uploader;
 

@@ -10,7 +10,6 @@ import {
   BookMarked,
   Check,
   Command,
-  CornerDownLeft,
   FileText,
   Image as ImageIcon,
   Link as LinkIcon,
@@ -27,7 +26,6 @@ import { useToast } from "../../hooks/useToast";
 import { Icon } from "../Icon";
 import { ModelPicker } from "./ModelPicker";
 
-const ENTER_TO_SEND_KEY = "chat.enterToSend";
 const IMG_RE = /\.(png|jpe?g|gif|webp)$/i;
 
 interface PendingUpload {
@@ -158,9 +156,6 @@ export function InputArea() {
   const [skillMenuOpen, setSkillMenuOpen] = useState(false);
   const [composing, setComposing] = useState(false);
   const [pending, setPending] = useState<PendingUpload[]>([]);
-  const [enterToSend, setEnterToSend] = useState(
-    () => localStorage.getItem(ENTER_TO_SEND_KEY) !== "false",
-  );
   // "/" slash palette
   const [slashIndex, setSlashIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -242,16 +237,11 @@ export function InputArea() {
       }
     }
     if (e.key !== "Enter") return;
-    const shouldSend = enterToSend ? !e.shiftKey : e.metaKey || e.ctrlKey;
-    if (!shouldSend) return;
+    // V2.2.10 (Session 48, R3) — fixed behaviour: Enter sends,
+    // Shift+Enter inserts a newline (the toggle button was removed).
+    if (e.shiftKey) return;
     e.preventDefault();
     if (canSend) void sendMessage();
-  };
-
-  const toggleEnter = () => {
-    const next = !enterToSend;
-    setEnterToSend(next);
-    localStorage.setItem(ENTER_TO_SEND_KEY, String(next));
   };
 
   const onModelChange = (id: string) => {
@@ -553,16 +543,9 @@ export function InputArea() {
             </div>
 
             <ModelPicker value={currentModel} onChange={onModelChange} />
-
-            <button
-              type="button"
-              onClick={toggleEnter}
-              aria-label={t(enterToSend ? "chat.enter_sends_on" : "chat.enter_sends_off")}
-              title={t(enterToSend ? "chat.enter_sends_on" : "chat.enter_sends_off")}
-              className={`${iconBtn} ${enterToSend ? "text-indigo border-indigo" : ""}`}
-            >
-              <Icon icon={CornerDownLeft} size="sm" />
-            </button>
+            {/* V2.2.10 (Session 48, R3) — the "↵" toggle button was removed
+                (redundant with the ↑ send button); Enter sends, Shift+Enter
+                inserts a newline. */}
           </div>
 
           {streamingMessageId ? (

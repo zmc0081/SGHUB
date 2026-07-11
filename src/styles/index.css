@@ -141,6 +141,16 @@
   --shadow-modal:       0 20px 40px rgba(31,46,77,.18);
   --shadow-focus:       0 0 0 3px rgba(31,46,77,.08);
   --shadow-focus-danger:0 0 0 3px rgba(200,50,60,.12);
+
+  /* ── V2.2.10 (Session 49) — PDF annotation colors (highlight fills /
+        underline strokes). amber-100 / teal-100 / pink-100 families;
+        translucent so the text stays readable over the canvas. ── */
+  --annot-yellow:       rgba(253, 230, 138, 0.45);
+  --annot-green:        rgba(153, 246, 228, 0.50);
+  --annot-pink:         rgba(251, 207, 232, 0.55);
+  --annot-yellow-line:  #D9A514;
+  --annot-green-line:   #14B8A6;
+  --annot-pink-line:    #EC4899;
 }
 
 [data-theme="dark"] {
@@ -264,6 +274,16 @@
   --shadow-modal:       0 20px 40px rgba(0,0,0,.6);
   --shadow-focus:       0 0 0 3px rgba(123,115,240,.2);
   --shadow-focus-danger:0 0 0 3px rgba(248,113,113,.2);
+
+  /* ── V2.2.10 (Session 49) — PDF annotation colors (dark theme). The PDF
+        canvas itself stays light, so fills keep similar hues with slightly
+        lower alpha; strokes brighten for contrast against dark chrome. ── */
+  --annot-yellow:       rgba(217, 180, 60, 0.40);
+  --annot-green:        rgba(45, 212, 191, 0.38);
+  --annot-pink:         rgba(244, 114, 182, 0.40);
+  --annot-yellow-line:  #FCD34D;
+  --annot-green-line:   #2DD4BF;
+  --annot-pink-line:    #F472B6;
 }
 
 html,

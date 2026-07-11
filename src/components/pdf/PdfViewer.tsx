@@ -6,6 +6,9 @@
 //   - page nav (prev/next) + jump-to-page
 //   - document outline (bookmarks) sidebar
 //   - page-level text search (jump between matching pages)
+//   - V2.2.10 (Session 49) — text annotations: right-click a selection to
+//     highlight (3 colors) / underline; persisted per paper (SQLite) and
+//     restored on reopen; click an annotation for a recolor/delete bar.
 //
 // Worker is bundled by Vite via the `?url` import. All chrome uses Lucide
 // icons + V2.2 design tokens (dual-theme safe).
@@ -16,16 +19,35 @@ import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import {
   ChevronLeft,
   ChevronRight,
+  Highlighter,
+  Languages,
   List,
   Loader2,
   Maximize2,
+  MessageCircle,
   Search,
+  Underline,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { api } from "../../lib/tauri";
+import { api, type Annotation } from "../../lib/tauri";
 import { useT } from "../../hooks/useT";
+import { useToast } from "../../hooks/useToast";
 import { Icon } from "../Icon";
+import { AnnotationBar, AnnotationMenu } from "./AnnotationMenu";
+import { AskDialog } from "./AskDialog";
+import { TranslatePopover } from "./TranslatePopover";
+import {
+  anchorFromRects,
+  fillVar,
+  lineVar,
+  parseAnchor,
+  pointInRects,
+  rectsOverlap,
+  selectionToPageRects,
+  type AnnotColor,
+  type NormRect,
+} from "./annotationUtils";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
@@ -42,8 +64,48 @@ function base64ToBytes(b64: string): Uint8Array {
   return bytes;
 }
 
-export function PdfViewer({ path }: { path: string }) {
+interface AnnotMenuState {
+  x: number;
+  y: number;
+  pages: Map<number, NormRect[]>;
+  overlapIds: string[];
+  noText: boolean;
+  /** Selected text at menu time (for translate / ask). */
+  text: string;
+}
+
+/** V2.2.10 (Session 50) — selection cache captured on mouse-up, so toolbar
+ *  buttons still know the text/rects after the click clears the selection. */
+interface SelCache {
+  text: string;
+  pages: Map<number, NormRect[]>;
+  /** Toolbar anchor (viewport coords, above the selection). */
+  barX: number;
+  barY: number;
+  /** Bottom of the selection (translate popover anchors below it). */
+  bottomY: number;
+}
+
+interface AnnotBarState {
+  id: string;
+  color: string;
+  x: number;
+  y: number;
+}
+
+export function PdfViewer({
+  path,
+  paperId,
+  paperTitle,
+}: {
+  path: string;
+  /** Enables persisted annotations when the PDF belongs to a library paper. */
+  paperId?: string;
+  /** Light context for the Ask dialog (paper title). */
+  paperTitle?: string;
+}) {
   const t = useT();
+  const toast = useToast();
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -64,6 +126,217 @@ export function PdfViewer({ path }: { path: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const [containerWidth, setContainerWidth] = useState(0);
+
+  // ── V2.2.10 (Session 49) — annotations ──────────────────────────
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [annotMenu, setAnnotMenu] = useState<AnnotMenuState | null>(null);
+  const [annotBar, setAnnotBar] = useState<AnnotBarState | null>(null);
+
+  // ── V2.2.10 (Session 50) — selection toolbar / translate / ask ──
+  const [selBar, setSelBar] = useState<SelCache | null>(null);
+  const [translatePop, setTranslatePop] = useState<{
+    text: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [askSel, setAskSel] = useState<string | null>(null);
+
+  // Load persisted annotations for this paper (restored on every open).
+  useEffect(() => {
+    if (!paperId) {
+      setAnnotations([]);
+      return;
+    }
+    api
+      .listAnnotations(paperId)
+      .then(setAnnotations)
+      .catch(() => setAnnotations([]));
+  }, [paperId]);
+
+  // Right-click: with a text selection → the annotate menu (split across
+  // pages); without one on a page that has NO text layer (scanned PDF) →
+  // the disabled menu with a hint.
+  const onContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+        const pages = selectionToPageRects(sel, pageRefs.current);
+        if (pages.size === 0) return; // selection outside the PDF pages
+        e.preventDefault();
+        const overlapIds = annotations
+          .filter((a) => {
+            const rects = pages.get(a.page);
+            return rects ? rectsOverlap(parseAnchor(a.anchor), rects) : false;
+          })
+          .map((a) => a.id);
+        setAnnotBar(null);
+        setSelBar(null);
+        setAnnotMenu({
+          x: e.clientX,
+          y: e.clientY,
+          pages,
+          overlapIds,
+          noText: false,
+          text: sel.toString(),
+        });
+        return;
+      }
+      // No selection — scanned page (no text layer)? Show the hint menu.
+      const pageEl = (e.target as HTMLElement).closest?.(
+        "[data-page]",
+      ) as HTMLElement | null;
+      if (pageEl && pageEl.dataset.hasText === "0") {
+        e.preventDefault();
+        setAnnotBar(null);
+        setSelBar(null);
+        setAnnotMenu({
+          x: e.clientX,
+          y: e.clientY,
+          pages: new Map(),
+          overlapIds: [],
+          noText: true,
+          text: "",
+        });
+      }
+    },
+    [annotations],
+  );
+
+  // Shared by the context menu AND the selection toolbar (Session 50).
+  const addFromPages = useCallback(
+    async (
+      pages: Map<number, NormRect[]>,
+      kind: "highlight" | "underline",
+      color: AnnotColor,
+    ) => {
+      if (!paperId || pages.size === 0) return;
+      setAnnotMenu(null);
+      setSelBar(null);
+      window.getSelection()?.removeAllRanges();
+      try {
+        const created: Annotation[] = [];
+        for (const [page, rects] of pages.entries()) {
+          created.push(
+            await api.addAnnotation({
+              paper_id: paperId,
+              page,
+              anchor: anchorFromRects(rects),
+              type: kind,
+              color,
+            }),
+          );
+        }
+        setAnnotations((prev) => [...prev, ...created]);
+      } catch (err) {
+        toast.danger(String(err));
+      }
+    },
+    [paperId, toast],
+  );
+
+  // ── V2.2.10 (Session 50) — selection toolbar (mouse-up over pages) ──
+  const onPagesMouseUp = useCallback(() => {
+    // Defer so the browser finishes committing the selection first.
+    window.setTimeout(() => {
+      if (annotMenu || translatePop || askSel) return;
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+      const pages = selectionToPageRects(sel, pageRefs.current);
+      if (pages.size === 0) return;
+      const rects = Array.from(sel.getRangeAt(0).getClientRects());
+      const first = rects.find((r) => r.width > 2) ?? rects[0];
+      if (!first) return;
+      const all = Array.from(
+        { length: sel.rangeCount },
+        (_, i) => sel.getRangeAt(i).getClientRects(),
+      ).flatMap((l) => Array.from(l));
+      const bottomY = Math.max(...all.map((r) => r.bottom));
+      setSelBar({
+        text: sel.toString(),
+        pages,
+        barX: first.left + first.width / 2,
+        barY: first.top,
+        bottomY,
+      });
+    }, 0);
+  }, [annotMenu, translatePop, askSel]);
+
+  // Toolbar disappears on scroll or when the selection collapses.
+  useEffect(() => {
+    const onSelChange = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) setSelBar(null);
+    };
+    document.addEventListener("selectionchange", onSelChange);
+    return () => document.removeEventListener("selectionchange", onSelChange);
+  }, []);
+
+  const openTranslate = useCallback((text: string, x: number, y: number) => {
+    setAnnotMenu(null);
+    setSelBar(null);
+    setAskSel(null);
+    setTranslatePop({ text, x, y });
+  }, []);
+
+  const openAsk = useCallback((text: string) => {
+    setAnnotMenu(null);
+    setSelBar(null);
+    setTranslatePop(null);
+    setAskSel(text);
+  }, []);
+
+  const removeOverlapping = useCallback(async () => {
+    if (!annotMenu) return;
+    const ids = annotMenu.overlapIds;
+    setAnnotMenu(null);
+    window.getSelection()?.removeAllRanges();
+    try {
+      for (const id of ids) await api.deleteAnnotation(id);
+      setAnnotations((prev) => prev.filter((a) => !ids.includes(a.id)));
+    } catch (err) {
+      toast.danger(String(err));
+    }
+  }, [annotMenu, toast]);
+
+  // Click on an existing annotation (hit-test inside PdfPage) → edit bar.
+  const onAnnotHit = useCallback(
+    (id: string, x: number, y: number) => {
+      const a = annotations.find((v) => v.id === id);
+      if (!a) return;
+      setAnnotMenu(null);
+      setAnnotBar({ id, color: a.color, x, y: y + 12 });
+    },
+    [annotations],
+  );
+
+  const recolorAnnotation = useCallback(
+    async (color: AnnotColor) => {
+      if (!annotBar) return;
+      const id = annotBar.id;
+      try {
+        await api.updateAnnotationColor(id, color);
+        setAnnotations((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, color } : a)),
+        );
+        setAnnotBar((b) => (b && b.id === id ? { ...b, color } : b));
+      } catch (err) {
+        toast.danger(String(err));
+      }
+    },
+    [annotBar, toast],
+  );
+
+  const deleteFromBar = useCallback(async () => {
+    if (!annotBar) return;
+    const id = annotBar.id;
+    setAnnotBar(null);
+    try {
+      await api.deleteAnnotation(id);
+      setAnnotations((prev) => prev.filter((a) => a.id !== id));
+    } catch (err) {
+      toast.danger(String(err));
+    }
+  }, [annotBar, toast]);
 
   // ── Load document ────────────────────────────────────────────────
   useEffect(() => {
@@ -116,6 +389,8 @@ export function PdfViewer({ path }: { path: string }) {
 
   // ── Track current page via scroll position ───────────────────────
   const onScroll = useCallback(() => {
+    // V2.2.10 (Session 50) — the selection toolbar hides on scroll.
+    setSelBar(null);
     const el = scrollRef.current;
     if (!el) return;
     const mid = el.scrollTop + el.clientHeight / 2;
@@ -337,7 +612,13 @@ export function PdfViewer({ path }: { path: string }) {
           </div>
         )}
 
-        <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-auto">
+        <div
+          ref={scrollRef}
+          onScroll={onScroll}
+          onContextMenu={onContextMenu}
+          onMouseUp={onPagesMouseUp}
+          className="flex-1 overflow-auto"
+        >
           {loading && (
             <div className="flex items-center justify-center h-full text-fg-3 gap-2">
               <Icon icon={Loader2} size="sm" className="animate-spin" />
@@ -358,6 +639,8 @@ export function PdfViewer({ path }: { path: string }) {
                   pageNumber={n}
                   scale={effectiveScale}
                   containerWidth={containerWidth}
+                  annots={annotations.filter((a) => a.page === n)}
+                  onAnnotHit={onAnnotHit}
                   registerRef={(el) => {
                     if (el) pageRefs.current.set(n, el);
                     else pageRefs.current.delete(n);
@@ -368,6 +651,110 @@ export function PdfViewer({ path }: { path: string }) {
           )}
         </div>
       </div>
+
+      {/* V2.2.10 (Session 49) — annotation context menu + edit bar */}
+      {annotMenu && (
+        <AnnotationMenu
+          x={annotMenu.x}
+          y={annotMenu.y}
+          noText={annotMenu.noText}
+          hasOverlap={annotMenu.overlapIds.length > 0}
+          canAnnotate={!!paperId}
+          onHighlight={(c) => void addFromPages(annotMenu.pages, "highlight", c)}
+          onUnderline={() =>
+            void addFromPages(annotMenu.pages, "underline", "yellow")
+          }
+          onTranslate={() =>
+            openTranslate(annotMenu.text, annotMenu.x, annotMenu.y)
+          }
+          onAsk={() => openAsk(annotMenu.text)}
+          onRemove={() => void removeOverlapping()}
+          onClose={() => setAnnotMenu(null)}
+        />
+      )}
+      {annotBar && (
+        <AnnotationBar
+          x={annotBar.x}
+          y={annotBar.y}
+          color={annotBar.color}
+          onRecolor={(c) => void recolorAnnotation(c)}
+          onDelete={() => void deleteFromBar()}
+          onClose={() => setAnnotBar(null)}
+        />
+      )}
+
+      {/* V2.2.10 (Session 50) — selection toolbar: 翻译 / Ask / 高亮 / 划线 */}
+      {selBar && (
+        <div
+          role="toolbar"
+          onPointerDown={(e) => e.stopPropagation()}
+          className="fixed z-popover inline-flex items-center gap-1 rounded-pill border border-border-strong bg-card shadow-nav px-1.5 py-1"
+          style={{
+            left: Math.max(
+              8,
+              Math.min(selBar.barX - 130, window.innerWidth - 268),
+            ),
+            top: Math.max(8, selBar.barY - 44),
+          }}
+        >
+          <button
+            type="button"
+            onClick={() =>
+              openTranslate(selBar.text, selBar.barX, selBar.bottomY)
+            }
+            className="inline-flex items-center gap-1 h-7 px-2 rounded-pill text-meta text-fg-1 hover:bg-navy-faint hover:text-indigo transition-colors duration-fast ease-khx"
+          >
+            <Icon icon={Languages} size="xs" />
+            <span>{t("pdf_viewer.sel_translate")}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => openAsk(selBar.text)}
+            className="inline-flex items-center gap-1 h-7 px-2 rounded-pill text-meta text-fg-1 hover:bg-navy-faint hover:text-indigo transition-colors duration-fast ease-khx"
+          >
+            <Icon icon={MessageCircle} size="xs" />
+            <span>Ask</span>
+          </button>
+          <span className="w-px h-4 bg-border-default" aria-hidden />
+          <button
+            type="button"
+            disabled={!paperId}
+            title={paperId ? undefined : t("pdf_viewer.annot_need_paper")}
+            onClick={() => void addFromPages(selBar.pages, "highlight", "yellow")}
+            className="inline-flex items-center gap-1 h-7 px-2 rounded-pill text-meta text-fg-1 hover:bg-navy-faint hover:text-indigo disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-fast ease-khx"
+          >
+            <Icon icon={Highlighter} size="xs" />
+            <span>{t("pdf_viewer.annot_highlight")}</span>
+          </button>
+          <button
+            type="button"
+            disabled={!paperId}
+            title={paperId ? undefined : t("pdf_viewer.annot_need_paper")}
+            onClick={() => void addFromPages(selBar.pages, "underline", "yellow")}
+            className="inline-flex items-center gap-1 h-7 px-2 rounded-pill text-meta text-fg-1 hover:bg-navy-faint hover:text-indigo disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-fast ease-khx"
+          >
+            <Icon icon={Underline} size="xs" />
+            <span>{t("pdf_viewer.annot_underline")}</span>
+          </button>
+        </div>
+      )}
+
+      {/* V2.2.10 (Session 50) — translate popover + Ask dialog */}
+      {translatePop && (
+        <TranslatePopover
+          text={translatePop.text}
+          x={translatePop.x}
+          y={translatePop.y}
+          onClose={() => setTranslatePop(null)}
+        />
+      )}
+      {askSel && (
+        <AskDialog
+          text={askSel}
+          paperTitle={paperTitle}
+          onClose={() => setAskSel(null)}
+        />
+      )}
     </div>
   );
 }
@@ -378,12 +765,17 @@ function PdfPage({
   pageNumber,
   scale,
   containerWidth,
+  annots,
+  onAnnotHit,
   registerRef,
 }: {
   doc: PDFDocumentProxy;
   pageNumber: number;
   scale: number; // -1 = fit-width
   containerWidth: number;
+  /** V2.2.10 — this page's annotations (page-normalised rects). */
+  annots: Annotation[];
+  onAnnotHit: (id: string, clientX: number, clientY: number) => void;
   registerRef: (el: HTMLDivElement | null) => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -459,8 +851,15 @@ function PdfPage({
             viewport,
           });
           await textLayer.render();
+          // V2.2.10 — scanned pages have no glyphs: flag it so the
+          // annotate menu can explain instead of silently failing.
+          wrapRef.current?.setAttribute(
+            "data-has-text",
+            layerDiv.childElementCount > 0 ? "1" : "0",
+          );
         } catch {
           /* text layer is best-effort (e.g. image-only pages) */
+          wrapRef.current?.setAttribute("data-has-text", "0");
         }
       }
     })();
@@ -471,10 +870,25 @@ function PdfPage({
     };
   }, [visible, scale, containerWidth, doc, pageNumber]);
 
+  // V2.2.10 — click on an existing annotation opens the edit bar. The
+  // annotation layer is purely visual (pointer-events none, under the text
+  // layer), so we hit-test the click point against this page's rects here.
+  const onPageClick = (e: React.MouseEvent) => {
+    if (annots.length === 0 || !dims) return;
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) return; // finishing a text selection
+    const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const px = (e.clientX - box.left) / box.width;
+    const py = (e.clientY - box.top) / box.height;
+    const hit = annots.find((a) => pointInRects(px, py, parseAnchor(a.anchor)));
+    if (hit) onAnnotHit(hit.id, e.clientX, e.clientY);
+  };
+
   return (
     <div
       ref={wrapRef}
       data-page={pageNumber}
+      onClick={onPageClick}
       className="relative shadow-card bg-card"
       style={{
         width: dims ? dims.w : containerWidth ? containerWidth - 32 : 600,
@@ -482,6 +896,41 @@ function PdfPage({
       }}
     >
       <canvas ref={canvasRef} className="block" />
+      {/* V2.2.10 — annotation layer: between canvas and text layer so
+          highlights sit behind the glyphs; visual only (no pointer events). */}
+      {dims && annots.length > 0 && (
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          {annots.flatMap((a) =>
+            parseAnchor(a.anchor).map((r, i) =>
+              a.type === "highlight" ? (
+                <div
+                  key={`${a.id}-${i}`}
+                  className="absolute rounded-[1px]"
+                  style={{
+                    left: r.x * dims.w,
+                    top: r.y * dims.h,
+                    width: r.w * dims.w,
+                    height: r.h * dims.h,
+                    background: fillVar(a.color),
+                  }}
+                />
+              ) : (
+                <div
+                  key={`${a.id}-${i}`}
+                  className="absolute"
+                  style={{
+                    left: r.x * dims.w,
+                    top: (r.y + r.h) * dims.h - 2,
+                    width: r.w * dims.w,
+                    height: 2,
+                    background: lineVar(a.color),
+                  }}
+                />
+              ),
+            ),
+          )}
+        </div>
+      )}
       <div ref={textLayerRef} className="textLayer" />
     </div>
   );

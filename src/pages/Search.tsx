@@ -17,6 +17,7 @@ import { Skeleton } from "../components/Skeleton";
 import { Icon } from "../components/Icon";
 import { useT } from "../hooks/useT";
 import { useToast } from "../hooks/useToast";
+import { useOpenPaperView } from "../hooks/useOpenPaperView";
 import { useSearchStore } from "../stores/searchStore";
 
 const TIME_RANGES = [
@@ -180,6 +181,9 @@ function OpenWithButton({ paper }: { paper: Paper }) {
 function PaperCard({ paper }: { paper: Paper }) {
   const t = useT();
   const setPaperPdfPath = useSearchStore((s) => s.setPaperPdfPath);
+  // V2.2.10 (Session 48, R2) — clicking the title opens the built-in reader
+  // (downloads first for OA papers; toast when nothing is readable).
+  const { openPaper } = useOpenPaperView();
   // V2.2.3 — a merged paper carries every source it was found in.
   const sources = paper.sources && paper.sources.length > 0 ? paper.sources : [paper.source];
 
@@ -195,7 +199,11 @@ function PaperCard({ paper }: { paper: Paper }) {
           </span>
         )}
       </div>
-      <h3 className="text-h3 font-semibold text-fg-1 leading-snug">
+      <h3
+        onClick={() => void openPaper(paper)}
+        title={t("paper_actions.view_title")}
+        className="text-h3 font-semibold text-fg-1 leading-snug cursor-pointer hover:text-indigo transition-colors duration-fast ease-khx"
+      >
         {paper.title}
       </h3>
       <p className="text-meta text-fg-2 mt-2">

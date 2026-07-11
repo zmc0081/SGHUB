@@ -31,6 +31,16 @@ interface ChatState {
   // regenerate. In-memory only (cleared on reload / session switch).
   previousVersions: Record<string, string>;
 
+  // V2.2.10 (Session 48, R4) — "Thinking…" timer. Set when a turn is sent,
+  // cleared on first finalize; the bubble shows until the first token
+  // arrives (streamingMessageId takes over). thinkingSessionId may be null
+  // for a brand-new session (no id until the backend creates it).
+  thinkingStartedAt: number | null;
+  thinkingSessionId: string | null;
+  /** Total turn duration (seconds), keyed by assistant message id.
+   *  In-memory only — shown as "耗时 …" on the finished message. */
+  elapsedByMessage: Record<string, number>;
+
   // Actions
   loadSessions: () => Promise<void>;
   selectSession: (id: string | null) => Promise<void>;
@@ -73,6 +83,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingSessionId: null,
   lastError: null,
   previousVersions: {},
+  thinkingStartedAt: null,
+  thinkingSessionId: null,
+  elapsedByMessage: {},
 
   loadSessions: async () => {
     try {
@@ -117,10 +130,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (!content && s.currentAttachments.length === 0) return;
     if (s.streamingMessageId) return; // already streaming
 
-    set({
+    // V2.2.10 (Session 48, R4) — show the user's message immediately
+    // (optimistic; reconciled from DB on finish) and start the Thinking
+    // timer so the wait before the first token is visible.
+    const pendingId = `pending-${Date.now()}`;
+    set((state) => ({
       currentInput: "",
       lastError: null,
-    });
+      thinkingStartedAt: Date.now(),
+      thinkingSessionId: state.currentSessionId,
+      messages: state.currentSessionId
+        ? {
+            ...state.messages,
+            [state.currentSessionId]: [
+              ...(state.messages[state.currentSessionId] ?? []),
+              {
+                id: pendingId,
+                session_id: state.currentSessionId,
+                role: "user",
+                content,
+                attachments_json: null,
+                tokens_in: 0,
+                tokens_out: 0,
+                model_name: null,
+                created_at: new Date().toISOString(),
+                attachments: state.currentAttachments,
+              },
+            ],
+          }
+        : state.messages,
+    }));
 
     try {
       const result = await api.sendChatMessage({
@@ -144,7 +183,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
         get().loadSessions();
       }
     } catch (e) {
-      set({ lastError: String(e), streamingMessageId: null });
+      // Drop the optimistic row and stop the Thinking bubble on failure.
+      set((state) => ({
+        lastError: String(e),
+        streamingMessageId: null,
+        thinkingStartedAt: null,
+        thinkingSessionId: null,
+        messages: s.currentSessionId
+          ? {
+              ...state.messages,
+              [s.currentSessionId]: (
+                state.messages[s.currentSessionId] ?? []
+              ).filter((m) => m.id !== pendingId),
+            }
+          : state.messages,
+      }));
     }
   },
 
@@ -180,12 +233,30 @@ export const useChatStore = create<ChatState>((set, get) => ({
         messages: { ...state.messages, [sessionId]: next },
         streamingMessageId: messageId,
         streamingSessionId: sessionId,
+        // V2.2.10 — a brand-new session has no id until the backend creates
+        // it; adopt it on the first token so the stream is visible live.
+        currentSessionId: state.currentSessionId ?? sessionId,
       };
     });
   },
 
-  finalizeStream: (_sessionId, _messageId, _tokensIn, _tokensOut, _modelName) => {
-    set({ streamingMessageId: null, streamingSessionId: null });
+  finalizeStream: (_sessionId, messageId, _tokensIn, _tokensOut, _modelName) => {
+    set((state) => ({
+      streamingMessageId: null,
+      streamingSessionId: null,
+      // V2.2.10 (R4) — record the turn's total duration for "耗时 …".
+      elapsedByMessage: state.thinkingStartedAt
+        ? {
+            ...state.elapsedByMessage,
+            [messageId]: Math.max(
+              1,
+              Math.round((Date.now() - state.thinkingStartedAt) / 1000),
+            ),
+          }
+        : state.elapsedByMessage,
+      thinkingStartedAt: null,
+      thinkingSessionId: null,
+    }));
   },
 
   deleteSession: async (id) => {
@@ -246,6 +317,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const old = idx >= 0 ? list[idx] : null;
     set((st) => ({
       lastError: null,
+      // V2.2.10 (R4) — regenerating waits on the model too: show Thinking.
+      thinkingStartedAt: Date.now(),
+      thinkingSessionId: sid,
       // Remember the replaced reply so the UI can show "previous version".
       previousVersions: old
         ? { ...st.previousVersions, [sid]: old.content }
@@ -270,7 +344,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }));
       }
     } catch (e) {
-      set({ lastError: String(e), streamingMessageId: null });
+      set({
+        lastError: String(e),
+        streamingMessageId: null,
+        thinkingStartedAt: null,
+        thinkingSessionId: null,
+      });
     }
   },
 
@@ -282,6 +361,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const idx = list.findIndex((m) => m.id === userId);
     set((st) => ({
       lastError: null,
+      // V2.2.10 (R4) — resending waits on the model: show Thinking.
+      thinkingStartedAt: Date.now(),
+      thinkingSessionId: sid,
       // Optimistically apply the edit + truncate everything after this user msg.
       messages:
         idx >= 0
@@ -307,7 +389,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }));
       }
     } catch (e) {
-      set({ lastError: String(e), streamingMessageId: null });
+      set({
+        lastError: String(e),
+        streamingMessageId: null,
+        thinkingStartedAt: null,
+        thinkingSessionId: null,
+      });
     }
   },
 

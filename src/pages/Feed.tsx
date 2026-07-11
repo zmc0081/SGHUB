@@ -23,6 +23,7 @@ import { Skeleton } from "../components/Skeleton";
 import { confirmAsync } from "../components/DialogProvider";
 import { useToast } from "../hooks/useToast";
 import { useT } from "../hooks/useT";
+import { useOpenPaperView } from "../hooks/useOpenPaperView";
 import {
   ALL_SOURCES as SOURCE_DEFS,
   resolveEnabledSources,
@@ -313,6 +314,8 @@ function ResultCard({
 }) {
   const t = useT();
   const { paper } = result;
+  // V2.2.10 (Session 48, R2) — title click opens the built-in reader.
+  const { openPaper } = useOpenPaperView();
   const sourceCls =
     SOURCE_BADGE[paper.source] ?? "bg-badge-default-bg text-badge-default-fg";
   return (
@@ -341,7 +344,11 @@ function ResultCard({
           {new Date(result.found_at).toLocaleString()}
         </span>
       </div>
-      <h3 className="text-h3 font-semibold text-fg-1 leading-snug">
+      <h3
+        onClick={() => void openPaper(paper)}
+        title={t("paper_actions.view_title")}
+        className="text-h3 font-semibold text-fg-1 leading-snug cursor-pointer hover:text-indigo transition-colors duration-fast ease-khx"
+      >
         {paper.title}
       </h3>
       <p className="text-meta text-fg-2 mt-1">

@@ -1,6 +1,6 @@
 # SG Hub Privacy Policy
 
-**Version**: v2.2.9 · **Effective**: 2026-07-08
+**Version**: v2.2.10 · **Effective**: 2026-07-11
 
 SG Hub is an open-source (MIT) desktop literature manager that runs entirely on your computer. This document describes how SG Hub handles your data.
 
@@ -17,7 +17,7 @@ All data lives in the OS application-data directory:
 
 Including:
 
-- `data/sghub.db` — SQLite database (paper metadata, chat history, parse results, subscriptions)
+- `data/sghub.db` — SQLite database (paper metadata, chat history, parse results, subscriptions, PDF reading annotations)
 - `data/pdfs/` — PDFs you download or upload
 - `data/cache/` — search-result cache
 - `data/chat_attachments/` — chat upload attachments
@@ -70,6 +70,7 @@ From v2.2.6 SG Hub includes a built-in PDF reader and full-text translation:
   - Text is sent in document-structure chunks; the request body contains the source text plus a translation prompt and model parameters
   - Translated chunks stream back and are rendered / reassembled locally, **never through any SG Hub server**
   - Whether to translate, and with which model, is entirely your choice; nothing is sent unless you trigger translation
+- **Selection translate / Ask (since v2.2.10)**: when you use Translate or Ask on a text selection in the reader, only the **selected snippet** (plus the paper title and your question, for Ask) is sent to the model you configured — the same data flow as translation/chat above; highlight/underline annotations are stored ONLY in the local database and never sent anywhere
 
 > Like AI Parse / Chat, translation hands the selected document's text to your configured model provider. Please assess before using it on sensitive or unpublished content.
 

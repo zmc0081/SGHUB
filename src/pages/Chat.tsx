@@ -15,6 +15,7 @@ import {
   isInsufficientBalanceError,
 } from "../components/InsufficientBalanceDialog";
 import { useT } from "../hooks/useT";
+import { ThinkingIndicator } from "../components/chat/ThinkingIndicator";
 
 export default function Chat() {
   const t = useT();
@@ -29,9 +30,20 @@ export default function Chat() {
     regenerateMessage,
     editAndResend,
     previousVersions,
+    thinkingStartedAt,
+    thinkingSessionId,
+    elapsedByMessage,
     lastError,
     setError,
   } = useChatStore();
+
+  // V2.2.10 (Session 48, R4) — Thinking bubble: visible from send until the
+  // first token of THIS session's reply arrives (the streaming placeholder
+  // then takes over).
+  const thinkingHere =
+    thinkingStartedAt !== null &&
+    thinkingSessionId === currentSessionId &&
+    !(streamingMessageId && streamingSessionId === currentSessionId);
 
   // V2.2.1 Session 29 — auto-pop recharge dialog when the AI call
   // is gated by SG AI Store balance pre-flight.
@@ -117,7 +129,7 @@ export default function Chat() {
     if (!autoScrollRef.current) return;
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [currentSessionId, messages, streamingMessageId]);
+  }, [currentSessionId, messages, streamingMessageId, thinkingHere]);
 
   const currentMessages = currentSessionId
     ? (messages[currentSessionId] ?? [])
@@ -172,7 +184,7 @@ export default function Chat() {
           onScroll={onScroll}
           className="flex-1 overflow-y-auto px-6 py-6 bg-page"
         >
-          {currentMessages.length === 0 ? (
+          {currentMessages.length === 0 && !thinkingHere ? (
             <div className="h-full flex items-center justify-center">
               <Stage
                 intensity="full"
@@ -203,31 +215,38 @@ export default function Chat() {
               </Stage>
             </div>
           ) : (
-            currentMessages.map((m) => (
-              <Message
-                key={m.id}
-                message={m}
-                streaming={
-                  streamingMessageId === m.id &&
-                  streamingSessionId === m.session_id
-                }
-                onRegenerate={
-                  m.role === "assistant"
-                    ? (modelId) => void regenerateMessage(m.id, modelId)
-                    : undefined
-                }
-                onEdit={
-                  m.role === "user"
-                    ? (content) => void editAndResend(m.id, content)
-                    : undefined
-                }
-                previousVersion={
-                  currentSessionId && m.id === lastAssistantId
-                    ? (previousVersions[currentSessionId] ?? null)
-                    : null
-                }
-              />
-            ))
+            <>
+              {currentMessages.map((m) => (
+                <Message
+                  key={m.id}
+                  message={m}
+                  streaming={
+                    streamingMessageId === m.id &&
+                    streamingSessionId === m.session_id
+                  }
+                  elapsedSec={elapsedByMessage[m.id]}
+                  onRegenerate={
+                    m.role === "assistant"
+                      ? (modelId) => void regenerateMessage(m.id, modelId)
+                      : undefined
+                  }
+                  onEdit={
+                    m.role === "user"
+                      ? (content) => void editAndResend(m.id, content)
+                      : undefined
+                  }
+                  previousVersion={
+                    currentSessionId && m.id === lastAssistantId
+                      ? (previousVersions[currentSessionId] ?? null)
+                      : null
+                  }
+                />
+              ))}
+              {/* V2.2.10 (R4) — waiting for the first token. */}
+              {thinkingHere && (
+                <ThinkingIndicator startedAt={thinkingStartedAt!} />
+              )}
+            </>
           )}
         </div>
 

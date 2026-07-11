@@ -27,6 +27,7 @@ import { confirmAsync } from "../DialogProvider";
 import { Icon } from "../Icon";
 import { CodeBlock } from "./CodeBlock";
 import { ModelPicker } from "./ModelPicker";
+import { formatDuration } from "./ThinkingIndicator";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function iconFor(kind: string): ComponentType<any> {
@@ -112,6 +113,8 @@ interface Props {
   onEdit?: (newContent: string) => void;
   /** When set, the AI reply can toggle back to the pre-regenerate version. */
   previousVersion?: string | null;
+  /** V2.2.10 (R4) — total turn duration in seconds ("耗时 …" in the meta row). */
+  elapsedSec?: number;
 }
 
 function MessageImpl({
@@ -120,6 +123,7 @@ function MessageImpl({
   onRegenerate,
   onEdit,
   previousVersion,
+  elapsedSec,
 }: Props) {
   const t = useT();
   const toast = useToast();
@@ -313,6 +317,12 @@ function MessageImpl({
             {message.tokens_out > 0 && (
               <span className="text-fg-3 tabular-nums">
                 · {message.tokens_out} tok
+              </span>
+            )}
+            {/* V2.2.10 (R4) — total turn duration. */}
+            {!isUser && elapsedSec != null && (
+              <span className="text-fg-3 tabular-nums">
+                · {t("chat.msg_elapsed", { duration: formatDuration(elapsedSec, t) })}
               </span>
             )}
           </div>

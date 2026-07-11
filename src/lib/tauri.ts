@@ -252,6 +252,27 @@ export interface SkillGenTokenPayload {
   attempt: number;
 }
 
+/** V2.2.10 (Session 49) — PDF reader annotation (highlight / underline). */
+export interface Annotation {
+  id: string;
+  paper_id: string;
+  page: number;
+  /** JSON: {"rects":[{"x":..,"y":..,"w":..,"h":..}]} — 0–1 page fractions. */
+  anchor: string;
+  type: "highlight" | "underline";
+  color: "yellow" | "green" | "pink";
+  note: string | null;
+  created_at: string;
+}
+
+export interface AnnotationInput {
+  paper_id: string;
+  page: number;
+  anchor: string;
+  type: "highlight" | "underline";
+  color: "yellow" | "green" | "pink";
+}
+
 /** V2.2.9 — parse history grouped by paper (AI-parse entry list). */
 export interface ParseOverviewItem {
   paper_id: string;
@@ -650,6 +671,15 @@ export const api = {
 
   /** V2.2.9 — open the OS file manager with `path` selected. */
   revealInFolder: (path: string) => invoke<void>("reveal_in_folder", { path }),
+
+  // ── V2.2.10 (Session 49) — PDF reader annotations ──
+  listAnnotations: (paperId: string) =>
+    invoke<Annotation[]>("list_annotations", { paperId }),
+  addAnnotation: (input: AnnotationInput) =>
+    invoke<Annotation>("add_annotation", { input }),
+  deleteAnnotation: (id: string) => invoke<void>("delete_annotation", { id }),
+  updateAnnotationColor: (id: string, color: string) =>
+    invoke<void>("update_annotation_color", { id, color }),
 
   getRecentPapers: (limit: number) =>
     invoke<Paper[]>("get_recent_papers", { limit }),
