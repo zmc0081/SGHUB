@@ -98,7 +98,12 @@ export function PdfReaderOverlay() {
 
       <div className="flex flex-1 min-h-0">
         <div className="flex-1 min-w-0">
-          <PdfViewer key={source.path} path={source.path} />
+          <PdfViewer
+            key={source.path}
+            path={source.path}
+            paperId={source.paperId ?? undefined}
+            paperTitle={source.title ?? undefined}
+          />
         </div>
         {showTranslate && (
           <TranslatePanel

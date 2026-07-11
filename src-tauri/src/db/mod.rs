@@ -303,8 +303,9 @@ mod tests {
         // V003: + chat_sessions + chat_messages + chat_attachments
         // V004: (column-only, no new tables)
         // V005: + ai_store_products + ai_store_sync_meta
-        // Total: 10 + 1 + 3 + 0 + 2 = 16
-        assert_eq!(status.table_count, 16);
+        // V009: + annotations (V2.2.10 PDF reader highlights/underlines)
+        // Total: 10 + 1 + 3 + 0 + 2 + 1 = 17
+        assert_eq!(status.table_count, 17);
 
         let folders = status.tables.iter().find(|t| t.name == "folders").unwrap();
         assert_eq!(folders.row_count, 1);

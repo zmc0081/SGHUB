@@ -49,6 +49,7 @@ import { Stage } from "../components/Stage";
 import { confirmAsync, promptAsync } from "../components/DialogProvider";
 import { useToast } from "../hooks/useToast";
 import { useT } from "../hooks/useT";
+import { useOpenPaperView } from "../hooks/useOpenPaperView";
 
 const READ_STATUS_BAR: Record<string, string> = {
   unread: "bg-read-unread",
@@ -365,6 +366,10 @@ function PaperRow({
 }) {
   const t = useT();
   const toast = useToast();
+  // V2.2.10 (Session 48, R2) — title click → built-in reader; the timer
+  // disambiguates single click (view) from double click (edit metadata).
+  const { openPaper } = useOpenPaperView();
+  const titleClickTimer = useRef<number | null>(null);
   const { attributes, listeners, setNodeRef, transform, isDragging } =
     useDraggable({ id: `paper:${paper.id}`, data: { paper } });
 
@@ -467,15 +472,34 @@ function PaperRow({
 
         {/* Draggable body — the title/author/abstract block is the drag handle.
             V2.2.9 (Session 46) — metadata editing moved off the button row;
-            double-click the title to open the editor. */}
+            double-click the title to open the editor.
+            V2.2.10 (Session 48, R2) — SINGLE click on the title opens the
+            built-in reader. Deferred by 250ms so a double-click (edit) can
+            cancel it — the classic single/double click disambiguation. */}
         <div
           className="cursor-grab active:cursor-grabbing"
-          onDoubleClick={() => onEdit(paper)}
+          onDoubleClick={() => {
+            if (titleClickTimer.current !== null) {
+              window.clearTimeout(titleClickTimer.current);
+              titleClickTimer.current = null;
+            }
+            onEdit(paper);
+          }}
           title={t("library.dblclick_edit_hint")}
           {...listeners}
           {...attributes}
         >
-          <h3 className="text-h3 font-semibold text-fg-1 leading-snug">
+          <h3
+            onClick={() => {
+              if (titleClickTimer.current !== null) return;
+              titleClickTimer.current = window.setTimeout(() => {
+                titleClickTimer.current = null;
+                void openPaper(paper);
+              }, 250);
+            }}
+            title={t("paper_actions.view_title")}
+            className="text-h3 font-semibold text-fg-1 leading-snug cursor-pointer hover:text-indigo transition-colors duration-fast ease-khx"
+          >
             {paper.title}
           </h3>
           <p className="mt-1 text-meta text-fg-2">
