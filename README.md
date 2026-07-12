@@ -107,3 +107,4 @@ npm run tauri build    # build installers
 Copyright © Star Technology. All Rights Reserved.
 
 </div>
+
